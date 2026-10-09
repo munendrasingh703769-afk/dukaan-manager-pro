@@ -1,0 +1,217 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { setCurrentBusinessId } from '@/lib/business'
+
+export default function NewBusinessPage() {
+  const router = useRouter()
+  const supabase = createClient()
+
+  const [name, setName] = useState('')
+  const [ownerName, setOwnerName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [address, setAddress] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const [gstNumber, setGstNumber] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+
+    if (!name.trim()) {
+      setError('Business ka naam zaroori hai')
+      return
+    }
+
+    setLoading(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setError('Pehle login karein')
+      setLoading(false)
+      return
+    }
+
+    // Business code generate karo
+    const prefix = name.trim().substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'B')
+    const randomNum = Math.floor(1000 + Math.random() * 9000)
+    const code = `${prefix}${randomNum}`
+
+    // Referral code localStorage se uthao
+    const referredByCode = typeof window !== 'undefined'
+      ? localStorage.getItem('ref_code')
+      : null
+
+    // Business create
+    const { data: newBiz, error: bizErr } = await supabase
+      .from('businesses')
+      .insert({
+        name: name.trim(),
+        owner_name: ownerName.trim() || null,
+        phone: phone.trim() || null,
+        address: address.trim() || null,
+        city: city.trim() || null,
+        state: state.trim() || null,
+        gst_number: gstNumber.trim().toUpperCase() || null,
+        gst_type: 'regular',
+        owner_id: user.id,
+        business_code: code,
+        referred_by_code: referredByCode || null,
+      })
+      .select('id')
+      .single()
+
+    if (bizErr || !newBiz) {
+      setError(bizErr?.message || 'Business create nahi hua')
+      setLoading(false)
+      return
+    }
+
+    // Owner member banao
+    const { error: memErr } = await supabase
+      .from('business_members')
+      .insert({
+        business_id: newBiz.id,
+        user_id: user.id,
+        role: 'owner',
+        permissions: { all: true },
+        status: 'active',
+      })
+
+    if (memErr) {
+      setError('Member add nahi hua: ' + memErr.message)
+      setLoading(false)
+      return
+    }
+
+    // Trial subscription banao
+    await supabase.from('subscriptions').insert({
+      business_id: newBiz.id,
+      status: 'trial',
+      trial_started_at: new Date().toISOString(),
+      trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+    })
+
+    // Current business set karo
+    setCurrentBusinessId(newBiz.id)
+
+    // HARD RELOAD - BUSINESS_ID reset ke liye zaroori
+    window.location.href = '/'
+  }
+
+  return (
+    <main className="min-h-screen bg-gray-100 p-4">
+      <div className="mx-auto max-w-md">
+        <Link href="/" className="text-blue-600 text-sm">← Home</Link>
+
+        <div className="mt-4 rounded-2xl bg-white p-6 shadow">
+          <h1 className="text-2xl font-bold text-gray-900">Naya Business</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            15 din free trial milega
+          </p>
+
+          {error && (
+            <div className="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleCreate} className="mt-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium">Business Name *</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1 w-full rounded border p-2"
+                placeholder="jaise: Shree Krishna Store"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium">Owner Name</label>
+              <input
+                type="text"
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
+                className="mt-1 w-full rounded border p-2"
+                placeholder="jaise: Ram Kumar"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium">Phone</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="mt-1 w-full rounded border p-2"
+                placeholder="jaise: 9876543210"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium">Address</label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="mt-1 w-full rounded border p-2"
+                placeholder="jaise: Main Bazaar"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium">City</label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="mt-1 w-full rounded border p-2"
+                  placeholder="jaise: Bareilly"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">State</label>
+                <input
+                  type="text"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  className="mt-1 w-full rounded border p-2"
+                  placeholder="jaise: UP"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium">GST Number</label>
+              <input
+                type="text"
+                value={gstNumber}
+                onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                className="mt-1 w-full rounded border p-2 font-mono"
+                placeholder="jaise: 24AAAAA0000A1Z5"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded bg-green-600 px-4 py-3 text-white disabled:opacity-50"
+            >
+              {loading ? 'Creating...' : 'Business Create Karein'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </main>
+  )
+}
