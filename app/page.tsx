@@ -530,12 +530,20 @@ export default function Home() {
 
         <div className="mb-6">
           <div className="flex items-center justify-between gap-3">
-            <Link
-              href="/settings/business"
-              className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-bold text-white shadow"
-            >
-              ⚙ Settings
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/reports"
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white shadow"
+              >
+                📊 Reports
+              </Link>
+              <Link
+                href="/settings/business"
+                className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-bold text-white shadow"
+              >
+                ⚙ Settings
+              </Link>
+            </div>
             <h1 className="text-xl font-bold text-gray-900">
               Dukaan Manager Pro
             </h1>
