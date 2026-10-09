@@ -179,6 +179,8 @@ export default function SaleInvoicePage() {
               <div className="col-span-2">{customer?.phone || '-'}</div>
               <div className="font-semibold">GSTIN</div>
               <div className="col-span-2">{customer?.gst_number || '-'}</div>
+              <div className="font-semibold">Email</div>
+              <div className="col-span-2">{customer?.email || '-'}</div>
               <div className="font-semibold">Place of Supply</div>
               <div className="col-span-2">{customer?.state || s.place_of_supply || '-'}</div>
             </div>

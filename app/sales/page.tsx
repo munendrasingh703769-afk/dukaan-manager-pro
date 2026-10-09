@@ -67,6 +67,7 @@ export default function SalesPage() {
   const [customerAddress, setCustomerAddress] = useState('')
   const [customerGst, setCustomerGst] = useState('')
   const [customerState, setCustomerState] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
   const [customerSaving, setCustomerSaving] = useState(false)
   const [showCustomerPicker, setShowCustomerPicker] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
@@ -194,6 +195,7 @@ export default function SalesPage() {
       address: customerAddress.trim() || null,
       gst_number: customerGst.trim().toUpperCase() || null,
       state: customerState.trim() || null,
+      email: customerEmail.trim() || null,
     }
 
     if (editingCustomer) {
@@ -225,6 +227,7 @@ export default function SalesPage() {
     setCustomerAddress('')
     setCustomerGst('')
     setCustomerState('')
+    setCustomerEmail('')
     await loadData()
   }
 
@@ -552,6 +555,13 @@ export default function SalesPage() {
                   onChange={(e) => setCustomerState(e.target.value)}
                   className="mb-2 w-full rounded border p-2"
                   placeholder="State (e.g. Uttar Pradesh)"
+                />
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  className="mb-2 w-full rounded border p-2"
+                  placeholder="Email (optional)"
                 />
                 <div className="flex gap-2">
                   <button
