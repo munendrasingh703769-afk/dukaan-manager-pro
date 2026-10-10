@@ -44,6 +44,48 @@ export default function Home() {
       return
     }
 
+    // Auto-accept pending invite
+    const inviteToken = typeof window !== 'undefined'
+      ? localStorage.getItem('invite_token')
+      : null
+
+    if (inviteToken) {
+      const { data: inv } = await supabase
+        .from('business_invites')
+        .select('id, business_id, role')
+        .eq('token', inviteToken)
+        .eq('status', 'pending')
+        .maybeSingle()
+
+      if (inv) {
+        const { data: existing } = await supabase
+          .from('business_members')
+          .select('id')
+          .eq('business_id', inv.business_id)
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (!existing) {
+          await supabase.from('business_members').insert({
+            business_id: inv.business_id,
+            user_id: user.id,
+            role: inv.role,
+            permissions: {},
+            status: 'active',
+          })
+        }
+
+        await supabase
+          .from('business_invites')
+          .update({ status: 'accepted' })
+          .eq('id', inv.id)
+
+        setCurrentBusinessId(inv.business_id)
+      }
+
+      localStorage.removeItem('invite_token')
+    }
+
     const { data: members } = await supabase
       .from('business_members')
       .select('business_id')

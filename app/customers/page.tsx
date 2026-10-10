@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId, bizId } from '@/lib/business'
+import { getUserPermissions, hasPermission, Permissions } from '@/lib/permissions'
 
 type Customer = {
   id: string
@@ -37,6 +38,8 @@ export default function CustomersPage() {
   }
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
+  const [perms, setPerms] = useState<Permissions>({})
+  const [permChecked, setPermChecked] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState<CustomerForm>(emptyForm)
@@ -66,7 +69,19 @@ export default function CustomersPage() {
 
   useEffect(() => {
     loadCustomers()
+    loadPerms()
   }, [])
+
+  async function loadPerms() {
+    const bid = bizId()
+    if (!bid) {
+      setPermChecked(true)
+      return
+    }
+    const p = await getUserPermissions(bid)
+    setPerms(p)
+    setPermChecked(true)
+  })
 
   function updateField(field: keyof CustomerForm, value: string) {
     setForm((current) => ({
@@ -176,6 +191,23 @@ export default function CustomersPage() {
     }
 
     await loadCustomers()
+  }
+
+  if (permChecked && !hasPermission(perms, 'customers_view')) {
+    return (
+      <main className="p-4 flex items-center justify-center min-h-screen">
+        <div className="rounded-2xl bg-white border-2 border-red-300 p-6 max-w-md text-center shadow">
+          <div className="text-5xl">🚫</div>
+          <h1 className="mt-4 text-xl font-bold text-red-700">Access Denied</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Aapko Customers ka access nahi hai. Owner se permission maangein.
+          </p>
+          <Link href="/" className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-white">
+            ← Dashboard
+          </Link>
+        </div>
+      </main>
+    )
   }
 
   return (

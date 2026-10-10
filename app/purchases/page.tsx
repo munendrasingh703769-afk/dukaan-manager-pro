@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId, bizId } from '@/lib/business'
+import { getUserPermissions, hasPermission, Permissions } from '@/lib/permissions'
 
 type Supplier = {
   id: string
@@ -43,6 +44,8 @@ export default function PurchasesPage() {
   const [products, setProducts] = useState<Product[]>([])
 
   const [supplierId, setSupplierId] = useState('')
+  const [perms, setPerms] = useState<Permissions>({})
+  const [permChecked, setPermChecked] = useState(false)
   const [invoiceNumber, setInvoiceNumber] = useState('')
   const [discount, setDiscount] = useState('')
   const [cashAmount, setCashAmount] = useState('')
@@ -64,6 +67,17 @@ export default function PurchasesPage() {
   const [supplierSaving, setSupplierSaving] = useState(false)
   const [showSupplierPicker, setShowSupplierPicker] = useState(false)
   const [supplierSearch, setSupplierSearch] = useState('')
+
+  async function loadPerms() {
+    const bid = bizId()
+    if (!bid) {
+      setPermChecked(true)
+      return
+    }
+    const p = await getUserPermissions(bid)
+    setPerms(p)
+    setPermChecked(true)
+  }
 
   async function loadData() {
     setMessage('')
@@ -95,6 +109,7 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     loadData()
+    loadPerms()
   }, [])
 
   function updateItem(index: number, field: keyof PurchaseItem, value: any) {
@@ -328,6 +343,23 @@ export default function PurchasesPage() {
     setInvoiceNumber('')
     setSupplierId('')
     await loadData()
+  }
+
+  if (permChecked && !hasPermission(perms, 'purchase_view')) {
+    return (
+      <main className="p-4 flex items-center justify-center min-h-screen">
+        <div className="rounded-2xl bg-white border-2 border-red-300 p-6 max-w-md text-center shadow">
+          <div className="text-5xl">🚫</div>
+          <h1 className="mt-4 text-xl font-bold text-red-700">Access Denied</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Aapko Purchase ka access nahi hai. Owner se permission maangein.
+          </p>
+          <Link href="/" className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-white">
+            ← Dashboard
+          </Link>
+        </div>
+      </main>
+    )
   }
 
   return (

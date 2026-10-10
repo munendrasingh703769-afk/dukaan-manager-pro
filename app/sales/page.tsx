@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId, bizId } from '@/lib/business'
+import { getUserPermissions, hasPermission, Permissions } from '@/lib/permissions'
 
 type Customer = {
   id: string
@@ -68,9 +69,24 @@ export default function SalesPage() {
   const [customerGst, setCustomerGst] = useState('')
   const [customerState, setCustomerState] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
+  const [businessState, setBusinessState] = useState('')
+  const [perms, setPerms] = useState<Permissions>({})
+  const [permChecked, setPermChecked] = useState(false)
   const [customerSaving, setCustomerSaving] = useState(false)
   const [showCustomerPicker, setShowCustomerPicker] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
+
+  async function loadBizState() {
+    const supabase = createClient()
+    const bid = bizId()
+    if (!bid) return
+    const { data } = await supabase
+      .from('businesses')
+      .select('state')
+      .eq('id', bid)
+      .maybeSingle()
+    if (data?.state) setBusinessState(data.state)
+  }
 
   async function loadData() {
     setMessage('')
@@ -131,7 +147,20 @@ export default function SalesPage() {
 
   useEffect(() => {
     loadData()
+    loadPerms()
+    loadBizState()
   }, [])
+
+  async function loadPerms() {
+    const bid = bizId()
+    if (!bid) {
+      setPermChecked(true)
+      return
+    }
+    const p = await getUserPermissions(bid)
+    setPerms(p)
+    setPermChecked(true)
+  }
 
   function updateItem(index: number, field: keyof SaleItem, value: any) {
     setItems((current) =>
@@ -264,6 +293,18 @@ export default function SalesPage() {
     const totalAmount = Math.max(0, taxableAmount + gstRateAmount)
     const dueAmountVal = Math.max(0, totalAmount - paidAmountNum)
 
+    // IGST vs CGST+SGST decide karo
+    let customerState = ''
+    if (customerId) {
+      const { data: cData } = await supabase
+        .from('customers')
+        .select('state')
+        .eq('id', customerId)
+        .maybeSingle()
+      if (cData?.state) customerState = cData.state
+    }
+    const useIGST = businessState && customerState && businessState.toLowerCase().trim() !== customerState.toLowerCase().trim()
+
     const { data: sale, error } = await supabase
       .from('sales')
       .insert({
@@ -274,9 +315,9 @@ export default function SalesPage() {
         subtotal: subtotalVal,
         discount: discountNum,
         taxable_amount: taxableAmount,
-        cgst_amount: gstRateAmount / 2,
-        sgst_amount: gstRateAmount / 2,
-        igst_amount: 0,
+        cgst_amount: useIGST ? 0 : gstRateAmount / 2,
+        sgst_amount: useIGST ? 0 : gstRateAmount / 2,
+        igst_amount: useIGST ? gstRateAmount : 0,
         total_gst: gstRateAmount,
         total_amount: totalAmount,
         paid_amount: paidAmountNum,
@@ -322,9 +363,9 @@ export default function SalesPage() {
         discount: 0,
         taxable_amount: item.quantity * item.price,
         gst_percent: item.gst_percent,
-        cgst_amount: (item.quantity * item.price * item.gst_percent) / 200,
-        sgst_amount: (item.quantity * item.price * item.gst_percent) / 200,
-        igst_amount: 0,
+        cgst_amount: useIGST ? 0 : (item.quantity * item.price * item.gst_percent) / 200,
+        sgst_amount: useIGST ? 0 : (item.quantity * item.price * item.gst_percent) / 200,
+        igst_amount: useIGST ? (item.quantity * item.price * item.gst_percent) / 100 : 0,
         line_total: lineTotal,
       })
 
@@ -361,6 +402,26 @@ export default function SalesPage() {
     setInvoiceNumber('')
     setCustomerId('')
     await loadData()
+  }
+
+  if (permChecked && !hasPermission(perms, 'sales_view')) {
+    return (
+      <main className="p-4 flex items-center justify-center min-h-screen">
+        <div className="rounded-2xl bg-white border-2 border-red-300 p-6 max-w-md text-center shadow">
+          <div className="text-5xl">🚫</div>
+          <h1 className="mt-4 text-xl font-bold text-red-700">Access Denied</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Aapko Sales page ka access nahi hai. Owner se permission maangein.
+          </p>
+          <Link
+            href="/"
+            className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-white"
+          >
+            ← Dashboard
+          </Link>
+        </div>
+      </main>
+    )
   }
 
   return (

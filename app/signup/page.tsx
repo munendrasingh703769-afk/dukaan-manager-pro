@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signUp, validatePassword } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/client'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -12,11 +14,51 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [referralCode, setReferralCode] = useState('')
+  const [inviteToken, setInviteToken] = useState('')
+  const [inviteBusinessName, setInviteBusinessName] = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const token = searchParams.get('invite')
+    if (token) {
+      setInviteToken(token)
+      localStorage.setItem('invite_token', token)
+      loadInvite(token)
+    }
+  }, [searchParams])
+
+  async function loadInvite(token: string) {
+    try {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('business_invites')
+        .select('email, business_id, role, status')
+        .eq('token', token)
+        .eq('status', 'pending')
+        .maybeSingle()
+
+      if (data) {
+        if (data.email) {
+          setEmail(data.email)
+          setInviteEmail(data.email)
+        }
+        const { data: biz } = await supabase
+          .from('businesses')
+          .select('name')
+          .eq('id', data.business_id)
+          .maybeSingle()
+        if (biz) setInviteBusinessName(biz.name || '')
+      }
+    } catch (e) {
+      console.error('Invite load error:', e)
+    }
+  }
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
@@ -90,6 +132,22 @@ export default function SignupPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+        {inviteToken && (
+          <div className="mb-4 rounded-lg bg-purple-50 border border-purple-200 p-3">
+            <div className="text-sm font-bold text-purple-900">
+              🎉 Aapko invite kiya gaya hai!
+            </div>
+            {inviteBusinessName && (
+              <div className="text-xs text-purple-700 mt-1">
+                Business: <b>{inviteBusinessName}</b>
+              </div>
+            )}
+            <div className="text-xs text-purple-600 mt-1">
+              Signup karein — aapko automatically is business me add kar diya jayega.
+            </div>
+          </div>
+        )}
+
         <h1 className="text-2xl font-bold text-gray-900">
           Dukaan Manager Pro
         </h1>
@@ -125,9 +183,10 @@ export default function SignupPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded border p-2"
+              className={`mt-1 w-full rounded border p-2 ${inviteToken ? 'bg-gray-100' : ''}`}
               placeholder="aap@example.com"
               autoComplete="email"
+              readOnly={!!inviteToken}
             />
           </div>
 
@@ -180,21 +239,23 @@ export default function SignupPage() {
             </div>
           </div>
 
-          <div className="rounded-lg bg-purple-50 border border-purple-200 p-3">
-            <label className="block text-sm font-medium text-purple-900">
-              Referral Code (optional)
-            </label>
-            <input
-              type="text"
-              value={referralCode}
-              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-              className="mt-1 w-full rounded border p-2 font-mono"
-              placeholder="jaise: BKK5735"
-            />
-            <p className="mt-1 text-xs text-purple-700">
-              🎁 Dost ka code daalein — dono ko 1 mahina free!
-            </p>
-          </div>
+          {!inviteToken && (
+            <div className="rounded-lg bg-purple-50 border border-purple-200 p-3">
+              <label className="block text-sm font-medium text-purple-900">
+                Referral Code (optional)
+              </label>
+              <input
+                type="text"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                className="mt-1 w-full rounded border p-2 font-mono"
+                placeholder="jaise: BKK5735"
+              />
+              <p className="mt-1 text-xs text-purple-700">
+                🎁 Dost ka code daalein — dono ko 1 mahina free!
+              </p>
+            </div>
+          )}
 
           <button
             type="submit"

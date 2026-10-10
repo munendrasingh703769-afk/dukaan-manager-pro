@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId, bizId } from '@/lib/business'
+import { getUserPermissions, hasPermission, Permissions } from '@/lib/permissions'
 import { signOut } from '@/lib/auth'
 
 type Business = {
@@ -42,6 +43,8 @@ export default function BusinessSettingsPage() {
   const supabase = createClient()
   
   const [loading, setLoading] = useState(true)
+  const [perms, setPerms] = useState<Permissions>({})
+  const [permChecked, setPermChecked] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -70,6 +73,17 @@ export default function BusinessSettingsPage() {
   const [myReferralCode, setMyReferralCode] = useState('')
   const [referredBy, setReferredBy] = useState<{ code: string; name: string } | null>(null)
   const [myReferrals, setMyReferrals] = useState<Array<{ name: string; code: string }>>([])
+
+  async function loadPerms() {
+    const bid = bizId()
+    if (!bid) {
+      setPermChecked(true)
+      return
+    }
+    const p = await getUserPermissions(bid)
+    setPerms(p)
+    setPermChecked(true)
+  }
 
   async function loadBusiness() {
     setLoading(true)
@@ -148,6 +162,7 @@ export default function BusinessSettingsPage() {
 
   useEffect(() => {
     loadBusiness()
+    loadPerms()
   }, [])
 
   async function saveBusiness() {
@@ -199,6 +214,23 @@ export default function BusinessSettingsPage() {
     setTimeout(() => {
       window.location.reload()
     }, 800)
+  }
+
+  if (permChecked && !hasPermission(perms, 'settings_view')) {
+    return (
+      <main className="p-4 flex items-center justify-center min-h-screen">
+        <div className="rounded-2xl bg-white border-2 border-red-300 p-6 max-w-md text-center shadow">
+          <div className="text-5xl">🚫</div>
+          <h1 className="mt-4 text-xl font-bold text-red-700">Access Denied</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Aapko Settings ka access nahi hai. Owner se permission maangein.
+          </p>
+          <Link href="/" className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-white">
+            ← Dashboard
+          </Link>
+        </div>
+      </main>
+    )
   }
 
   if (loading) {
@@ -534,6 +566,21 @@ export default function BusinessSettingsPage() {
           </div>
         </div>
       )}
+
+      <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <h2 className="text-base font-semibold text-blue-900">
+          👥 Manage Workers
+        </h2>
+        <p className="mt-1 text-xs text-blue-700">
+          Workers ko invite karein aur permissions set karein.
+        </p>
+        <Link
+          href="/settings/workers"
+          className="mt-3 inline-block rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+        >
+          Open Workers Page →
+        </Link>
+      </div>
 
       <button
         type="button"

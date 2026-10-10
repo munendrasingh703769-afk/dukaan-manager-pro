@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { bizId } from '@/lib/business'
+import { getUserPermissions, hasPermission, Permissions } from '@/lib/permissions'
 
 type Sale = {
   id: string
@@ -38,6 +39,8 @@ export default function ReportsPage() {
   const [sales, setSales] = useState<Sale[]>([])
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [loading, setLoading] = useState(true)
+  const [perms, setPerms] = useState<Permissions>({})
+  const [permChecked, setPermChecked] = useState(false)
   const [error, setError] = useState('')
   const [range, setRange] = useState<RangeKey>('month')
   const [fromDate, setFromDate] = useState('')
@@ -55,6 +58,10 @@ export default function ReportsPage() {
       loadData()
     }
   }, [range, fromDate, toDate])
+
+  useEffect(() => {
+    loadPerms()
+  }, [])
 
   function getDateRange(): { from: string; to: string } {
     const now = new Date()
@@ -78,6 +85,17 @@ export default function ReportsPage() {
     }
 
     return { from: from.toISOString(), to: to.toISOString() }
+  }
+
+  async function loadPerms() {
+    const bid = bizId()
+    if (!bid) {
+      setPermChecked(true)
+      return
+    }
+    const p = await getUserPermissions(bid)
+    setPerms(p)
+    setPermChecked(true)
   }
 
   async function loadData() {
@@ -402,6 +420,23 @@ export default function ReportsPage() {
   const purchDue = useMemo(() => purchases.reduce((s, x) => s + Number(x.due_amount || 0), 0), [purchases])
 
   const profit = salesTotal - purchTotal
+
+  if (permChecked && !hasPermission(perms, 'reports_view')) {
+    return (
+      <main className="p-4 flex items-center justify-center min-h-screen">
+        <div className="rounded-2xl bg-white border-2 border-red-300 p-6 max-w-md text-center shadow">
+          <div className="text-5xl">🚫</div>
+          <h1 className="mt-4 text-xl font-bold text-red-700">Access Denied</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Aapko Reports ka access nahi hai. Owner se permission maangein.
+          </p>
+          <Link href="/" className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-white">
+            ← Dashboard
+          </Link>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="p-4 bg-gray-100 min-h-screen">

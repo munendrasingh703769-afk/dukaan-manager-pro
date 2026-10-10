@@ -20,6 +20,7 @@ export default function PricingPage() {
   const supabase = createClient()
 
   const [plans, setPlans] = useState<Plan[]>([])
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedTier, setSelectedTier] = useState<'basic' | 'standard' | 'premium' | 'enterprise'>('basic')
 
@@ -84,8 +85,13 @@ export default function PricingPage() {
             return (
               <div
                 key={plan.id}
-                className={`rounded-2xl bg-white p-6 shadow ${
-                  months === 12 ? 'border-2 border-blue-600' : ''
+                onClick={() => setSelectedPlan(plan.plan_code)}
+                className={`cursor-pointer rounded-2xl bg-white p-6 shadow transition ${
+                  selectedPlan === plan.plan_code
+                    ? 'border-2 border-blue-600 ring-2 ring-blue-200'
+                    : months === 12
+                    ? 'border-2 border-blue-600'
+                    : 'border border-gray-200'
                 }`}
               >
                 {months === 12 && (
@@ -117,10 +123,16 @@ export default function PricingPage() {
                 </ul>
                 <button
                   type="button"
-                  onClick={() => alert('Payment gateway agle phase me add hoga.')}
-                  className="mt-6 w-full rounded bg-blue-600 px-4 py-3 text-white font-medium"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSelectedPlan(plan.plan_code)
+                    alert('Payment gateway agle phase me add hoga.')
+                  }}
+                  className={`mt-6 w-full rounded px-4 py-3 text-white font-medium ${
+                    selectedPlan === plan.plan_code ? 'bg-green-600' : 'bg-blue-600'
+                  }`}
                 >
-                  Ye Plan Chuno
+                  {selectedPlan === plan.plan_code ? '✅ Selected' : 'Ye Plan Chuno'}
                 </button>
               </div>
             )
