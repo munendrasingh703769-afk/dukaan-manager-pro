@@ -48,7 +48,8 @@ export default function SalesPage() {
   const [products, setProducts] = useState<Product[]>([])
 
   const [customerId, setCustomerId] = useState('')
-  const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceType, setInvoiceType] = useState('Tax Invoice');
   const [discount, setDiscount] = useState('')
   const [cashAmount, setCashAmount] = useState('')
   const [onlineAmount, setOnlineAmount] = useState('')
@@ -387,6 +388,7 @@ export default function SalesPage() {
           p_movement_type: 'sale_out',
           p_quantity: item.quantity,
           p_note: invoiceNumber || 'Sale',
+        invoice_type: invoiceType,
         })
 
         if (stockError) {
@@ -660,6 +662,19 @@ export default function SalesPage() {
 
           <div>
             <label className="block text-sm font-medium">Invoice Number</label>
+        <div className="flex flex-col gap-1 mt-2">
+          <label className="block text-sm font-medium">Invoice Type</label>
+          <select
+            value={invoiceType}
+            onChange={(e) => setInvoiceType(e.target.value)}
+            className="border border-black p-2 rounded-md bg-white"
+          >
+            <option value="Tax Invoice">Tax Invoice (GST)</option>
+            <option value="Bill of Supply">Bill of Supply (Composition)</option>
+            <option value="Retail Invoice">Retail Invoice / Cash Memo</option>
+            <option value="Delivery Challan">Delivery Challan</option>
+          </select>
+        </div>
             <input
               value={invoiceNumber}
               onChange={(e) => setInvoiceNumber(e.target.value)}

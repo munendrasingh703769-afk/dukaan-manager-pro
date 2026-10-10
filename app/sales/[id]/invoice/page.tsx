@@ -162,7 +162,7 @@ export default function SaleInvoicePage() {
             <div className="font-bold">PAN: {biz?.pan_number || '-'}</div>
           </div>
           <div className="flex-2 p-2 text-center">
-            <div className="text-lg font-bold">TAX INVOICE</div>
+            <div className="text-lg font-bold">{it?.invoice_type || "TAX INVOICE"}</div>
           </div>
           <div className="flex-1 p-2 border-l-2 border-black text-right">
             <div className="font-bold text-xs">ORIGINAL FOR RECIPIENT</div>
@@ -223,7 +223,8 @@ export default function SaleInvoicePage() {
                 <td className="border border-black p-1 text-right">{Number(it.taxable_amount || it.qty * it.price).toFixed(2)}</td>
               </tr>
             ))}
-            {isIGST ? (
+            {(!s?.invoice_type || s?.invoice_type === 'Tax Invoice') ? (
+          isIGST ? (
               <tr>
                 <td className="border border-black p-1" colSpan={5}><span className="font-semibold">IGST ({items[0]?.gst_percent || 0}%)</span></td>
                 <td className="border border-black p-1 text-right">{igst.toFixed(2)}</td>
@@ -238,8 +239,13 @@ export default function SaleInvoicePage() {
                   <td className="border border-black p-1" colSpan={5}><span className="font-semibold">SGST ({items[0]?.gst_percent ? items[0].gst_percent / 2 : 0}%)</span></td>
                   <td className="border border-black p-1 text-right">{sgst.toFixed(2)}</td>
                 </tr>
-              </>
-            )}
+    ) : (
+      <tr>
+        <td colSpan={6} className="border border-black p-1 text-center font-semibold">
+          {s?.invoice_type === 'Bill of Supply' ? "Composition taxable person, not eligible to collect tax" : "Tax not applicable"}
+        </td>
+      </tr>
+    )}
             <tr className="font-bold">
               <td className="border border-black p-1 text-right" colSpan={3}>Total</td>
               <td className="border border-black p-1 text-right">
