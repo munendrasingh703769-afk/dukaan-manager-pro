@@ -291,7 +291,12 @@ export default function SalesPage() {
       0
     )
     const totalAmount = Math.max(0, taxableAmount + gstRateAmount)
-    const dueAmountVal = Math.max(0, totalAmount - paidAmountNum)
+
+    // Auto rounding
+    const roundedTotal = Math.round(totalAmount)
+    const roundingAmount = Number((roundedTotal - totalAmount).toFixed(2))
+
+    const dueAmountVal = Math.max(0, roundedTotal - paidAmountNum)
 
     // IGST vs CGST+SGST decide karo
     let customerState = ''
@@ -320,6 +325,8 @@ export default function SalesPage() {
         igst_amount: useIGST ? gstRateAmount : 0,
         total_gst: gstRateAmount,
         total_amount: totalAmount,
+        rounding_amount: roundingAmount,
+        rounded_total: roundedTotal,
         paid_amount: paidAmountNum,
         cash_amount: cashNum,
         online_amount: onlineNum,

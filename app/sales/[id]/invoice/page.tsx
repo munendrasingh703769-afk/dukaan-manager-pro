@@ -101,6 +101,8 @@ export default function SaleInvoicePage() {
   const igst = Number(s.igst_amount || 0)
   const discount = Number(s.discount || 0)
   const total = Number(s.total_amount || 0)
+  const roundingAmount = Number(s.rounding_amount || 0)
+  const roundedTotal = Number(s.rounded_total || total)
   const isIGST = igst > 0
 
   const upiLink = biz?.upi_id
@@ -246,12 +248,22 @@ export default function SaleInvoicePage() {
               <td className="border border-black p-1"></td>
               <td className="border border-black p-1 text-right">₹ {total.toFixed(2)}</td>
             </tr>
+            <tr>
+              <td className="border border-black p-1 text-right" colSpan={5}>Round Off</td>
+              <td className="border border-black p-1 text-right">
+                ₹ {roundingAmount >= 0 ? '+' : ''}{roundingAmount.toFixed(2)}
+              </td>
+            </tr>
+            <tr className="font-bold bg-gray-100">
+              <td className="border border-black p-1 text-right" colSpan={5}>Rounded Total</td>
+              <td className="border border-black p-1 text-right">₹ {roundedTotal.toFixed(2)}</td>
+            </tr>
           </tbody>
         </table>
 
         <div className="border-l-2 border-r-2 border-b-2 border-black p-2">
           <div className="font-semibold">Total in words</div>
-          <div className="font-bold">{numberToWords(total)}</div>
+          <div className="font-bold">{numberToWords(roundedTotal)}</div>
         </div>
 
         <div className="flex border-2 border-black border-t-0">
