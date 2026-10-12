@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId, bizId } from '@/lib/business'
 import { getUserPermissions, hasPermission, Permissions } from '@/lib/permissions'
+import Link from 'next/link';
 
 type Customer = {
   id: string
