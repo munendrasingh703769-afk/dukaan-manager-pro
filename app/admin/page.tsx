@@ -27,7 +27,7 @@ type Recent = {
 }
 
 export default function AdminPage() {
-      const supabase = (createClient as any)();
+      const supabase = (createClient as any)('https://supabase.co', 'placeholder');
 
 
   const [password, setPassword] = useState('')
