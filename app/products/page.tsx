@@ -504,7 +504,7 @@ export default function ProductsPage() {
     return (
       <main className="p-4 flex items-center justify-center min-h-screen">
         <div className="rounded-2xl bg-white border-2 border-red-300 p-6 max-w-md text-center shadow">
-          <div className="text-5xl">🚫</div>
+          <div className=506 |         <div className="text-5xl">{"🚫"}</div>
           <h1 className="mt-4 text-xl font-bold text-red-700">Access Denied</h1>
           <p className="mt-2 text-sm text-gray-600">
             Aapko Products & Stock ka access nahi hai. Owner se permission maangein.
