@@ -734,22 +734,23 @@ export default function SalesPage() {
                   }
                   const prod = products.find((p) => p.id === val)
                   if (prod) {
-                    setItems((current) =>
-                      current.map((it, i) =>
-                        i === index
-                          ? {
-                              ...it,
-                              product_id: prod.id,
-                              product_name: prod.name,
-                              hsn_code: prod.hsn_code || '',
-                              unit: prod.unit || 'PCS',
-                              price: prod.selling_price || 0,
-                              gst_percent: prod.gst_percent || 0,
-                            }
-                          : it
-                      )
-                    )
-                  }
+  setItems((current) =>
+    current.map((it, i) =>
+      i === index
+        ? {
+            ...it,
+            product_id: (prod as any).id,
+            product_name: (prod as any).name,
+            hsn_code: (prod as any).hsn_code || '',
+            unit: (prod as any).unit || 'PCS',
+            price: (prod as any).selling_price || 0,
+            gst_percent: (prod as any).gst_percent || 0,
+          }
+        : it
+    )
+  );
+}
+
                 }}
                 className="rounded border p-2"
               >
