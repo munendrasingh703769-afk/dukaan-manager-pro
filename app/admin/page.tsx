@@ -32,8 +32,6 @@ export default function AdminPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
   )
 
-
-
   const [password, setPassword] = useState('')
   const [authed, setAuthed] = useState(false)
   const [plans, setPlans] = useState<Plan[]>([])
