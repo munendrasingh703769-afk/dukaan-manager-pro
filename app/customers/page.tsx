@@ -81,7 +81,7 @@ export default function CustomersPage() {
     const p = await getUserPermissions(bid)
     setPerms(p)
     setPermChecked(true)
-  })
+  }
 
   function updateField(field: keyof CustomerForm, value: string) {
     setForm((current) => ({
