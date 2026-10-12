@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signUp, validatePassword } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/client'
-
+export const dynamic = 'force-dynamic'
 export default function SignupPage() {
   const router = useRouter()
   const [fullName, setFullName] = useState('')
