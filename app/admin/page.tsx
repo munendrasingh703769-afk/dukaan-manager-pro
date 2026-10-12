@@ -27,10 +27,11 @@ type Recent = {
 }
 
 export default function AdminPage() {
-    const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://supabase.co',
+      const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ugwyqithxdkflmccbgla.supabase.co',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
   )
+
 
 
   const [password, setPassword] = useState('')
