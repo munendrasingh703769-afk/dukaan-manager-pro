@@ -239,7 +239,7 @@ export default function SaleInvoicePage() {
                   <td className="border border-black p-1" colSpan={5}><span className="font-semibold">SGST ({items[0]?.gst_percent ? items[0].gst_percent / 2 : 0}%)</span></td>
                   <td className="border border-black p-1 text-right">{sgst.toFixed(2)}</td>
                 </tr>
-    ) : (
+    )) : (
       <tr>
         <td colSpan={6} className="border border-black p-1 text-center font-semibold">
           {s?.invoice_type === 'Bill of Supply' ? "Composition taxable person, not eligible to collect tax" : "Tax not applicable"}
