@@ -162,7 +162,7 @@ export default function SaleInvoicePage() {
             <div className="font-bold">PAN: {biz?.pan_number || '-'}</div>
           </div>
           <div className="flex-2 p-2 text-center">
-            <div className="text-lg font-bold">{it?.invoice_type || "TAX INVOICE"}</div>
+            <div className="text-lg font-bold">{s?.invoice_type || "TAX INVOICE"}</div>
           </div>
           <div className="flex-1 p-2 border-l-2 border-black text-right">
             <div className="font-bold text-xs">ORIGINAL FOR RECIPIENT</div>
