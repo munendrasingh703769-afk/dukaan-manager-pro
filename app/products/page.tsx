@@ -509,7 +509,7 @@ export default function ProductsPage() {
             Aapko Products & Stock ka access nahi hai. Owner se permission maangein.
           </p>
           <Link href="/" className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-white">
-            ← Dashboard
+             Dashboard
           </Link>
         </div>
       </main>
