@@ -107,7 +107,7 @@ export default function SaleInvoicePage() {
 
   const upiLink = biz?.upi_id
     ? `upi://pay?pa=${biz.upi_id}&pn=${encodeURIComponent(biz.name || '')}&am=${total.toFixed(2)}&cu=INR`
-    : ''
+    ? ''
   const qrUrl = upiLink
     ? `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(upiLink)}`
     : ''
