@@ -40,6 +40,7 @@ export default function SettingsPage() {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [business, setBusiness] = useState<BusinessInfo | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   useEffect(() => {
     loadBusiness()
@@ -63,7 +64,15 @@ export default function SettingsPage() {
   }
 
   function handleComingSoon(title: string) {
-    alert(`${title} — Coming soon!`)
+    alert(title + ' — Coming soon!')
+  }
+
+  async function handleLogout() {
+    if (!confirm('Logout karein?')) return
+    setLoggingOut(true)
+    localStorage.removeItem('current_business_id')
+    await signOut()
+    window.location.href = '/login'
   }
 
   if (loading) {
@@ -137,6 +146,15 @@ export default function SettingsPage() {
           )
         })}
       </div>
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        disabled={loggingOut}
+        className="mt-8 w-full rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 font-medium"
+      >
+        {loggingOut ? 'Logging out...' : '🚪 Logout'}
+      </button>
     </main>
   )
 }
