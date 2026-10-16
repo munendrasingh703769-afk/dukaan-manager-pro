@@ -237,12 +237,25 @@ export default function BusinessSettingsPage() {
     return <main className="p-4">Loading...</main>
   }
 
-  return (
+    return (
     <main className="p-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Business Settings</h1>
+      <div className="flex justify-between items-center mb-2">
+        <h1 className="text-2xl font-bold">
+          Business Profile</h1>
         <Link href="/" className="text-blue-600 text-sm">
           ← Home
+        </Link>
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-4 text-sm">
+        <Link href="/settings/business" className="rounded bg-blue-600 px-3 py-2 text-white">
+          🏢 Business
+        </Link>
+        <Link href="/settings/workers" className="rounded border border-blue-300 px-3 py-2 text-blue-700">
+          👥 Workers
+        </Link>
+        <Link href="/settings/referral" className="rounded border border-purple-300 px-3 py-2 text-purple-700">
+          🎁 Referral
         </Link>
       </div>
 
