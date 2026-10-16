@@ -67,16 +67,36 @@ p, span, div {
   color: inherit;
 }
 
-/* Force disable iOS dark mode auto-invert */
+
+/* iOS Safari text color fix */
+html {
+  color-scheme: light !important;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+}
+
+input,
+textarea,
+select {
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
+  background-color: #ffffff !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280 !important;
+  -webkit-text-fill-color: #6b7280 !important;
+}
+
 @media (prefers-color-scheme: dark) {
   html, body {
-    color-scheme: light only !important;
+    color-scheme: light !important;
     background-color: #ffffff !important;
     color: #111827 !important;
-  }
-  input, textarea, select {
-    color: #111827 !important;
-    background-color: #ffffff !important;
   }
 }
-Fix iOS text color rendering
