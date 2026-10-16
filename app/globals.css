@@ -24,3 +24,59 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+/* ===== iOS Safari Fix — Text Faded/Invisible Issue ===== */
+@supports not (color: oklch(0% 0 0)) {
+  html, body, input, textarea, select, button {
+    color: #111827 !important;
+    background-color: #ffffff;
+  }
+}
+
+html {
+  color-scheme: light only !important;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+}
+
+/* Input fields — iOS default light grey fix */
+input,
+textarea,
+select {
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* Placeholder — halka grey but visible */
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280 !important;
+  -webkit-text-fill-color: #6b7280 !important;
+  opacity: 1 !important;
+}
+
+/* Labels aur headings — visible */
+label,
+h1, h2, h3, h4, h5, h6,
+p, span, div {
+  color: inherit;
+}
+
+/* Force disable iOS dark mode auto-invert */
+@media (prefers-color-scheme: dark) {
+  html, body {
+    color-scheme: light only !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+  }
+  input, textarea, select {
+    color: #111827 !important;
+    background-color: #ffffff !important;
+  }
+}
+Fix iOS text color rendering
