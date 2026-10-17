@@ -9,7 +9,6 @@ export default function PaymentMethodsPage() {
   const [udhaar, setUdhaar] = useState(true)
   const [msg, setMsg] = useState('')
 
-  // Load saved settings on mount
   useEffect(() => {
     const saved = localStorage.getItem('payment_methods')
     if (saved) {
@@ -34,73 +33,40 @@ export default function PaymentMethodsPage() {
         <h1 className="text-2xl font-bold">Payment Methods</h1>
         <Link href="/settings" className="text-blue-600 text-sm">← Settings</Link>
       </div>
-
       <p className="text-sm text-gray-600 mb-6">
-        Select karein ki aapki dukaan kaunse payment modes accept karti hai. Yeh options sale bill banate waqt dikhenge.
+        Select karein ki aapki dukaan kaunse payment modes accept karti hai.
       </p>
-
       {msg && <div className="mb-4 text-green-600 text-sm font-medium">{msg}</div>}
-
       <div className="rounded-xl border bg-white p-4 shadow-sm space-y-6">
-        
-        {/* Cash */}
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium text-gray-900">💵 Cash</p>
-            <p className="text-xs text-gray-500">Nakad paisa (Cash in hand)</p>
+            <p className="text-xs text-gray-500">Nakad paisa</p>
           </div>
-          <input 
-            type="checkbox" 
-            checked={cash} 
-            onChange={(e) => setCash(e.target.checked)}
-            className="w-5 h-5 accent-blue-600" 
-          />
+          <input type="checkbox" checked={cash} onChange={(e) => setCash(e.target.checked)} className="w-5 h-5 accent-blue-600" />
         </div>
-
-        {/* UPI */}
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium text-gray-900">📱 UPI / Online</p>
-            <p className="text-xs text-gray-500">PhonePe, GPay, Paytm, Bank Transfer</p>
+            <p className="text-xs text-gray-500">PhonePe, GPay, Paytm</p>
           </div>
-          <input 
-            type="checkbox" 
-            checked={upi} 
-            onChange={(e) => setUpi(e.target.checked)}
-            className="w-5 h-5 accent-blue-600" 
-          />
+          <input type="checkbox" checked={upi} onChange={(e) => setUpi(e.target.checked)} className="w-5 h-5 accent-blue-600" />
         </div>
-
-        {/* Card */}
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium text-gray-900">💳 Debit / Credit Card</p>
-            <p className="text-xs text-gray-500">Card swipe ya machine</p>
+            <p className="text-xs text-gray-500">Card swipe</p>
           </div>
-          <input 
-            type="checkbox" 
-            checked={card} 
-            onChange={(e) => setCard(e.target.checked)}
-            className="w-5 h-5 accent-blue-600" 
-          />
+          <input type="checkbox" checked={card} onChange={(e) => setCard(e.target.checked)} className="w-5 h-5 accent-blue-600" />
         </div>
-
-        {/* Udhaar */}
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium text-gray-900">📒 Udhaar / Credit</p>
-            <p className="text-xs text-gray-500">Customer ko baad me paisa dena hai</p>
+            <p className="text-xs text-gray-500">Baad me paisa dena hai</p>
           </div>
-          <input 
-            type="checkbox" 
-            checked={udhaar} 
-            onChange={(e) => setUdhaar(e.target.checked)}
-            className="w-5 h-5 accent-blue-600" 
-          />
+          <input type="checkbox" checked={udhaar} onChange={(e) => setUdhaar(e.target.checked)} className="w-5 h-5 accent-blue-600" />
         </div>
-
       </div>
-
       <button onClick={save} className="mt-6 w-full rounded-xl bg-green-600 px-4 py-3 text-white font-medium shadow-sm">
         Save Payment Methods
       </button>
