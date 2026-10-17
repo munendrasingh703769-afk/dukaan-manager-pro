@@ -22,11 +22,6 @@ type Business = {
   pan_number: string | null
   logo_url: string | null
   tagline: string | null
-  bank_name: string | null
-  bank_branch: string | null
-  bank_account: string | null
-  ifsc_code: string | null
-  upi_id: string | null
   terms: string | null
   invoice_prefix: string | null
 }
@@ -61,11 +56,6 @@ export default function BusinessSettingsPage() {
   const [panNumber, setPanNumber] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [tagline, setTagline] = useState('')
-  const [bankName, setBankName] = useState('')
-  const [bankBranch, setBankBranch] = useState('')
-  const [bankAccount, setBankAccount] = useState('')
-  const [ifscCode, setIfscCode] = useState('')
-  const [upiId, setUpiId] = useState('')
   const [terms, setTerms] = useState('')
   const [invoicePrefix, setInvoicePrefix] = useState('')
 
@@ -111,11 +101,6 @@ export default function BusinessSettingsPage() {
     setPanNumber(b.pan_number || '')
     setLogoUrl(b.logo_url || '')
     setTagline(b.tagline || '')
-    setBankName(b.bank_name || '')
-    setBankBranch(b.bank_branch || '')
-    setBankAccount(b.bank_account || '')
-    setIfscCode(b.ifsc_code || '')
-    setUpiId(b.upi_id || '')
     setTerms(b.terms || '')
     setInvoicePrefix(b.invoice_prefix || '')
 
@@ -153,11 +138,6 @@ export default function BusinessSettingsPage() {
         pan_number: panNumber.trim() || null,
         logo_url: logoUrl.trim() || null,
         tagline: tagline.trim() || null,
-        bank_name: bankName.trim() || null,
-        bank_branch: bankBranch.trim() || null,
-        bank_account: bankAccount.trim() || null,
-        ifsc_code: ifscCode.trim() || null,
-        upi_id: upiId.trim() || null,
         terms: terms.trim() || null,
         invoice_prefix: invoicePrefix.trim() || null,
       })
@@ -383,62 +363,6 @@ export default function BusinessSettingsPage() {
               onChange={(e) => setInvoicePrefix(e.target.value)}
               className="mt-1 w-full rounded-lg border p-2 focus:border-blue-500 focus:outline-none"
               placeholder="jaise: INV ya BILL"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-6 rounded-xl border bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold">Bank Details</h2>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Bank Name</label>
-            <input
-              value={bankName}
-              onChange={(e) => setBankName(e.target.value)}
-              className="mt-1 w-full rounded-lg border p-2 focus:border-blue-500 focus:outline-none"
-              placeholder="jaise: ICICI Bank"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Branch</label>
-            <input
-              value={bankBranch}
-              onChange={(e) => setBankBranch(e.target.value)}
-              className="mt-1 w-full rounded-lg border p-2 focus:border-blue-500 focus:outline-none"
-              placeholder="jaise: Bareilly Main"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Account Number</label>
-            <input
-              value={bankAccount}
-              onChange={(e) => setBankAccount(e.target.value)}
-              className="mt-1 w-full rounded-lg border p-2 focus:border-blue-500 focus:outline-none"
-              placeholder="jaise: 1234567890"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">IFSC Code</label>
-            <input
-              value={ifscCode}
-              onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
-              className="mt-1 w-full rounded-lg border p-2 focus:border-blue-500 focus:outline-none"
-              placeholder="jaise: ICIC0001234"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700">UPI ID</label>
-            <input
-              value={upiId}
-              onChange={(e) => setUpiId(e.target.value)}
-              className="mt-1 w-full rounded-lg border p-2 focus:border-blue-500 focus:outline-none"
-              placeholder="jaise: aapna@upi"
             />
           </div>
         </div>
