@@ -23,15 +23,15 @@ type SettingsCard = {
 
 const CARDS: SettingsCard[] = [
   { title: 'Business Profile', desc: 'Shop details, address and GST info.', emoji: '🏢', href: '/settings/business', bg: 'bg-blue-100 text-blue-700' },
-  { title: 'GST & Tax', desc: 'GST settings, HSN codes and tax config.', emoji: '📋', href: null, bg: 'bg-purple-100 text-purple-700' },
-  { title: 'Invoice & Print', desc: 'Invoice format, print settings and templates.', emoji: '🖨️', href: null, bg: 'bg-teal-100 text-teal-700' },
-  { title: 'Bank & UPI', desc: 'Bank details and UPI configuration.', emoji: '🏦', href: null, bg: 'bg-indigo-100 text-indigo-700' },
+  { title: 'GST & Tax', desc: 'GST settings, HSN codes and tax config.', emoji: '📋', href: '/settings/gst', bg: 'bg-purple-100 text-purple-700' },
+  { title: 'Invoice & Print', desc: 'Invoice format, print settings and templates.', emoji: '🖨️', href: '/settings/invoice', bg: 'bg-teal-100 text-teal-700' },
+  { title: 'Bank & UPI', desc: 'Bank details and UPI configuration.', emoji: '🏦', href: '/settings/bank', bg: 'bg-indigo-100 text-indigo-700' },
   { title: 'Users & Permissions', desc: 'Manage staff, roles and access rights.', emoji: '👥', href: '/settings/workers', bg: 'bg-violet-100 text-violet-700' },
-  { title: 'Notifications', desc: 'Alerts, reminders and app notifications.', emoji: '🔔', href: null, bg: 'bg-red-100 text-red-700' },
-  { title: 'Data Backup', desc: 'Backup your data and restore when needed.', emoji: '☁️', href: null, bg: 'bg-green-100 text-green-700' },
+  { title: 'Notifications', desc: 'Alerts, reminders and app notifications.', emoji: '🔔', href: '/settings/notifications', bg: 'bg-red-100 text-red-700' },
+  { title: 'Data Backup', desc: 'Backup your data and restore when needed.', emoji: '☁️', href: '/settings/backup', bg: 'bg-green-100 text-green-700' },
   { title: 'Offline Sync', desc: 'Sync data between offline and online mode.', emoji: '🔄', href: null, bg: 'bg-cyan-100 text-cyan-700' },
-  { title: 'Financial Year', desc: 'Set and manage your financial year.', emoji: '📅', href: null, bg: 'bg-amber-100 text-amber-700' },
-  { title: 'Payment Methods', desc: 'Cash, UPI, Card and other payment options.', emoji: '💳', href: null, bg: 'bg-emerald-100 text-emerald-700' },
+  { title: 'Financial Year', desc: 'Set and manage your financial year.', emoji: '📅', href: '/settings/financial-year', bg: 'bg-amber-100 text-amber-700' },
+  { title: 'Payment Methods', desc: 'Cash, UPI, Card and other payment options.', emoji: '💳', href: '/settings/payment-methods', bg: 'bg-emerald-100 text-emerald-700' },
   { title: 'Referral Program', desc: 'Invite friends and earn rewards.', emoji: '🎁', href: '/settings/referral', bg: 'bg-pink-100 text-pink-700' },
   { title: 'Help & Support', desc: 'FAQs, contact us and app assistance.', emoji: '🎧', href: null, bg: 'bg-sky-100 text-sky-700' },
 ]
