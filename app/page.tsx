@@ -587,7 +587,7 @@ export default function Home() {
               </Link>
             </div>
             <h1 className="text-xl font-bold text-gray-900">
-              Dukaan Manager Pro
+              VyaparSetu
             </h1>
           </div>
           <p className="mt-3 text-sm text-gray-500">
