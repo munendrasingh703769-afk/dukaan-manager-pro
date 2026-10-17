@@ -67,12 +67,13 @@ export default function DashboardPage() {
       return
     }
 
-    setBusinesses(bizData)
-    let activeId = getCurrentBusinessId()
-    if (!activeId || !bizData.find(b => b.id === activeId)) {
-      activeId = bizData[0].id
-      setCurrentBusinessId(activeId)
+        setBusinesses(bizData)
+    // Fix for TypeScript error
+    let activeId: string = getCurrentBusinessId() || bizData[0].id;
+    if (!bizData.find(b => b.id === activeId)) {
+      activeId = bizData[0].id;
     }
+    setCurrentBusinessId(activeId);
 
     const activeBiz = bizData.find(b => b.id === activeId) || bizData[0]
     setCurrentBusiness(activeBiz)
