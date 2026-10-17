@@ -580,7 +580,7 @@ export default function Home() {
                 📊 Reports
               </Link>
               <Link
-                href="/settings/business"
+                href="/settings"
                 className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-bold text-white shadow"
               >
                 ⚙ Settings
