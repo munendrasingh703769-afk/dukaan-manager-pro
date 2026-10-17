@@ -1,11 +1,10 @@
-'use client'
+  'use client'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId, bizId } from '@/lib/business'
 import { getUserPermissions, hasPermission, Permissions } from '@/lib/permissions'
-import { signOut } from '@/lib/auth'
 
 type Business = {
   id: string
@@ -40,8 +39,9 @@ export default function BusinessSettingsPage() {
   if (typeof window !== 'undefined' && !BUSINESS_ID) {
     BUSINESS_ID = getCurrentBusinessId() || 'fc98ba38-bf25-4268-98ba-aad43ecfa6d3'
   }
+
   const supabase = createClient()
-  
+
   const [loading, setLoading] = useState(true)
   const [perms, setPerms] = useState<Permissions>({})
   const [permChecked, setPermChecked] = useState(false)
@@ -70,9 +70,6 @@ export default function BusinessSettingsPage() {
   const [upiId, setUpiId] = useState('')
   const [terms, setTerms] = useState('')
   const [invoicePrefix, setInvoicePrefix] = useState('')
-  const [myReferralCode, setMyReferralCode] = useState('')
-  const [referredBy, setReferredBy] = useState<{ code: string; name: string } | null>(null)
-  const [myReferrals, setMyReferrals] = useState<Array<{ name: string; code: string }>>([])
 
   async function loadPerms() {
     const bid = bizId()
@@ -88,6 +85,7 @@ export default function BusinessSettingsPage() {
   async function loadBusiness() {
     setLoading(true)
     setError('')
+
     const { data, error: err } = await supabase
       .from('businesses')
       .select('*')
@@ -122,40 +120,6 @@ export default function BusinessSettingsPage() {
     setUpiId(b.upi_id || '')
     setTerms(b.terms || '')
     setInvoicePrefix(b.invoice_prefix || '')
-
-    // Aapka referral code set karo
-    setMyReferralCode(b.business_code || '')
-
-    // Agar referral code use kiya hai to referrer dhundho
-    if (b.referred_by_code) {
-      const { data: referrer } = await supabase
-        .from('businesses')
-        .select('name, business_code')
-        .eq('business_code', b.referred_by_code)
-        .maybeSingle()
-      if (referrer) {
-        setReferredBy({
-          code: referrer.business_code || '',
-          name: referrer.name || 'Unknown',
-        })
-      }
-    }
-
-    // Aapke code se aaye log dhundho
-    if (b.business_code) {
-      const { data: refs } = await supabase
-        .from('businesses')
-        .select('name, business_code')
-        .eq('referred_by_code', b.business_code)
-      if (refs && refs.length > 0) {
-        setMyReferrals(
-          refs.map((r: any) => ({
-            name: r.name || 'Untitled',
-            code: r.business_code || '',
-          }))
-        )
-      }
-    }
 
     setLoading(false)
   }
@@ -210,7 +174,6 @@ export default function BusinessSettingsPage() {
     setMessage('Business details saved successfully.')
     setSaving(false)
 
-    // Page refresh — taaki updated data turant dikhe
     setTimeout(() => {
       window.location.reload()
     }, 800)
@@ -237,25 +200,12 @@ export default function BusinessSettingsPage() {
     return <main className="p-4">Loading...</main>
   }
 
-    return (
+  return (
     <main className="p-4">
-      <div className="flex justify-between items-center mb-2">
-        <h1 className="text-2xl font-bold">
-          Business Profile</h1>
-        <Link href="/" className="text-blue-600 text-sm">
-          ← Home
-        </Link>
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-4 text-sm">
-        <Link href="/settings/business" className="rounded bg-blue-600 px-3 py-2 text-white">
-          🏢 Business
-        </Link>
-        <Link href="/settings/workers" className="rounded border border-blue-300 px-3 py-2 text-blue-700">
-          👥 Workers
-        </Link>
-        <Link href="/settings/referral" className="rounded border border-purple-300 px-3 py-2 text-purple-700">
-          🎁 Referral
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Business Profile</h1>
+        <Link href="/settings" className="text-blue-600 text-sm">
+          ← Settings
         </Link>
       </div>
 
@@ -509,92 +459,6 @@ export default function BusinessSettingsPage() {
         </div>
       </div>
 
-      {myReferralCode && (
-        <div className="mt-6 rounded-lg border-2 border-purple-300 bg-purple-50 p-4">
-          <h2 className="text-lg font-semibold text-purple-900">
-            🎁 Referral Program
-          </h2>
-
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-purple-800">
-              Aapka Code
-            </label>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="rounded-lg border-2 border-purple-400 bg-white px-4 py-2 font-mono font-bold text-purple-900">
-                {myReferralCode}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(myReferralCode)
-                  alert('Code copied: ' + myReferralCode)
-                }}
-                className="rounded bg-purple-600 px-3 py-2 text-sm text-white"
-              >
-                📋 Copy
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const msg = `Dukaan Manager Pro try karein! GST bill, stock, udhaar sab manage hota hai.\n\nSignup link: ${window.location.origin}/signup\nReferral code: ${myReferralCode}\n\nDono ko 1 mahina FREE milega!`
-                  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
-                }}
-                className="rounded bg-green-600 px-3 py-2 text-sm text-white"
-              >
-                📱 Share
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-purple-700">
-              💰 Dost ko bhejein — jab wo plan kharide, dono ko 1 mahina free milega!
-            </p>
-          </div>
-
-          <div className="mt-4 rounded border border-purple-200 bg-white p-3">
-            {referredBy ? (
-              <p className="text-sm text-gray-800">
-                ✅ Aapne use kiya:{' '}
-                <span className="font-mono font-bold">{referredBy.code}</span>{' '}
-                ({referredBy.name})
-              </p>
-            ) : (
-              <p className="text-sm text-gray-600">
-                ❌ Aapne kisi ka referral code use nahi kiya
-              </p>
-            )}
-          </div>
-
-          <div className="mt-4">
-            <p className="text-sm font-medium text-purple-800">
-              📊 Aapke code se aaye: {myReferrals.length} log
-            </p>
-            {myReferrals.length > 0 && (
-              <ul className="mt-2 space-y-1 text-sm text-gray-700">
-                {myReferrals.map((r, i) => (
-                  <li key={i} className="rounded bg-white px-3 py-1">
-                    • {r.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
-        <h2 className="text-base font-semibold text-blue-900">
-          👥 Manage Workers
-        </h2>
-        <p className="mt-1 text-xs text-blue-700">
-          Workers ko invite karein aur permissions set karein.
-        </p>
-        <Link
-          href="/settings/workers"
-          className="mt-3 inline-block rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-        >
-          Open Workers Page →
-        </Link>
-      </div>
-
       <button
         type="button"
         disabled={saving}
@@ -603,27 +467,6 @@ export default function BusinessSettingsPage() {
       >
         {saving ? 'Saving...' : 'Save Business Details'}
       </button>
-
-      <div className="mt-8 rounded-lg border border-red-200 bg-red-50 p-4">
-        <h2 className="text-base font-semibold text-red-800">
-          🚪 Logout
-        </h2>
-        <p className="mt-1 text-xs text-red-600">
-          Apne account se logout karein. Aapka data safe rahega.
-        </p>
-        <button
-          type="button"
-          onClick={async () => {
-            if (!confirm('Logout karein?')) return
-            localStorage.removeItem('current_business_id')
-            await signOut()
-            window.location.href = '/login'
-          }}
-          className="mt-3 w-full rounded bg-red-600 px-4 py-2 text-sm font-medium text-white"
-        >
-          Logout
-        </button>
-      </div>
     </main>
   )
 }
