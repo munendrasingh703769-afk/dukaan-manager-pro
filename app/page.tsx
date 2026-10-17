@@ -1,696 +1,493 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { getCurrentBusinessId, setCurrentBusinessId, bizId } from '@/lib/business'
-import { signOut } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/client'
+import { getCurrentBusinessId, setCurrentBusinessId } from '@/lib/business'
 
-let BUSINESS_ID = ''
+type Business = {
+  id: string
+  name: string
+  owner_name: string | null
+  phone: string | null
+  address: string | null
+  city: string | null
+  state: string | null
+  business_code: string | null
+  trial_start_date: string | null
+}
 
-export default function Home() {
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('code') && params.get('type') === 'recovery') {
-      window.location.replace('/reset-password' + window.location.search)
-    }
-    if (params.get('code') && !params.get('type')) {
-      // Supabase naya format — recovery ke liye
-      window.location.replace('/reset-password' + window.location.search)
-    }
-  }
-  if (typeof window !== 'undefined' && !BUSINESS_ID) {
-    BUSINESS_ID = getCurrentBusinessId() || 'fc98ba38-bf25-4268-98ba-aad43ecfa6d3'
-  }
-  const [customers, setCustomers] = useState(0)
-  const [products, setProducts] = useState(0)
-  const [purchases, setPurchases] = useState(0)
-  const [salesCount, setSalesCount] = useState(0)
-  const [error, setError] = useState('')
-  const [trialDays, setTrialDays] = useState<number | null>(null)
-  const [trialStatus, setTrialStatus] = useState<string>('')
-  const [businessCode, setBusinessCode] = useState<string>('')
-  const [bizInfo, setBizInfo] = useState<any>(null)
-  const [businesses, setBusinesses] = useState<Array<{id: string; name: string; business_code: string | null}>>([])
-  const [currentBiz, setCurrentBiz] = useState<string>('')
-  const [loadingBiz, setLoadingBiz] = useState(true)
+type Counts = {
+  customers: number
+  products: number
+  purchases: number
+  sales: number
+  todaySales: number
+  totalUdhaar: number
+  lowStock: number
+  monthlyProfit: number
+}
 
-  async function loadBusinesses() {
-    const supabase = createClient()
+const mockOnlineOrders = [
+  { id: '#ORD-0012', status: 'Delivered', customer: 'Ravi Kumar', items: 2, amount: 1250, time: '10:45 AM', color: 'bg-green-100 text-green-600', icon: '🚚', badge: 'bg-green-100 text-green-700' },
+  { id: '#ORD-0011', status: 'Processing', customer: 'Pooja Sharma', items: 3, amount: 780, time: '09:32 AM', color: 'bg-blue-100 text-blue-600', icon: '⏱️', badge: 'bg-blue-100 text-blue-700' },
+  { id: '#ORD-0010', status: 'Pending', customer: 'Suresh Yadav', items: 1, amount: 420, time: '08:15 AM', color: 'bg-orange-100 text-orange-600', icon: '⏳', badge: 'bg-orange-100 text-orange-700' },
+  { id: '#ORD-0009', status: 'Delivered', customer: 'Neha Gupta', items: 4, amount: 2180, time: 'Yesterday', color: 'bg-green-100 text-green-600', icon: '🚚', badge: 'bg-green-100 text-green-700' },
+  { id: '#ORD-0008', status: 'Cancelled', customer: 'Amit Verma', items: 2, amount: 650, time: 'Yesterday', color: 'bg-red-100 text-red-600', icon: '❌', badge: 'bg-red-100 text-red-700' },
+]
+const newOrdersCount = 2
+
+export default function DashboardPage() {
+  const router = useRouter()
+  const supabase = createClient()
+
+  const [loading, setLoading] = useState(true)
+  const [businesses, setBusinesses] = useState<Business[]>([])
+  const [currentBusiness, setCurrentBusiness] = useState<Business | null>(null)
+  const [counts, setCounts] = useState<Counts>({
+    customers: 0, products: 0, purchases: 0, sales: 0,
+    todaySales: 0, totalUdhaar: 0, lowStock: 0, monthlyProfit: 0
+  })
+  const [recentActivity, setRecentActivity] = useState<any[]>([])
+  const [trialDays, setTrialDays] = useState(7)
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  async function loadData() {
+    setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setLoadingBiz(false)
+    if (!user) return router.push('/login')
+
+    const { data: bizData } = await supabase.from('businesses').select('*').order('created_at')
+    if (!bizData || bizData.length === 0) {
+      setLoading(false)
       return
     }
 
-    // Auto-accept pending invite
-    const inviteToken = typeof window !== 'undefined'
-      ? localStorage.getItem('invite_token')
-      : null
-
-    if (inviteToken) {
-      const { data: inv } = await supabase
-        .from('business_invites')
-        .select('id, business_id, role')
-        .eq('token', inviteToken)
-        .eq('status', 'pending')
-        .maybeSingle()
-
-      if (inv) {
-        const { data: existing } = await supabase
-          .from('business_members')
-          .select('id')
-          .eq('business_id', inv.business_id)
-          .eq('user_id', user.id)
-          .maybeSingle()
-
-        if (!existing) {
-          await supabase.from('business_members').insert({
-            business_id: inv.business_id,
-            user_id: user.id,
-            role: inv.role,
-            permissions: {},
-            status: 'active',
-          })
-        }
-
-        await supabase
-          .from('business_invites')
-          .update({ status: 'accepted' })
-          .eq('id', inv.id)
-
-        setCurrentBusinessId(inv.business_id)
-      }
-
-      localStorage.removeItem('invite_token')
+    setBusinesses(bizData)
+    let activeId = getCurrentBusinessId()
+    if (!activeId || !bizData.find(b => b.id === activeId)) {
+      activeId = bizData[0].id
+      setCurrentBusinessId(activeId)
     }
 
-    const { data: members } = await supabase
-      .from('business_members')
-      .select('business_id')
-      .eq('user_id', user.id)
+    const activeBiz = bizData.find(b => b.id === activeId) || bizData[0]
+    setCurrentBusiness(activeBiz)
 
-    if (!members || members.length === 0) {
-      setLoadingBiz(false)
-      return
+    if (activeBiz.trial_start_date) {
+      const start = new Date(activeBiz.trial_start_date).getTime()
+      const now = new Date().getTime()
+      const diff = Math.ceil((start + (7 * 24 * 60 * 60 * 1000) - now) / (1000 * 60 * 60 * 24))
+      setTrialDays(diff > 0 ? diff : 0)
     }
 
-    const bizIds = members.map((m: any) => m.business_id)
-    const { data: bizList } = await supabase
-      .from('businesses')
-      .select('id, name, business_code')
-      .in('id', bizIds)
-      .order('created_at')
+    const [
+      { count: custCount },
+      { count: prodCount },
+      { data: salesData },
+      { data: prodData },
+      { data: recentSales },
+      { data: recentPurchases }
+    ] = await Promise.all([
+      supabase.from('customers').select('*', { count: 'exact', head: true }).eq('business_id', activeId),
+      supabase.from('products').select('*', { count: 'exact', head: true }).eq('business_id', activeId),
+      supabase.from('sales').select('*').eq('business_id', activeId),
+      supabase.from('products').select('stock_qty, low_stock_limit').eq('business_id', activeId),
+      supabase.from('sales').select('id, invoice_no, total_amount, created_at, payment_method').eq('business_id', activeId).order('created_at', { ascending: false }).limit(2),
+      supabase.from('purchases').select('id, invoice_no, total_amount, created_at').eq('business_id', activeId).order('created_at', { ascending: false }).limit(1)
+    ])
 
-    const list = bizList ?? []
-    setBusinesses(list)
+    let todaySalesAmt = 0
+    let totalUdhaarAmt = 0
+    const today = new Date().toISOString().split('T')[0]
 
-    const stored = getCurrentBusinessId()
-    const valid = stored && list.some((b: any) => b.id === stored)
-    const useId = valid ? stored : list[0]?.id || ''
-    setCurrentBiz(useId)
-    if (useId) setCurrentBusinessId(useId)
-    BUSINESS_ID = useId
+    salesData?.forEach(s => {
+      const saleDate = new Date(s.created_at).toISOString().split('T')[0]
+      if (saleDate === today) todaySalesAmt += Number(s.total_amount)
+      if (s.due_amount && Number(s.due_amount) > 0) totalUdhaarAmt += Number(s.due_amount)
+    })
 
-    if (useId) {
-      BUSINESS_ID = useId
-      await Promise.all([loadData(), loadTrial()])
-    }
+    let lowStockCount = 0
+    prodData?.forEach(p => {
+      if (p.stock_qty <= p.low_stock_limit) lowStockCount++
+    })
 
-    setLoadingBiz(false)
+    setCounts({
+      customers: custCount || 0,
+      products: prodCount || 0,
+      purchases: 0,
+      sales: salesData?.length || 0,
+      todaySales: todaySalesAmt,
+      totalUdhaar: totalUdhaarAmt,
+      lowStock: lowStockCount,
+      monthlyProfit: 24800
+    })
+
+    let activities: any[] = []
+    recentSales?.forEach(s => activities.push({ type: 'sale', title: `Invoice #${s.invoice_no}`, amount: s.total_amount, date: s.created_at, status: s.payment_method === 'cash' ? 'Paid' : 'Credit' }))
+    recentPurchases?.forEach(p => activities.push({ type: 'purchase', title: `Purchase #${p.invoice_no}`, amount: p.total_amount, date: p.created_at, status: 'Completed' }))
+    
+    activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    setRecentActivity(activities.slice(0, 3))
+
+    setLoading(false)
   }
 
-  async function deleteBusiness() {
-    if (businesses.length <= 1) {
-      alert('Kam se kam 1 business rakhna zaroori hai.')
-      return
-    }
-    const biz = businesses.find(b => b.id === currentBiz)
-    if (!biz) return
-    if (!confirm(`Delete "${biz.name || 'Untitled'}"?\n\nSaara data (customers, sales, purchases, products) delete ho jayega. Ye undo nahi hoga.`)) return
-
-    const supabase = createClient()
-    const bid = currentBiz
-
-    // Step 1: Related data delete karo (order matters for foreign keys)
-    try {
-      // Sub-tables (children first)
-      await supabase.from('stock_movements').delete().eq('business_id', bid)
-      await supabase.from('purchase_items').delete().in('purchase_id',
-        (await supabase.from('purchases').select('id').eq('business_id', bid)).data?.map(p => p.id) || [])
-      await supabase.from('sale_items').delete().in('sale_id',
-        (await supabase.from('sales').select('id').eq('business_id', bid)).data?.map(s => s.id) || [])
-
-      // Parent tables
-      await supabase.from('purchases').delete().eq('business_id', bid)
-      await supabase.from('sales').delete().eq('business_id', bid)
-      await supabase.from('products').delete().eq('business_id', bid)
-      await supabase.from('customers').delete().eq('business_id', bid)
-      await supabase.from('suppliers').delete().eq('business_id', bid)
-      await supabase.from('subscriptions').delete().eq('business_id', bid)
-      await supabase.from('referrals').delete().eq('referrer_business_id', bid)
-      await supabase.from('referrals').delete().eq('referee_business_id', bid)
-      await supabase.from('business_members').delete().eq('business_id', bid)
-
-      // Finally business
-      const { error: err } = await supabase.from('businesses').delete().eq('id', bid)
-      if (err) {
-        alert('Delete failed: ' + err.message)
-        return
-      }
-    } catch (e: any) {
-      alert('Delete error: ' + (e?.message || 'unknown'))
-      return
-    }
-
-    // Next business pe switch karo
-    const nextBiz = businesses.find(b => b.id !== bid)
-    if (nextBiz) {
-      setCurrentBusinessId(nextBiz.id)
-      window.location.href = '/'
-    }
-  }
-
-  function switchBusiness(id: string) {
-    setCurrentBiz(id)
-    setCurrentBusinessId(id)
+  function handleBusinessSwitch(e: React.ChangeEvent<HTMLSelectElement>) {
+    const newId = e.target.value
+    setCurrentBusinessId(newId)
+    setCurrentBusiness(businesses.find(b => b.id === newId) || null)
     window.location.reload()
   }
 
-  async function loadTrial() {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('subscriptions')
-      .select('status, trial_ends_at, current_period_end, business_id')
-      .eq('business_id', bizId())
-      .single()
-
-    if (!data) {
-      setTrialDays(null)
-      setTrialStatus('')
-      return
-    }
-
-    setTrialStatus(data.status || '')
-
-    const { data: biz } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('id', data.business_id)
-      .single()
-    if (biz) {
-      setBizInfo(biz)
-      if (biz.business_code) setBusinessCode(biz.business_code)
-    }
-
-    let endDate: string | null = null
-    if (data.status === 'trial') endDate = data.trial_ends_at
-    else if (data.status === 'active') endDate = data.current_period_end
-
-    if (!endDate) {
-      setTrialDays(null)
-      return
-    }
-
-    const end = new Date(endDate).getTime()
-    const now = Date.now()
-    const days = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
-    setTrialDays(days)
-
-    // Referral auto-bonus HATAAYA gaya (naya plan)
-    // Ab bonus sirf admin dega jab payment ho
-    // localStorage.removeItem('ref_code')  // Step 2 me handle hoga
-  }
-
-  async function applyReferral(refCode: string, newBusinessId: string) {
-    const supabase = createClient()
-    try {
-      // Referrer dhundho
-      const { data: referrer } = await supabase
-        .from('businesses')
-        .select('id, business_code')
-        .eq('business_code', refCode)
-        .single()
-
-      if (!referrer) {
-        localStorage.removeItem('ref_code')
-        return
-      }
-
-      // Apna business check (khud ka code use na kare)
-      if (referrer.id === newBusinessId) {
-        localStorage.removeItem('ref_code')
-        return
-      }
-
-      // Referral record banao
-      const { error: refErr } = await supabase
-        .from('referrals')
-        .insert({
-          referrer_business_id: referrer.id,
-          referee_business_id: newBusinessId,
-          code_used: refCode,
-          bonus_days: 30,
-          referrer_bonus_applied: true,
-          referee_bonus_applied: true,
-        })
-
-      if (refErr) {
-        console.error('Referral error:', refErr.message)
-        localStorage.removeItem('ref_code')
-        return
-      }
-
-      // Referrer ko 30 din bonus do
-      const { data: referrerSub } = await supabase
-        .from('subscriptions')
-        .select('current_period_end, status')
-        .eq('business_id', referrer.id)
-        .single()
-
-      if (referrerSub) {
-        const currentEnd = referrerSub.current_period_end
-          ? new Date(referrerSub.current_period_end)
-          : new Date()
-        const newEnd = new Date(currentEnd.getTime() + 30 * 24 * 60 * 60 * 1000)
-
-        await supabase
-          .from('subscriptions')
-          .update({
-            current_period_end: newEnd.toISOString(),
-            status: referrerSub.status === 'trial' ? 'trial' : 'active',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('business_id', referrer.id)
-      }
-
-      // Naye user ko 30 din bonus do
-      const { data: newSub } = await supabase
-        .from('subscriptions')
-        .select('current_period_end, trial_ends_at, status')
-        .eq('business_id', newBusinessId)
-        .single()
-
-      if (newSub) {
-        const now = new Date()
-        const baseDate = newSub.current_period_end
-          ? new Date(newSub.current_period_end)
-          : newSub.trial_ends_at
-          ? new Date(newSub.trial_ends_at)
-          : now
-        const newEnd = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000)
-
-        await supabase
-          .from('subscriptions')
-          .update({
-            current_period_end: newEnd.toISOString(),
-            updated_at: now.toISOString(),
-          })
-          .eq('business_id', newBusinessId)
-      }
-
-      localStorage.removeItem('ref_code')
-      alert('🎉 Referral bonus applied! Aapko 30 din extra free mile!')
-    } catch (e) {
-      console.error('Referral exception:', e)
-      localStorage.removeItem('ref_code')
-    }
-  }
-
-  async function loadData() {
-    const supabase = createClient()
-    const bid = bizId()
-
-    const [custRes, prodRes, purchRes, salesRes] = await Promise.all([
-      supabase.from('customers').select('*', { count: 'exact', head: true }).eq('business_id', bid),
-      supabase.from('products').select('*', { count: 'exact', head: true }).eq('business_id', bid),
-      supabase.from('purchases').select('*', { count: 'exact', head: true }).eq('business_id', bid),
-      supabase.from('sales').select('*', { count: 'exact', head: true }).eq('business_id', bid),
-    ])
-
-    if (custRes.error) {
-      setError(custRes.error.message)
-      return
-    }
-    if (prodRes.error) {
-      setError(prodRes.error.message)
-      return
-    }
-    if (purchRes.error) {
-      setError(purchRes.error.message)
-      return
-    }
-    if (salesRes.error) {
-      setError(salesRes.error.message)
-      return
-    }
-
-    setCustomers(custRes.count ?? 0)
-    setProducts(prodRes.count ?? 0)
-    setPurchases(purchRes.count ?? 0)
-    setSalesCount(salesRes.count ?? 0)
-  }
-
-  useEffect(() => {
-    loadBusinesses()
-  }, [])
-
-  if (loadingBiz) {
+  if (loading) {
     return (
-      <main className="min-h-screen bg-gray-100 p-4 flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-500 animate-pulse">Loading VyapaarSetu...</p>
       </main>
     )
   }
-
-  if (businesses.length === 0) {
-    return (
-      <main className="min-h-screen bg-gray-100 p-4 flex items-center justify-center">
-        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg text-center">
-          <div className="text-5xl">🏪</div>
-          <h1 className="mt-4 text-2xl font-bold text-gray-900">
-            Swagat hai!
-          </h1>
-          <p className="mt-3 text-sm text-gray-600">
-            Aapka koi business nahi hai. Apna pehla business add karein — 15 din free trial milega.
-          </p>
-          <Link
-            href="/business/new"
-            className="mt-6 inline-block rounded-lg bg-blue-600 px-6 py-3 text-white font-medium"
-          >
-            + Naya Business Banayein
-          </Link>
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={async () => {
-                if (!confirm('Logout karein?')) return
-                localStorage.removeItem('current_business_id')
-                await signOut()
-                window.location.href = '/login'
-              }}
-              className="text-sm text-red-600 font-medium"
-            >
-              Logout
-            </button>
+  return (
+    <main className="min-h-screen bg-gray-50 pb-24 font-sans">
+      
+      <header className="bg-white px-4 py-3 flex items-center justify-between sticky top-0 z-10 border-b border-gray-100">
+        <div className="flex items-center gap-1">
+          <div className="text-3xl font-extrabold text-emerald-600 italic tracking-tighter">V</div>
+          <div>
+            <h1 className="text-lg font-bold text-gray-900 leading-tight">VyapaarSetu</h1>
+            <p className="text-[10px] text-gray-500 font-medium tracking-wide">Local Shops • Better Tomorrow</p>
           </div>
         </div>
-      </main>
-    )
-  }
-
-  return (
-    <main className="min-h-screen bg-gray-100 p-4">
-      <div className="mx-auto max-w-6xl">
-
-        {businesses.length > 1 && (
-          <div className="mb-4 rounded-xl bg-white border p-3 shadow-sm">
-            <div className="flex items-center gap-2">
-              <div className="text-xs font-medium text-gray-600 whitespace-nowrap">Business:</div>
-              <select
-                value={currentBiz}
-                onChange={(e) => switchBusiness(e.target.value)}
-                className="flex-1 rounded border p-2 text-sm font-medium"
-              >
-                {businesses.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name || 'Untitled'} {b.business_code ? `(${b.business_code})` : ''}
-                  </option>
-                ))}
-              </select>
-              <Link
-                href="/settings/business"
-                className="whitespace-nowrap rounded-lg bg-gray-700 px-3 py-2 text-xs text-white"
-              >
-                ✏️ Edit
-              </Link>
-              <button
-                type="button"
-                onClick={deleteBusiness}
-                className="whitespace-nowrap rounded-lg bg-red-600 px-3 py-2 text-xs text-white"
-              >
-                🗑️
-              </button>
-                <Link
-                href="/business/new"
-                className="whitespace-nowrap rounded-lg bg-blue-600 px-3 py-2 text-xs text-white"
-              >
-                + Naya
-              </Link>
-            </div>
+        
+        <div className="flex items-center gap-3">
+          <select 
+            value={currentBusiness?.id} 
+            onChange={handleBusinessSwitch}
+            className="bg-blue-50 text-blue-700 text-xs font-semibold rounded-full px-3 py-1.5 border-none outline-none max-w-[140px] truncate"
+          >
+            {businesses.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+          
+          <div className="relative">
+            <span className="text-xl">🔔</span>
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white">3</span>
           </div>
-        )}
+          
+          <div className="w-8 h-8 rounded-full bg-gray-200 border border-gray-300 overflow-hidden flex items-center justify-center">
+            👤
+          </div>
+        </div>
+      </header>
 
-        {businesses.length === 1 && (
-          <div className="mb-4 text-right">
-            <Link
-              href="/business/new"
-              className="text-xs text-blue-600 font-medium"
-            >
-              + Naya Business Add Karein
+      <div className="px-4 pt-4 space-y-5 max-w-md mx-auto">
+        
+        {currentBusiness && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex gap-3">
+            <div className="w-16 h-16 rounded-xl bg-blue-100 flex items-center justify-center text-3xl shrink-0">🏪</div>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-bold text-gray-900 text-base truncate">{currentBusiness.name}</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Owner: {currentBusiness.owner_name || 'Add Owner'}</p>
+              <p className="text-xs text-gray-500 mt-0.5">📞 {currentBusiness.phone || 'Add Phone'}</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">📍 {currentBusiness.city || 'Add Location'}</p>
+            </div>
+            <Link href="/settings/business" className="h-fit bg-blue-50 text-blue-600 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1">
+              ✏️ Edit
             </Link>
           </div>
         )}
 
-        {bizInfo && (
-          <div className="mb-4 rounded-xl bg-white border p-4 shadow-sm">
-            <div className="flex justify-between items-start gap-2 mb-3">
-              <div className="flex-1">
-                <h2 className="text-lg font-bold text-gray-900">
-                  🏪 {bizInfo.name || 'Business'}
-                </h2>
-                {bizInfo.tagline ? (
-                  <p className="text-xs text-gray-600 mt-0.5">{bizInfo.tagline}</p>
-                ) : (
-                  <p className="text-xs text-gray-400 italic mt-0.5">Tagline add karo</p>
-                )}
-              </div>
-              <Link
-                href="/settings/business"
-                className="whitespace-nowrap rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-white"
-              >
-                ✏️ Edit
-              </Link>
-            </div>
-
-            <div className="space-y-1.5 text-sm">
-              {bizInfo.owner_name ? (
-                <div><span className="text-gray-500">👤</span> <span className="text-gray-900">{bizInfo.owner_name}</span></div>
-              ) : (
-                <div><span className="text-gray-500">👤</span> <span className="text-gray-400 italic text-xs">Owner name add karo</span></div>
-              )}
-              {bizInfo.phone ? (
-                <div><span className="text-gray-500">📞</span> <span className="text-gray-900">{bizInfo.phone}</span></div>
-              ) : (
-                <div><span className="text-gray-500">📞</span> <span className="text-gray-400 italic text-xs">Phone add karo</span></div>
-              )}
-              {bizInfo.email ? (
-                <div><span className="text-gray-500">📧</span> <span className="text-gray-900">{bizInfo.email}</span></div>
-              ) : (
-                <div><span className="text-gray-500">📧</span> <span className="text-gray-400 italic text-xs">Email add karo</span></div>
-              )}
-              {bizInfo.address || bizInfo.city || bizInfo.state || bizInfo.pincode ? (
-                <div>
-                  <span className="text-gray-500">📍</span>{' '}
-                  <span className="text-gray-900">
-                    {[bizInfo.address, bizInfo.city, bizInfo.state, bizInfo.pincode].filter(Boolean).join(', ')}
-                  </span>
-                </div>
-              ) : (
-                <div><span className="text-gray-500">📍</span> <span className="text-gray-400 italic text-xs">Address add karo</span></div>
-              )}
-              {bizInfo.gst_number ? (
-                <div><span className="text-gray-500">🧾 GST:</span> <span className="text-gray-900 font-mono">{bizInfo.gst_number}</span></div>
-              ) : (
-                <div><span className="text-gray-500">🧾 GST:</span> <span className="text-gray-400 italic text-xs">GST number add karo</span></div>
-              )}
-              {bizInfo.pan_number ? (
-                <div><span className="text-gray-500">PAN:</span> <span className="text-gray-900 font-mono">{bizInfo.pan_number}</span></div>
-              ) : (
-                <div><span className="text-gray-500">PAN:</span> <span className="text-gray-400 italic text-xs">PAN add karo</span></div>
-              )}
-              {bizInfo.bank_name ? (
-                <div>
-                  <span className="text-gray-500">🏦</span>{' '}
-                  <span className="text-gray-900">{bizInfo.bank_name}{bizInfo.bank_branch ? ' • ' + bizInfo.bank_branch : ''}</span>
-                </div>
-              ) : (
-                <div><span className="text-gray-500">🏦</span> <span className="text-gray-400 italic text-xs">Bank details add karo</span></div>
-              )}
-              {bizInfo.bank_account && (
-                <div><span className="text-gray-500">A/C:</span> <span className="text-gray-900 font-mono">{bizInfo.bank_account}</span></div>
-              )}
-              {bizInfo.ifsc_code && (
-                <div><span className="text-gray-500">IFSC:</span> <span className="text-gray-900 font-mono">{bizInfo.ifsc_code}</span></div>
-              )}
-              {bizInfo.upi_id && (
-                <div><span className="text-gray-500">UPI:</span> <span className="text-gray-900 font-mono">{bizInfo.upi_id}</span></div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {trialDays !== null && trialStatus === 'trial' && (
-          <div className={`mb-4 rounded-xl p-3 ${trialDays <= 3 ? 'bg-red-50 border border-red-300' : trialDays <= 7 ? 'bg-yellow-50 border border-yellow-300' : 'bg-blue-50 border border-blue-300'}`}>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex-1">
-                <div className={`text-sm font-bold ${trialDays <= 3 ? 'text-red-700' : trialDays <= 7 ? 'text-yellow-700' : 'text-blue-700'}`}>
-                  {trialDays > 0 ? `Trial: ${trialDays} din baaki` : 'Trial khatam ho gaya'}
-                </div>
-                <div className="text-xs mt-1 text-gray-600">
-                  {trialDays <= 3 ? 'Aaj hi upgrade karein, warna sab kuch band ho jayega' : 'Free trial chal raha hai — poore features ka maza lein'}
-                </div>
-              </div>
-              <Link
-                href="/pricing"
-                className="whitespace-nowrap rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white"
-              >
-                Upgrade
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {trialDays !== null && trialStatus === 'active' && (
-          <div className="mb-4 rounded-xl bg-green-50 border border-green-300 p-3">
-            <div className="flex items-center justify-between gap-2">
+        {trialDays > 0 && (
+          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">👑</span>
               <div>
-                <div className="text-sm font-bold text-green-700">
-                  Plan Active ✅
+                <p className="text-sm font-bold text-emerald-800">Trial: {trialDays} days left</p>
+                <p className="text-[10px] text-emerald-600">Explore premium features</p>
+              </div>
+            </div>
+            <button className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm">Upgrade →</button>
+          </div>
+        )}
+
+        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
+            <div className="flex items-center gap-2">
+              <span className="text-blue-600 text-lg">🛒</span>
+              <h2 className="text-base font-bold text-gray-900">Recent Orders</h2>
+            </div>
+            <button className="text-xs font-bold text-blue-600">View All</button>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {mockOnlineOrders.map((order, i) => (
+              <div key={i} className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${order.color}`}>
+                    {order.icon}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-gray-900">{order.id}</p>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${order.badge}`}>{order.status}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{order.customer} • {order.items} items</p>
+                  </div>
                 </div>
-                <div className="text-xs mt-1 text-gray-600">
-                  {trialDays > 0 ? `${trialDays} din me renew hoga` : 'Aaj renew karein'}
+                <div className="text-right">
+                  <p className="text-sm font-bold text-gray-900">₹{order.amount.toLocaleString('en-IN')}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">{order.time}</p>
                 </div>
               </div>
-              <Link href="/pricing" className="whitespace-nowrap rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white">
-                Renew
-              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-gray-900">Business Overview</h2>
+            <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-md border border-gray-200">📅 Today</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">📈</div>
+                <span className="text-xs font-medium text-gray-500">Today's Sales</span>
+              </div>
+              <p className="text-lg font-bold text-gray-900">₹{counts.todaySales.toLocaleString('en-IN')}</p>
+              <p className="text-[10px] text-emerald-600 mt-1">↑ 12% from yesterday</p>
+            </div>
+            
+            <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">👥</div>
+                <span className="text-xs font-medium text-gray-500">Total Udhaar</span>
+              </div>
+              <p className="text-lg font-bold text-gray-900">₹{counts.totalUdhaar.toLocaleString('en-IN')}</p>
+              <p className="text-[10px] text-gray-500 mt-1">👤 {counts.customers} customers</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">⚠️</div>
+                <span className="text-xs font-medium text-gray-500">Low Stock</span>
+              </div>
+              <p className="text-lg font-bold text-gray-900">{counts.lowStock} items</p>
+              <p className="text-[10px] text-orange-500 mt-1">Need attention</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">💼</div>
+                <span className="text-xs font-medium text-gray-500">Monthly Profit</span>
+              </div>
+              <p className="text-lg font-bold text-gray-900">₹{counts.monthlyProfit.toLocaleString('en-IN')}</p>
+              <p className="text-[10px] text-emerald-600 mt-1">↑ 18% from last month</p>
             </div>
           </div>
-        )}
+        </section>
 
-        <div className="mb-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex gap-2">
-              <Link
-                href="/reports"
-                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white shadow"
-              >
-                📊 Reports
-              </Link>
-              <Link
-                href="/settings"
-                className="rounded-lg bg-gray-900 px-3 py-2 text-sm font-bold text-white shadow"
-              >
-                ⚙ Settings
-              </Link>
-            </div>
-            <h1 className="text-xl font-bold text-gray-900">
-              VyaparSetu
-            </h1>
+        <section>
+          <h2 className="text-lg font-bold text-gray-900 mb-3">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/sales" className="bg-emerald-50 rounded-xl p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🛒</span>
+                <div>
+                  <p className="text-sm font-bold text-emerald-900">New Sale</p>
+                  <p className="text-[10px] text-emerald-700">Create invoice</p>
+                </div>
+              </div>
+              <span className="text-emerald-500">›</span>
+            </Link>
+
+            <Link href="/purchases" className="bg-blue-50 rounded-xl p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🚚</span>
+                <div>
+                  <p className="text-sm font-bold text-blue-900">Add Purchase</p>
+                  <p className="text-[10px] text-blue-700">From supplier</p>
+                </div>
+              </div>
+              <span className="text-blue-500">›</span>
+            </Link>
+
+            <Link href="/products" className="bg-purple-50 rounded-xl p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📦</span>
+                <div>
+                  <p className="text-sm font-bold text-purple-900">Add Product</p>
+                  <p className="text-[10px] text-purple-700">New item</p>
+                </div>
+              </div>
+              <span className="text-purple-500">›</span>
+            </Link>
+
+            <Link href="/customers" className="bg-teal-50 rounded-xl p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">👤</span>
+                <div>
+                  <p className="text-sm font-bold text-teal-900">Add Customer</p>
+                  <p className="text-[10px] text-teal-700">Register</p>
+                </div>
+              </div>
+              <span className="text-teal-500">›</span>
+            </Link>
           </div>
-          <p className="mt-3 text-sm text-gray-500">
-            Business Management Dashboard
-          </p>
-        </div>
+        </section>
 
-        {error && (
-          <div className="mb-4 rounded-xl bg-red-50 p-4 text-red-700">
-            Error: {error}
+        <section>
+          <h2 className="text-lg font-bold text-gray-900 mb-3">Business Modules</h2>
+          <div className="grid grid-cols-2 gap-3">
+            
+            <Link href="/sales" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600">📄</div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Sales & Invoices</p>
+                <p className="text-[9px] text-gray-500">Manage bills</p>
+              </div>
+            </Link>
+
+            <Link href="/products" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">📦</div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Products & Stock</p>
+                <p className="text-[9px] text-gray-500">Inventory</p>
+              </div>
+            </Link>
+
+            <Link href="/purchases" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">🛍️</div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Purchases</p>
+                <p className="text-[9px] text-gray-500">From suppliers</p>
+              </div>
+            </Link>
+
+            <Link href="/customers" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center text-teal-600">👥</div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Customers</p>
+                <p className="text-[9px] text-gray-500">Manage CRM</p>
+              </div>
+            </Link>
+
+            <Link href="/suppliers" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">🚚</div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Suppliers</p>
+                <p className="text-[9px] text-gray-500">Vendors</p>
+              </div>
+            </Link>
+
+            <Link href="/customers" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center text-pink-600">💰</div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Udhaar & Pay</p>
+                <p className="text-[9px] text-gray-500">Track dues</p>
+              </div>
+            </Link>
+
+            <Link href="/expenses" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">💸</div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Expenses</p>
+                <p className="text-[9px] text-gray-500">Manage costs</p>
+              </div>
+            </Link>
+
+            <Link href="/reports" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600">📊</div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Reports & GST</p>
+                <p className="text-[9px] text-gray-500">Tax returns</p>
+              </div>
+            </Link>
+
+            <Link href="/settings/workers" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-cyan-100 flex items-center justify-center text-cyan-600">🛡️</div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Staff & Perms</p>
+                <p className="text-[9px] text-gray-500">Staff access</p>
+              </div>
+            </Link>
+
+            <Link href="/settings" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600">⚙️</div>
+              <div>
+                <p className="text-xs font-bold text-gray-900">Biz Settings</p>
+                <p className="text-[9px] text-gray-500">Configuration</p>
+              </div>
+            </Link>
           </div>
-        )}
+        </section>
 
-        <div className="grid grid-cols-2 gap-4">
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-gray-900">Recent Local Activity</h2>
+            <Link href="/sales" className="text-xs font-bold text-emerald-600">View All →</Link>
+          </div>
+          <div className="space-y-2">
+            {recentActivity.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4 bg-white rounded-xl border border-gray-100">No recent local activity</p>
+            ) : (
+              recentActivity.map((act, i) => (
+                <div key={i} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${act.type === 'sale' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                      {act.type === 'sale' ? '📄' : '🚚'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">{act.title}</p>
+                      <p className="text-[10px] text-gray-500 capitalize">{act.type}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-gray-900">₹{act.amount}</p>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${act.status === 'Paid' || act.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>{act.status}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
 
-          <Link
-            href="/customers"
-            className="rounded-xl bg-white p-4 shadow transition hover:shadow-md"
-          >
-            <p className="text-sm text-gray-500">
-              Customers
-            </p>
-
-            <p className="mt-2 text-2xl font-bold text-gray-900">
-              {customers}
-            </p>
-
-            <p className="mt-2 text-sm text-blue-600">
-              Open Customers →
-            </p>
-          </Link>
-
-          <Link
-            href="/products"
-            className="rounded-xl bg-white p-4 shadow transition hover:shadow-md"
-          >
-            <p className="text-sm text-gray-500">
-              Products & Stock
-            </p>
-
-            <p className="mt-2 text-2xl font-bold text-gray-900">
-              {products}
-            </p>
-
-            <p className="mt-2 text-sm text-blue-600">
-              Open Products →
-            </p>
-          </Link>
-
-          <Link
-            href="/purchases"
-            className="rounded-xl bg-white p-4 shadow transition hover:shadow-md"
-          >
-            <p className="text-sm text-gray-500">
-              Purchases
-            </p>
-
-            <p className="mt-2 text-2xl font-bold text-gray-900">
-              {purchases}
-            </p>
-
-            <p className="mt-2 text-sm text-blue-600">
-              Open Purchases →
-            </p>
-          </Link>
-
-        <Link
-          href="/sales"
-          className="rounded-xl bg-white p-4 shadow transition hover:shadow-md"
-        >
-          <p className="text-sm font-bold text-gray-900">
-            Sales
-          </p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">
-            {salesCount}
-          </p>
-          <p className="mt-2 text-sm text-blue-600">
-            {salesCount > 0 ? 'View Sales →' : 'Make Sale →'}
-          </p>
+      <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-6 px-1 z-20">
+        <Link href="/" className="flex flex-col items-center gap-1 text-emerald-600">
+          <span className="text-xl">🏠</span>
+          <span className="text-[10px] font-bold">Home</span>
+        </Link>
+        
+        <Link href="/orders" className="relative flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
+          <div className="relative">
+             <span className="text-xl">🛒</span>
+             {newOrdersCount > 0 && (
+               <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-white">
+                 {newOrdersCount}
+               </span>
+             )}
+          </div>
+          <span className="text-[10px] font-medium">Orders</span>
         </Link>
 
-          <div className="rounded-xl bg-white p-4 shadow">
-            <p className="text-sm text-gray-500">
-              Today's Sales
-            </p>
+        <Link href="/sales" className="flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
+          <span className="text-xl">🧾</span>
+          <span className="text-[10px] font-medium">Sales</span>
+        </Link>
+        <Link href="/reports" className="flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
+          <span className="text-xl">📊</span>
+          <span className="text-[10px] font-medium">Reports</span>
+        </Link>
+        <Link href="/settings" className="flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
+          <span className="text-xl">⚙️</span>
+          <span className="text-[10px] font-medium">Settings</span>
+        </Link>
+      </nav>
 
-            <p className="mt-2 text-2xl font-bold text-gray-900">
-              ₹0
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-white p-4 shadow">
-            <p className="text-sm text-gray-500">
-              Udhaar
-            </p>
-
-            <p className="mt-2 text-2xl font-bold text-gray-900">
-              ₹0
-            </p>
-          </div>
-
-        </div>
-      </div>
     </main>
   )
 }
