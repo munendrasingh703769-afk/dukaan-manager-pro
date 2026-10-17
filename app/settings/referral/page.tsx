@@ -104,7 +104,7 @@ export default function ReferralPage() {
           <button
             type="button"
             onClick={() => {
-              const msg = `Dukaan Manager Pro try karein! GST bill, stock, udhaar sab manage hota hai.\n\nSignup link: ${window.location.origin}/signup\nReferral code: ${myReferralCode}\n\nDono ko 1 mahina FREE milega!`
+              const msg = `VyaparSetu try karein! GST bill, stock, udhaar sab manage hota hai.\n\nSignup link: ${window.location.origin}/signup\nReferral code: ${myReferralCode}\n\nDono ko 1 mahina FREE milega!`
               window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
             }}
             className="rounded bg-green-600 px-3 py-2 text-sm text-white"
