@@ -65,7 +65,7 @@ export default function PayPage() {
   if (loading) return <main className="p-4">Loading...</main>
   if (error || !selected) return <main className="p-4 text-red-600">{error || 'Not found'}</main>
 
-  const upiLink = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent('Dukaan Manager Pro')}&am=${selected.price}&cu=INR&tn=${encodeURIComponent(selected.plan_name)}`
+  const upiLink = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent('VyaparSetu')}&am=${selected.price}&cu=INR&tn=${encodeURIComponent(selected.plan_name)}`
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(upiLink)}`
   const waText = encodeURIComponent(
     `Namaste! Maine ${selected.plan_name} (₹${selected.price}) ka payment kiya hai. Screenshot bhej raha hu.`
