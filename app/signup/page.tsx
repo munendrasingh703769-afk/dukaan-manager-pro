@@ -149,7 +149,7 @@ function SignupForm() {
         )}
 
         <h1 className="text-2xl font-bold text-gray-900">
-          Dukaan Manager Pro
+          VyaparSetu
         </h1>
         <p className="mt-1 text-sm text-gray-600">
           Naya account banayein
