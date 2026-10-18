@@ -308,6 +308,28 @@ export default function DashboardPage() {
             </Link>
           </div>
         </section>
+        {/* 🔥 Colorful Reports Section Link */}
+        <section>
+          <Link href="/reports" className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl p-4 shadow-lg flex items-center justify-between active:scale-95 transition relative overflow-hidden">
+            
+            {/* Background me halka sa design ke liye icon */}
+            <div className="absolute -right-4 -bottom-4 opacity-20 text-8xl">📊</div>
+
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-2xl shadow-inner border border-white/30">
+                📊
+              </div>
+              <div>
+                <p className="text-base font-bold text-white tracking-wide">Reports & Analytics</p>
+                <p className="text-xs text-indigo-100 font-medium">View sales, purchases, and edit entries</p>
+              </div>
+            </div>
+            
+            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center relative z-10 border border-white/20">
+               <span className="text-white text-lg font-bold">›</span>
+            </div>
+          </Link>
+        </section>
 
         <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-4 text-white shadow-md relative overflow-hidden">
           <div className="relative z-10">
