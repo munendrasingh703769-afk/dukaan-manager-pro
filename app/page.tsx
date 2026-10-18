@@ -29,15 +29,6 @@ type Counts = {
   monthlyProfit: number
 }
 
-const mockOnlineOrders = [
-  { id: '#ORD-0012', status: 'Delivered', customer: 'Ravi Kumar', items: 2, amount: 1250, time: '10:45 AM', color: 'bg-green-100 text-green-600', icon: '🚚', badge: 'bg-green-100 text-green-700' },
-  { id: '#ORD-0011', status: 'Processing', customer: 'Pooja Sharma', items: 3, amount: 780, time: '09:32 AM', color: 'bg-blue-100 text-blue-600', icon: '⏱️', badge: 'bg-blue-100 text-blue-700' },
-  { id: '#ORD-0010', status: 'Pending', customer: 'Suresh Yadav', items: 1, amount: 420, time: '08:15 AM', color: 'bg-orange-100 text-orange-600', icon: '⏳', badge: 'bg-orange-100 text-orange-700' },
-  { id: '#ORD-0009', status: 'Delivered', customer: 'Neha Gupta', items: 4, amount: 2180, time: 'Yesterday', color: 'bg-green-100 text-green-600', icon: '🚚', badge: 'bg-green-100 text-green-700' },
-  { id: '#ORD-0008', status: 'Cancelled', customer: 'Amit Verma', items: 2, amount: 650, time: 'Yesterday', color: 'bg-red-100 text-red-600', icon: '❌', badge: 'bg-red-100 text-red-700' },
-]
-const newOrdersCount = 2
-
 export default function DashboardPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -50,6 +41,7 @@ export default function DashboardPage() {
     todaySales: 0, totalUdhaar: 0, lowStock: 0, monthlyProfit: 0
   })
   const [recentActivity, setRecentActivity] = useState<any[]>([])
+  const [recentOrders, setRecentOrders] = useState<any[]>([]) // Real orders ke liye khali array
   const [trialDays, setTrialDays] = useState(7)
 
   useEffect(() => {
@@ -61,19 +53,24 @@ export default function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return router.push('/login')
 
-    const { data: bizData } = await supabase.from('businesses').select('*').order('created_at')
+    // 🔥 FIX: Yahan .eq('owner_id', user.id) lagaya hai taaki dusre ka data na aaye
+    const { data: bizData } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('owner_id', user.id) 
+      .order('created_at')
+
     if (!bizData || bizData.length === 0) {
       setLoading(false)
       return
     }
 
-        setBusinesses(bizData)
-    // Fix for TypeScript error
-    let activeId: string = getCurrentBusinessId() || bizData[0].id;
-    if (!bizData.find(b => b.id === activeId)) {
-      activeId = bizData[0].id;
+    setBusinesses(bizData)
+    let activeId = getCurrentBusinessId()
+    if (!activeId || !bizData.find(b => b.id === activeId)) {
+      activeId = bizData[0].id
+      setCurrentBusinessId(activeId)
     }
-    setCurrentBusinessId(activeId);
 
     const activeBiz = bizData.find(b => b.id === activeId) || bizData[0]
     setCurrentBusiness(activeBiz)
@@ -174,14 +171,16 @@ export default function DashboardPage() {
             ))}
           </select>
           
-          <div className="relative">
+          {/* 🔥 FIX: Notification Click */}
+          <button onClick={() => alert('Notifications coming soon!')} className="relative">
             <span className="text-xl">🔔</span>
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white">3</span>
-          </div>
+          </button>
           
-          <div className="w-8 h-8 rounded-full bg-gray-200 border border-gray-300 overflow-hidden flex items-center justify-center">
+          {/* 🔥 FIX: Profile Click */}
+          <button onClick={() => router.push('/settings/business')} className="w-8 h-8 rounded-full bg-gray-200 border border-gray-300 overflow-hidden flex items-center justify-center">
             👤
-          </div>
+          </button>
         </div>
       </header>
 
@@ -211,39 +210,32 @@ export default function DashboardPage() {
                 <p className="text-[10px] text-emerald-600">Explore premium features</p>
               </div>
             </div>
-            <button className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm">Upgrade →</button>
+            {/* 🔥 FIX: Upgrade Click */}
+            <button onClick={() => alert('Upgrade page coming soon!')} className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm">Upgrade →</button>
           </div>
         )}
 
+        {/* 🔥 FIX: Recent Orders Section */}
         <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
             <div className="flex items-center gap-2">
               <span className="text-blue-600 text-lg">🛒</span>
               <h2 className="text-base font-bold text-gray-900">Recent Orders</h2>
             </div>
-            <button className="text-xs font-bold text-blue-600">View All</button>
+            <Link href="/orders" className="text-xs font-bold text-blue-600">View All</Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {mockOnlineOrders.map((order, i) => (
-              <div key={i} className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${order.color}`}>
-                    {order.icon}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-bold text-gray-900">{order.id}</p>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${order.badge}`}>{order.status}</span>
-                    </div>
-                    <p className="text-[11px] text-gray-500 mt-0.5">{order.customer} • {order.items} items</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-gray-900">₹{order.amount.toLocaleString('en-IN')}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">{order.time}</p>
-                </div>
+            {recentOrders.length === 0 ? (
+              <div className="text-center py-6 text-gray-400 text-sm">
+                No Recent Orders
               </div>
-            ))}
+            ) : (
+              recentOrders.map((order, i) => (
+                <div key={i} onClick={() => router.push(`/orders/${order.id}`)} className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50">
+                   {/* Future Order Data */}
+                </div>
+              ))
+            )}
           </div>
         </section>
 
@@ -253,40 +245,45 @@ export default function DashboardPage() {
             <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-md border border-gray-200">📅 Today</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+            
+            {/* 🔥 FIX: Overview Boxes Clickable */}
+            <Link href="/sales" className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 active:scale-95 transition">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">📈</div>
                 <span className="text-xs font-medium text-gray-500">Today's Sales</span>
               </div>
               <p className="text-lg font-bold text-gray-900">₹{counts.todaySales.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-emerald-600 mt-1">↑ 12% from yesterday</p>
-            </div>
+              <p className="text-[10px] text-emerald-600 mt-1">View Details →</p>
+            </Link>
             
-            <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+            <Link href="/customers" className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 active:scale-95 transition">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">👥</div>
                 <span className="text-xs font-medium text-gray-500">Total Udhaar</span>
               </div>
               <p className="text-lg font-bold text-gray-900">₹{counts.totalUdhaar.toLocaleString('en-IN')}</p>
               <p className="text-[10px] text-gray-500 mt-1">👤 {counts.customers} customers</p>
-            </div>
+            </Link>
 
-            <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+            <Link href="/products" className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 active:scale-95 transition">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">⚠️</div>
                 <span className="text-xs font-medium text-gray-500">Low Stock</span>
               </div>
               <p className="text-lg font-bold text-gray-900">{counts.lowStock} items</p>
               <p className="text-[10px] text-orange-500 mt-1">Need attention</p>
-            </div>
+            </Link>
 
             <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">💼</div>
-                <span className="text-xs font-medium text-gray-500">Monthly Profit</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">💼</div>
+                  <span className="text-xs font-medium text-gray-500">Monthly Profit</span>
+                </div>
+                <Link href="/reports" className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">View</Link>
               </div>
               <p className="text-lg font-bold text-gray-900">₹{counts.monthlyProfit.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-emerald-600 mt-1">↑ 18% from last month</p>
+              <p className="text-[10px] text-emerald-600 mt-1">Top product will show here</p>
             </div>
           </div>
         </section>
@@ -340,10 +337,20 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {/* E-commerce Coming Soon Banner */}
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-4 text-white shadow-md relative overflow-hidden">
+          <div className="relative z-10">
+            <h3 className="font-bold text-lg">E-Commerce Store 🛍️</h3>
+            <p className="text-xs text-purple-100 mt-1">Sell your products online. Create your digital shop.</p>
+            <span className="inline-block mt-2 bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded-md border border-white/30 backdrop-blur-sm">
+              Coming Soon
+            </span>
+          </div>
+        </div>
+
         <section>
           <h2 className="text-lg font-bold text-gray-900 mb-3">Business Modules</h2>
           <div className="grid grid-cols-2 gap-3">
-            
             <Link href="/sales" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600">📄</div>
               <div>
@@ -466,11 +473,10 @@ export default function DashboardPage() {
         <Link href="/orders" className="relative flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
           <div className="relative">
              <span className="text-xl">🛒</span>
-             {newOrdersCount > 0 && (
-               <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-white">
-                 {newOrdersCount}
-               </span>
-             )}
+             {/* Notification Badge (Hardcoded for now) */}
+             <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-white">
+               2
+             </span>
           </div>
           <span className="text-[10px] font-medium">Orders</span>
         </Link>
