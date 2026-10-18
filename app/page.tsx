@@ -36,13 +36,21 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [currentBusiness, setCurrentBusiness] = useState<Business | null>(null)
+  
   const [counts, setCounts] = useState<Counts>({
     customers: 0, products: 0, purchases: 0, sales: 0,
     todaySales: 0, totalUdhaar: 0, lowStock: 0, monthlyProfit: 0
   })
+  
   const [recentActivity, setRecentActivity] = useState<any[]>([])
-  const [recentOrders, setRecentOrders] = useState<any[]>([]) // Real orders ke liye khali array
+  const [recentOrders, setRecentOrders] = useState<any[]>([])
   const [trialDays, setTrialDays] = useState(7)
+
+  // 🔥 Language State
+  const [lang, setLang] = useState<'en' | 'hi'>('en')
+
+  // 🔥 Modals ke liye States
+  const [modalType, setModalType] = useState<'sales' | 'udhaar' | 'stock' | 'profile' | 'scanner' | null>(null)
 
   useEffect(() => {
     loadData()
@@ -53,11 +61,10 @@ export default function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return router.push('/login')
 
-    // 🔥 FIX: Yahan .eq('owner_id', user.id) lagaya hai taaki dusre ka data na aaye
     const { data: bizData } = await supabase
       .from('businesses')
       .select('*')
-      .eq('owner_id', user.id) 
+      .eq('owner_id', user.id)
       .order('created_at')
 
     if (!bizData || bizData.length === 0) {
@@ -121,7 +128,7 @@ export default function DashboardPage() {
       todaySales: todaySalesAmt,
       totalUdhaar: totalUdhaarAmt,
       lowStock: lowStockCount,
-      monthlyProfit: 24800
+      monthlyProfit: 0 
     })
 
     let activities: any[] = []
@@ -149,7 +156,7 @@ export default function DashboardPage() {
     )
   }
   return (
-    <main className="min-h-screen bg-gray-50 pb-24 font-sans">
+    <main className="min-h-screen bg-gray-50 pb-24 font-sans relative">
       
       <header className="bg-white px-4 py-3 flex items-center justify-between sticky top-0 z-10 border-b border-gray-100">
         <div className="flex items-center gap-1">
@@ -161,24 +168,27 @@ export default function DashboardPage() {
         </div>
         
         <div className="flex items-center gap-3">
+          {/* 🔥 Language Toggle */}
+          <button onClick={() => setLang(lang === 'en' ? 'hi' : 'en')} className="bg-gray-100 text-gray-700 text-[10px] font-bold px-2 py-1 rounded-md">
+            🌐 {lang === 'en' ? 'EN' : 'हि'}
+          </button>
+
           <select 
             value={currentBusiness?.id} 
             onChange={handleBusinessSwitch}
-            className="bg-blue-50 text-blue-700 text-xs font-semibold rounded-full px-3 py-1.5 border-none outline-none max-w-[140px] truncate"
+            className="bg-blue-50 text-blue-700 text-xs font-semibold rounded-full px-3 py-1.5 border-none outline-none max-w-[100px] truncate"
           >
             {businesses.map(b => (
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
           </select>
           
-          {/* 🔥 FIX: Notification Click */}
-          <button onClick={() => alert('Notifications coming soon!')} className="relative">
+          <button onClick={() => alert('No new notifications')} className="relative">
             <span className="text-xl">🔔</span>
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white">3</span>
           </button>
           
-          {/* 🔥 FIX: Profile Click */}
-          <button onClick={() => router.push('/settings/business')} className="w-8 h-8 rounded-full bg-gray-200 border border-gray-300 overflow-hidden flex items-center justify-center">
+          {/* 🔥 Profile Click Modal */}
+          <button onClick={() => setModalType('profile')} className="w-8 h-8 rounded-full bg-gray-200 border border-gray-300 overflow-hidden flex items-center justify-center">
             👤
           </button>
         </div>
@@ -210,12 +220,10 @@ export default function DashboardPage() {
                 <p className="text-[10px] text-emerald-600">Explore premium features</p>
               </div>
             </div>
-            {/* 🔥 FIX: Upgrade Click */}
             <button onClick={() => alert('Upgrade page coming soon!')} className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm">Upgrade →</button>
           </div>
         )}
 
-        {/* 🔥 FIX: Recent Orders Section */}
         <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
             <div className="flex items-center gap-2">
@@ -226,14 +234,10 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-gray-50">
             {recentOrders.length === 0 ? (
-              <div className="text-center py-6 text-gray-400 text-sm">
-                No Recent Orders
-              </div>
+              <div className="text-center py-6 text-gray-400 text-sm">No Recent Orders</div>
             ) : (
               recentOrders.map((order, i) => (
-                <div key={i} onClick={() => router.push(`/orders/${order.id}`)} className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50">
-                   {/* Future Order Data */}
-                </div>
+                <div key={i} onClick={() => router.push(`/orders/${order.id}`)} className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"></div>
               ))
             )}
           </div>
@@ -246,33 +250,32 @@ export default function DashboardPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             
-            {/* 🔥 FIX: Overview Boxes Clickable */}
-            <Link href="/sales" className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 active:scale-95 transition">
+            <div onClick={() => setModalType('sales')} className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 cursor-pointer active:scale-95 transition">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">📈</div>
                 <span className="text-xs font-medium text-gray-500">Today's Sales</span>
               </div>
               <p className="text-lg font-bold text-gray-900">₹{counts.todaySales.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-emerald-600 mt-1">View Details →</p>
-            </Link>
+              <p className="text-[10px] text-emerald-600 mt-1 font-semibold">View Details →</p>
+            </div>
             
-            <Link href="/customers" className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 active:scale-95 transition">
+            <div onClick={() => setModalType('udhaar')} className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 cursor-pointer active:scale-95 transition">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">👥</div>
                 <span className="text-xs font-medium text-gray-500">Total Udhaar</span>
               </div>
               <p className="text-lg font-bold text-gray-900">₹{counts.totalUdhaar.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-gray-500 mt-1">👤 {counts.customers} customers</p>
-            </Link>
+              <p className="text-[10px] text-gray-500 mt-1 font-semibold">👤 {counts.customers} customers</p>
+            </div>
 
-            <Link href="/products" className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 active:scale-95 transition">
+            <div onClick={() => setModalType('stock')} className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 cursor-pointer active:scale-95 transition">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">⚠️</div>
                 <span className="text-xs font-medium text-gray-500">Low Stock</span>
               </div>
               <p className="text-lg font-bold text-gray-900">{counts.lowStock} items</p>
-              <p className="text-[10px] text-orange-500 mt-1">Need attention</p>
-            </Link>
+              <p className="text-[10px] text-orange-500 mt-1 font-semibold">Need attention</p>
+            </div>
 
             <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-2">
@@ -283,7 +286,7 @@ export default function DashboardPage() {
                 <Link href="/reports" className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">View</Link>
               </div>
               <p className="text-lg font-bold text-gray-900">₹{counts.monthlyProfit.toLocaleString('en-IN')}</p>
-              <p className="text-[10px] text-emerald-600 mt-1">Top product will show here</p>
+              <p className="text-[10px] text-gray-400 mt-1">No data available</p>
             </div>
           </div>
         </section>
@@ -292,146 +295,27 @@ export default function DashboardPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-3">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
             <Link href="/sales" className="bg-emerald-50 rounded-xl p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🛒</span>
-                <div>
-                  <p className="text-sm font-bold text-emerald-900">New Sale</p>
-                  <p className="text-[10px] text-emerald-700">Create invoice</p>
-                </div>
-              </div>
-              <span className="text-emerald-500">›</span>
+              <div className="flex items-center gap-2"><span className="text-lg">🛒</span><div><p className="text-sm font-bold text-emerald-900">New Sale</p><p className="text-[10px] text-emerald-700">Create invoice</p></div></div><span className="text-emerald-500">›</span>
             </Link>
-
             <Link href="/purchases" className="bg-blue-50 rounded-xl p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🚚</span>
-                <div>
-                  <p className="text-sm font-bold text-blue-900">Add Purchase</p>
-                  <p className="text-[10px] text-blue-700">From supplier</p>
-                </div>
-              </div>
-              <span className="text-blue-500">›</span>
+              <div className="flex items-center gap-2"><span className="text-lg">🚚</span><div><p className="text-sm font-bold text-blue-900">Add Purchase</p><p className="text-[10px] text-blue-700">From supplier</p></div></div><span className="text-blue-500">›</span>
             </Link>
-
             <Link href="/products" className="bg-purple-50 rounded-xl p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">📦</span>
-                <div>
-                  <p className="text-sm font-bold text-purple-900">Add Product</p>
-                  <p className="text-[10px] text-purple-700">New item</p>
-                </div>
-              </div>
-              <span className="text-purple-500">›</span>
+              <div className="flex items-center gap-2"><span className="text-lg">📦</span><div><p className="text-sm font-bold text-purple-900">Add Product</p><p className="text-[10px] text-purple-700">New item</p></div></div><span className="text-purple-500">›</span>
             </Link>
-
             <Link href="/customers" className="bg-teal-50 rounded-xl p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">👤</span>
-                <div>
-                  <p className="text-sm font-bold text-teal-900">Add Customer</p>
-                  <p className="text-[10px] text-teal-700">Register</p>
-                </div>
-              </div>
-              <span className="text-teal-500">›</span>
+              <div className="flex items-center gap-2"><span className="text-lg">👤</span><div><p className="text-sm font-bold text-teal-900">Add Customer</p><p className="text-[10px] text-teal-700">Register</p></div></div><span className="text-teal-500">›</span>
             </Link>
           </div>
         </section>
 
-        {/* E-commerce Coming Soon Banner */}
         <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-4 text-white shadow-md relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="font-bold text-lg">E-Commerce Store 🛍️</h3>
             <p className="text-xs text-purple-100 mt-1">Sell your products online. Create your digital shop.</p>
-            <span className="inline-block mt-2 bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded-md border border-white/30 backdrop-blur-sm">
-              Coming Soon
-            </span>
+            <span className="inline-block mt-2 bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded-md border border-white/30 backdrop-blur-sm">Coming Soon</span>
           </div>
         </div>
-
-        <section>
-          <h2 className="text-lg font-bold text-gray-900 mb-3">Business Modules</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <Link href="/sales" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600">📄</div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Sales & Invoices</p>
-                <p className="text-[9px] text-gray-500">Manage bills</p>
-              </div>
-            </Link>
-
-            <Link href="/products" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">📦</div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Products & Stock</p>
-                <p className="text-[9px] text-gray-500">Inventory</p>
-              </div>
-            </Link>
-
-            <Link href="/purchases" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">🛍️</div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Purchases</p>
-                <p className="text-[9px] text-gray-500">From suppliers</p>
-              </div>
-            </Link>
-
-            <Link href="/customers" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center text-teal-600">👥</div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Customers</p>
-                <p className="text-[9px] text-gray-500">Manage CRM</p>
-              </div>
-            </Link>
-
-            <Link href="/suppliers" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">🚚</div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Suppliers</p>
-                <p className="text-[9px] text-gray-500">Vendors</p>
-              </div>
-            </Link>
-
-            <Link href="/customers" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center text-pink-600">💰</div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Udhaar & Pay</p>
-                <p className="text-[9px] text-gray-500">Track dues</p>
-              </div>
-            </Link>
-
-            <Link href="/expenses" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">💸</div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Expenses</p>
-                <p className="text-[9px] text-gray-500">Manage costs</p>
-              </div>
-            </Link>
-
-            <Link href="/reports" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600">📊</div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Reports & GST</p>
-                <p className="text-[9px] text-gray-500">Tax returns</p>
-              </div>
-            </Link>
-
-            <Link href="/settings/workers" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-cyan-100 flex items-center justify-center text-cyan-600">🛡️</div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Staff & Perms</p>
-                <p className="text-[9px] text-gray-500">Staff access</p>
-              </div>
-            </Link>
-
-            <Link href="/settings" className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600">⚙️</div>
-              <div>
-                <p className="text-xs font-bold text-gray-900">Biz Settings</p>
-                <p className="text-[9px] text-gray-500">Configuration</p>
-              </div>
-            </Link>
-          </div>
-        </section>
 
         <section>
           <div className="flex items-center justify-between mb-3">
@@ -445,13 +329,8 @@ export default function DashboardPage() {
               recentActivity.map((act, i) => (
                 <div key={i} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${act.type === 'sale' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                      {act.type === 'sale' ? '📄' : '🚚'}
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">{act.title}</p>
-                      <p className="text-[10px] text-gray-500 capitalize">{act.type}</p>
-                    </div>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${act.type === 'sale' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>{act.type === 'sale' ? '📄' : '🚚'}</div>
+                    <div><p className="text-sm font-bold text-gray-900">{act.title}</p><p className="text-[10px] text-gray-500 capitalize">{act.type}</p></div>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-gray-900">₹{act.amount}</p>
@@ -464,6 +343,80 @@ export default function DashboardPage() {
         </section>
       </div>
 
+      {/* 🔥 SCANNER & PROFILE MODALS */}
+      {modalType && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center pb-0 sm:p-4">
+          <div className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 animate-slide-up">
+            
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                {modalType === 'sales' && "Today's Sales Details"}
+                {modalType === 'udhaar' && "Total Udhaar Details"}
+                {modalType === 'stock' && "Low Stock Items"}
+                {modalType === 'profile' && "My Profile"}
+                {modalType === 'scanner' && "Scan Bill / QR Code"}
+              </h3>
+              <button onClick={() => setModalType(null)} className="text-gray-400 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              
+              {/* Profile Modal Content */}
+              {modalType === 'profile' && (
+                <div className="flex flex-col items-center">
+                  <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-4xl mb-4">👤</div>
+                  {/* 🔥 File Input for Photo Upload */}
+                  <label className="bg-blue-600 text-white text-sm font-bold px-4 py-2 rounded-lg cursor-pointer">
+                    Upload Photo
+                    <input type="file" accept="image/*" className="hidden" onChange={() => alert('Photo upload function will be added soon!')} />
+                  </label>
+                  <p className="text-sm font-bold text-gray-800 mt-4">{currentBusiness?.owner_name || 'Owner Name'}</p>
+                  <p className="text-xs text-gray-500">{currentBusiness?.phone || 'Phone'}</p>
+                  <button onClick={() => router.push('/settings/business')} className="mt-4 text-blue-600 text-sm font-semibold">Edit Business Details</button>
+                </div>
+              )}
+
+              {/* Scanner Modal Content */}
+              {modalType === 'scanner' && (
+                <div className="flex flex-col gap-3">
+                  <button onClick={() => { alert('Camera open ho raha hai... Photo khinchne par Purchase Entry form khulega.'); setModalType(null); }} className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100 active:bg-gray-100">
+                    <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl">📸</div>
+                    <div className="text-left">
+                      <p className="font-bold text-gray-900">Bill Photo Scan</p>
+                      <p className="text-xs text-gray-500">Take photo to auto-create Purchase entry</p>
+                    </div>
+                  </button>
+
+                  <button onClick={() => { alert('QR Scanner open ho raha hai...'); setModalType(null); }} className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100 active:bg-gray-100">
+                    <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-2xl">🔳</div>
+                    <div className="text-left">
+                      <p className="font-bold text-gray-900">Scan QR Code</p>
+                      <p className="text-xs text-gray-500">Scan product or customer QR</p>
+                    </div>
+                  </button>
+
+                  <button onClick={() => { router.push('/purchases'); setModalType(null); }} className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100 active:bg-gray-100">
+                    <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-2xl">✍️</div>
+                    <div className="text-left">
+                      <p className="font-bold text-gray-900">Manual / Custom Entry</p>
+                      <p className="text-xs text-gray-500">Enter details manually</p>
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {/* Other Modals (Sales, Udhaar, Stock) */}
+              {(modalType === 'sales' || modalType === 'udhaar' || modalType === 'stock') && (
+                <p className="text-sm text-gray-500 text-center py-4">No data available.</p>
+              )}
+            </div>
+
+            <button onClick={() => setModalType(null)} className="w-full mt-5 bg-gray-100 text-gray-800 font-bold py-3 rounded-xl">Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 UPDATED BOTTOM NAV (Reports removed, Scanner added) */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-6 px-1 z-20">
         <Link href="/" className="flex flex-col items-center gap-1 text-emerald-600">
           <span className="text-xl">🏠</span>
@@ -471,24 +424,20 @@ export default function DashboardPage() {
         </Link>
         
         <Link href="/orders" className="relative flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
-          <div className="relative">
-             <span className="text-xl">🛒</span>
-             {/* Notification Badge (Hardcoded for now) */}
-             <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-white">
-               2
-             </span>
-          </div>
+          <span className="text-xl">🛒</span>
           <span className="text-[10px] font-medium">Orders</span>
         </Link>
+
+        {/* 🔥 Scanner Button (Middle) */}
+        <button onClick={() => setModalType('scanner')} className="flex flex-col items-center justify-center bg-blue-600 text-white w-14 h-14 rounded-full -mt-6 shadow-lg border-4 border-white">
+          <span className="text-2xl">📷</span>
+        </button>
 
         <Link href="/sales" className="flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
           <span className="text-xl">🧾</span>
           <span className="text-[10px] font-medium">Sales</span>
         </Link>
-        <Link href="/reports" className="flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
-          <span className="text-xl">📊</span>
-          <span className="text-[10px] font-medium">Reports</span>
-        </Link>
+        
         <Link href="/settings" className="flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
           <span className="text-xl">⚙️</span>
           <span className="text-[10px] font-medium">Settings</span>
