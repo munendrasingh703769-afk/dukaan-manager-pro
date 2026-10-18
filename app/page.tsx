@@ -69,7 +69,7 @@ export default function DashboardPage() {
     let activeId = getCurrentBusinessId()
     if (!activeId || !bizData.find(b => b.id === activeId)) {
       activeId = bizData[0].id
-      setCurrentBusinessId(activeId)
+      setCurrentBusinessId(activeId!)
     }
 
     const activeBiz = bizData.find(b => b.id === activeId) || bizData[0]
