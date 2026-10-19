@@ -131,82 +131,91 @@ export default function SaleDetailPage() {
   if (error) return <main className="p-4 text-red-600">{error}</main>
   if (!detail) return <main className="p-4">Not found</main>
 
-  return (
-    <main className="p-4">
-      <div className="flex justify-between items-center">
-        <Link href="/sales/list" className="text-blue-600 text-sm">
-          ← Back
-        </Link>
-        <div className="flex gap-2">
-          <Link
-            href={`/sales/${id}/invoice`}
-            className="rounded bg-blue-600 px-3 py-1 text-white text-sm"
-          >
-            Print Invoice
-          </Link>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="rounded bg-red-600 px-3 py-1 text-white text-sm"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
+    return (
+    <main className="min-h-screen bg-gray-50 p-4 sm:p-8 font-sans print:p-0 print:bg-white">
+      <div className="max-w-3xl mx-auto bg-white border border-gray-200 shadow-sm print:shadow-none print:border-none">
+        
+        {/* Top Border */}
+        <div className="h-1.5 w-full bg-slate-800 print:hidden"></div>
 
-      <h1 className="mt-4 text-xl font-bold">
-        Sale {detail.invoice_no || '(No Invoice)'}
-      </h1>
-      <p className="text-sm text-gray-500">
-        {new Date(detail.sale_date).toLocaleString('en-IN')}
-      </p>
+        <div className="p-8 sm:p-12">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-12">
+            <div>
+              <h1 className="text-3xl font-light text-slate-800 tracking-tight">INVOICE</h1>
+              <p className="text-sm font-bold text-slate-500 mt-1">#{sale.invoice_no}</p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-xl font-bold text-slate-800">{business?.name || 'My Shop'}</h2>
+              <p className="text-xs text-slate-500 mt-1 max-w-[200px] leading-relaxed ml-auto">{business?.address}</p>
+              <p className="text-xs text-slate-500 mt-1">{business?.phone}</p>
+            </div>
+          </div>
 
-      <div className="mt-4 rounded border p-3 bg-gray-50">
-        <div className="font-semibold">Customer</div>
-        <div className="text-sm mt-1">Name: {detail.customer_name}</div>
-        <div className="text-sm">Phone: {detail.customer_phone}</div>
-        <div className="text-sm">Address: {detail.customer_address}</div>
-      </div>
+          <div className="flex justify-between border-t border-b border-gray-200 py-6 mb-8">
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Invoice To</p>
+              <p className="text-sm font-bold text-slate-800">{sale.customers?.name || 'Walk-in'}</p>
+              <p className="text-xs text-slate-500 mt-1">{sale.customers?.phone}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Date</p>
+              <p className="text-sm font-semibold text-slate-800">{new Date(sale.created_at).toLocaleDateString()}</p>
+            </div>
+          </div>
 
-      <div className="mt-4">
-        <div className="font-semibold mb-2">Items</div>
-        <div className="space-y-2">
-          {detail.items.length === 0 ? (
-            <p className="text-sm text-gray-500">Koi item nahi.</p>
-          ) : (
-            detail.items.map((it) => (
-              <div key={it.id} className="rounded border p-2 bg-white">
-                <div className="flex justify-between">
-                  <span className="font-medium">{it.product_name}</span>
-                  <span>₹{it.line_total.toFixed(2)}</span>
-                </div>
-                <div className="text-xs text-gray-600 mt-1">
-                  {it.qty} x ₹{it.price} + GST {it.gst_percent}%
-                  {it.hsn_code ? ` | HSN: ${it.hsn_code}` : ''}
-                </div>
+          {/* Table */}
+          <table className="w-full text-sm mb-8">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600 border-b border-gray-200">
+                <th className="text-left py-3 px-4 font-bold text-xs uppercase">Description</th>
+                <th className="text-right py-3 px-4 font-bold text-xs uppercase">Qty</th>
+                <th className="text-right py-3 px-4 font-bold text-xs uppercase">Rate</th>
+                <th className="text-right py-3 px-4 font-bold text-xs uppercase">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, idx) => (
+                <tr key={idx} className="border-b border-gray-100">
+                  <td className="py-4 px-4 font-medium text-slate-800">{item.product_name}</td>
+                  <td className="text-right py-4 px-4 text-slate-600">{item.quantity}</td>
+                  <td className="text-right py-4 px-4 text-slate-600">₹{item.rate}</td>
+                  <td className="text-right py-4 px-4 font-semibold text-slate-800">₹{item.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Totals */}
+          <div className="w-full sm:w-1/2 ml-auto">
+            <div className="flex justify-between py-2 text-sm text-slate-600">
+              <span>Subtotal</span>
+              <span>₹{sale.total_amount}</span>
+            </div>
+            <div className="flex justify-between py-2 text-sm text-slate-600 border-b border-gray-200">
+              <span>Tax</span>
+              <span>₹0</span>
+            </div>
+            <div className="flex justify-between py-4 text-lg font-bold text-slate-800">
+              <span>Total</span>
+              <span>₹{sale.total_amount}</span>
+            </div>
+            <div className="flex justify-between py-1 text-xs text-slate-500">
+              <span>Paid</span>
+              <span>₹{sale.paid_amount}</span>
+            </div>
+            {sale.due_amount > 0 && (
+              <div className="flex justify-between py-1 text-sm font-bold text-red-600">
+                <span>Balance Due</span>
+                <span>₹{sale.due_amount}</span>
               </div>
-            ))
-          )}
+            )}
+          </div>
+
+          <div className="mt-16 text-center text-xs text-slate-400">
+            <p>Thank you for your business.</p>
+          </div>
         </div>
       </div>
-
-      <div className="mt-4 rounded border p-3 bg-gray-50 text-sm">
-        <div className="flex justify-between"><span>Subtotal</span><span>₹{detail.subtotal.toFixed(2)}</span></div>
-        <div className="flex justify-between mt-1"><span>GST</span><span>₹{detail.gst_amount.toFixed(2)}</span></div>
-        <div className="flex justify-between mt-1"><span>Discount</span><span>₹{detail.discount.toFixed(2)}</span></div>
-        <div className="flex justify-between mt-2 font-bold"><span>Total</span><span>₹{detail.total_amount.toFixed(2)}</span></div>
-        <div className="flex justify-between mt-2 text-green-700"><span>Cash Paid</span><span>₹{detail.cash_amount.toFixed(2)}</span></div>
-        <div className="flex justify-between mt-1 text-blue-700"><span>Online Paid</span><span>₹{detail.online_amount.toFixed(2)}</span></div>
-        <div className="flex justify-between mt-1"><span>Total Paid</span><span>₹{detail.paid_amount.toFixed(2)}</span></div>
-        <div className="flex justify-between mt-2 font-bold text-red-600"><span>Due</span><span>₹{detail.due_amount.toFixed(2)}</span></div>
-      </div>
-
-      {detail.notes && (
-        <div className="mt-4 rounded border p-3 bg-yellow-50">
-          <div className="text-xs font-semibold">Notes</div>
-          <div className="text-sm mt-1">{detail.notes}</div>
-        </div>
-      )}
     </main>
   )
-}
