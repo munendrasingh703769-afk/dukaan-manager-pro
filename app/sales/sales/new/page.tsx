@@ -13,47 +13,69 @@ export default function NewSalePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   
-  // Database data
   const [customers, setCustomers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
 
-  // Form State
   const [customerId, setCustomerId] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [items, setItems] = useState<any[]>([{ product_id: '', name: '', qty: 1, rate: 0, stock: 0 }])
   const [discount, setDiscount] = useState(0)
   const [paidAmount, setPaidAmount] = useState(0)
 
-  // Fetch Customers and Products
   useEffect(() => {
     if (!activeId) return
-    async function fetchData() {
+    
+    async function initForm() {
       setLoading(true)
+      
       const [ { data: custData }, { data: prodData } ] = await Promise.all([
         supabase.from('customers').select('id, name, phone').eq('business_id', activeId),
         supabase.from('products').select('id, name, selling_price, stock_qty').eq('business_id', activeId)
       ])
-      if (custData) setCustomers(custData)
-      if (prodData) setProducts(prodData)
+      
+      const cData = custData || []
+      const pData = prodData || []
+      setCustomers(cData)
+      setProducts(pData)
+
+      // URL se check karo ki kya Quotation se aaye hain
+      const searchParams = new URLSearchParams(window.location.search)
+      const fromQuoteId = searchParams.get('from_quote')
+
+      if (fromQuoteId) {
+        const { data: quoteData } = await supabase.from('quotations').select('*').eq('id', fromQuoteId).single()
+        
+        if (quoteData) {
+          setCustomerId(quoteData.customer_id || '')
+          setDiscount(Number(quoteData.discount) || 0)
+          
+          // Items map karo
+          if (quoteData.items && quoteData.items.length > 0) {
+            const mappedItems = quoteData.items.map((item: any) => {
+              const matchedProduct = pData.find(p => p.name.toLowerCase() === item.name.toLowerCase() || p.id === item.product_id)
+              return {
+                product_id: matchedProduct ? matchedProduct.id : '',
+                name: item.name,
+                qty: Number(item.qty) || 1,
+                rate: Number(item.rate) || 0,
+                stock: matchedProduct ? matchedProduct.stock_qty : 9999
+              }
+            })
+            setItems(mappedItems)
+          }
+        }
+      }
       setLoading(false)
     }
-    fetchData()
+    initForm()
   }, [activeId, supabase])
 
-  // Handle Item Changes
   const handleItemChange = (index: number, field: string, value: any) => {
     const newItems = [...items]
-    
     if (field === 'product_id') {
       const selectedProd = products.find(p => p.id === value)
       if (selectedProd) {
-        newItems[index] = {
-          ...newItems[index],
-          product_id: value,
-          name: selectedProd.name,
-          rate: selectedProd.selling_price,
-          stock: selectedProd.stock_qty
-        }
+        newItems[index] = { ...newItems[index], product_id: value, name: selectedProd.name, rate: selectedProd.selling_price, stock: selectedProd.stock_qty }
       }
     } else {
       newItems[index][field] = value
@@ -64,20 +86,17 @@ export default function NewSalePage() {
   const addItem = () => setItems([...items, { product_id: '', name: '', qty: 1, rate: 0, stock: 0 }])
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index))
 
-  // 🔥 Auto Calculations
   const subTotal = items.reduce((acc, item) => acc + (Number(item.qty) * Number(item.rate)), 0)
   const grandTotal = subTotal - Number(discount)
   const dueAmount = grandTotal - Number(paidAmount)
 
-  // Save Bill
   const handleSave = async () => {
-    if (items.length === 0 || !items[0].product_id) return alert('Kripya kam se kam ek product select karein')
+    if (items.length === 0 || !items[0].name) return alert('Kripya kam se kam ek product select karein')
     if (items.some(i => i.qty > i.stock)) return alert('Kuch products ka stock kam hai!')
 
     setSaving(true)
     const invoiceNo = `INV-${new Date().getTime().toString().slice(-6)}`
 
-    // 1. Insert into Sales
     const { data: saleData, error: saleError } = await supabase.from('sales').insert({
       business_id: activeId,
       customer_id: customerId || null,
@@ -95,10 +114,9 @@ export default function NewSalePage() {
       return
     }
 
-    // 2. Insert into Sale Items
     const saleItemsData = items.map(item => ({
       sale_id: saleData.id,
-      product_id: item.product_id,
+      product_id: item.product_id || null,
       product_name: item.name,
       quantity: Number(item.qty),
       rate: Number(item.rate),
@@ -106,39 +124,38 @@ export default function NewSalePage() {
     }))
     await supabase.from('sale_items').insert(saleItemsData)
 
-    // 3. Update Stock & Log Movement
     for (let item of items) {
-      const prod = products.find(p => p.id === item.product_id)
-      if (prod) {
-        // Stock kam karo
-        await supabase.from('products').update({ stock_qty: prod.stock_qty - Number(item.qty) }).eq('id', prod.id)
-        // Movement log karo
-        await supabase.from('stock_movements').insert({
-          business_id: activeId,
-          product_id: prod.id,
-          quantity: Number(item.qty),
-          type: 'sale',
-          reference_id: saleData.id
-        })
+      if (item.product_id) {
+        const prod = products.find(p => p.id === item.product_id)
+        if (prod) {
+          await supabase.from('products').update({ stock_qty: prod.stock_qty - Number(item.qty) }).eq('id', prod.id)
+          await supabase.from('stock_movements').insert({
+            business_id: activeId,
+            product_id: prod.id,
+            quantity: Number(item.qty),
+            type: 'sale',
+            reference_id: saleData.id
+          })
+        }
       }
     }
 
     alert('Bill saved successfully!')
-    router.push('/sales') // History page par bhej do
+    router.push('/sales')
     setSaving(false)
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="animate-pulse text-blue-600 font-bold">Loading Form...</p></div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="animate-pulse text-blue-600 font-bold">Loading Form Data...</p></div>
+
   return (
     <main className="min-h-screen bg-gray-50 pb-24 font-sans">
       <header className="bg-white px-4 py-4 sticky top-0 z-10 border-b border-gray-100 flex items-center gap-3 shadow-sm">
         <Link href="/owner" className="text-gray-500 text-xl font-bold">←</Link>
-        <h1 className="text-lg font-bold text-gray-900">Create New Bill (Sale)</h1>
+        <h1 className="text-lg font-bold text-gray-900">Create New Bill</h1>
       </header>
 
       <div className="p-4 max-w-md mx-auto space-y-4">
         
-        {/* Customer Select */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <label className="block text-sm font-bold text-gray-800 mb-2">Customer</label>
           <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="w-full border border-gray-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
@@ -147,7 +164,6 @@ export default function NewSalePage() {
           </select>
         </div>
 
-        {/* Items List */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <h2 className="text-sm font-bold text-gray-800 mb-3">Add Products</h2>
           <div className="space-y-3">
@@ -163,7 +179,7 @@ export default function NewSalePage() {
                 <div className="flex gap-2">
                   <div className="w-1/3">
                     <label className="text-[10px] text-gray-500">Qty</label>
-                    <input type="number" min="1" max={item.stock} value={item.qty} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} className="w-full border border-gray-300 rounded-lg p-2 text-sm outline-none" />
+                    <input type="number" min="1" value={item.qty} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} className="w-full border border-gray-300 rounded-lg p-2 text-sm outline-none" />
                   </div>
                   <div className="w-1/3">
                     <label className="text-[10px] text-gray-500">Rate (₹)</label>
@@ -179,7 +195,6 @@ export default function NewSalePage() {
           <button onClick={addItem} className="w-full mt-3 bg-blue-50 text-blue-600 font-bold py-2 rounded-lg text-sm border border-blue-100">+ Add Another Product</button>
         </div>
 
-        {/* Payment & Calculation */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
           <div className="flex gap-3">
              <div className="flex-1">
@@ -199,11 +214,9 @@ export default function NewSalePage() {
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">Amount Received (₹)</label>
             <input type="number" value={paidAmount} onChange={(e) => setPaidAmount(Number(e.target.value))} className="w-full border border-gray-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
-            <p className="text-[10px] text-gray-500 mt-1">Agar pura paisa mila hai, toh same amount yahan likhein.</p>
           </div>
         </div>
 
-        {/* Total Summary */}
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 shadow-lg text-white">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-gray-400"><p>Subtotal</p><p>₹{subTotal.toFixed(2)}</p></div>
@@ -223,7 +236,6 @@ export default function NewSalePage() {
 
       </div>
 
-      {/* Save Button */}
       <div className="fixed bottom-0 w-full max-w-md left-1/2 -translate-x-1/2 bg-white border-t border-gray-200 p-4 z-50">
         <button onClick={handleSave} disabled={saving} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md active:scale-95 transition">
           {saving ? 'Saving Bill...' : 'Save Bill & Update Stock'}
