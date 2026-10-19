@@ -61,11 +61,16 @@ export default function OwnerQuotationsPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 pb-20 font-sans">
-      <header className="bg-white px-4 py-4 sticky top-0 z-10 border-b border-gray-100 flex items-center justify-between shadow-sm">
+            <header className="bg-white px-4 py-4 sticky top-0 z-10 border-b border-gray-100 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <Link href="/owner" className="text-gray-500 text-xl font-bold">←</Link>
-          <h1 className="text-lg font-bold text-gray-900">Customer Requests (Quotations)</h1>
+          <h1 className="text-lg font-bold text-gray-900">Quotations</h1>
         </div>
+        
+        {/* 🔥 YEH NAYA BUTTON HAI */}
+        <Link href="/owner/quotations/create" className="bg-blue-600 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-sm active:scale-95 transition">
+          + New Quote
+        </Link>
       </header>
 
       <div className="p-4 max-w-md mx-auto space-y-4">
