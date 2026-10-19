@@ -4,9 +4,12 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signIn } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/client' // 🔥 Role check ke liye add kiya
 
 export default function LoginPage() {
   const router = useRouter()
+  const supabase = createClient()
+  
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -41,23 +44,45 @@ export default function LoginPage() {
     // Purana business ID clear karo (naye user ke liye)
     localStorage.removeItem('current_business_id')
 
-    const params = new URLSearchParams(window.location.search)
-    const nextPath = params.get('next') || '/'
-    window.location.href = nextPath
+    // 🔥 NAYA LOGIC: Role check karke sahi dashboard par bhejo
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+      // Maan lo role 'users' table mein hai
+      const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
+      
+      const params = new URLSearchParams(window.location.search)
+      const nextPath = params.get('next')
+
+      if (nextPath) {
+        router.push(nextPath) // Agar kisi specific link se aaye hain
+      } else if (userData?.role === 'customer') {
+        router.push('/customer') // Customer Dashboard
+      } else {
+        router.push('/owner') // Business/Owner Dashboard
+      }
+    } else {
+      // Fallback
+      router.push('/owner') 
+    }
+    
+    setLoading(false)
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+        
+        {/* 🔥 SPELLING FIX YAHAN HAI */}
         <h1 className="text-2xl font-bold text-gray-900">
-          VyaparSetu
+          VyapaarSetu
         </h1>
         <p className="mt-1 text-sm text-gray-600">
-          Apne account me login karein
+          Apne account me login ka rein
         </p>
 
         {error && (
-          <div className="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+          <div className="mt-4 rounded border-red-300 bg-red-50 p-3 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -98,16 +123,15 @@ export default function LoginPage() {
                 {showPassword ? 'HIDE' : 'SHOW'}
               </button>
             </div>
-          </div>
-
-          <div className="text-right">
-            <button
-              type="button"
-              onClick={() => router.push('/forgot-password')}
-              className="text-xs text-blue-600 font-medium"
-            >
-              Password bhool gaye?
-            </button>
+            <div className="text-right mt-2">
+              <button
+                type="button"
+                onClick={() => router.push('/forgot-password')}
+                className="text-xs text-blue-600 font-medium"
+              >
+                Password bhool gaye?
+              </button>
+            </div>
           </div>
 
           <button
