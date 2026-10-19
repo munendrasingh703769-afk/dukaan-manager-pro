@@ -226,11 +226,6 @@ export default function OwnerDashboard() {
               <span className="text-lg">👤</span><div><p className="text-sm font-bold text-teal-900">Add Customer</p><p className="text-[10px] text-teal-700">Register</p></div>
             </Link>
             
-            <Link href="/owner/quotations" className="bg-orange-50 rounded-xl p-3 flex items-center gap-2 active:scale-95 transition border border-orange-100">
-              <span className="text-lg">📝</span>
-              <div><p className="text-sm font-bold text-orange-900">Quotations</p><p className="text-[10px] text-orange-700">Customer requests</p></div>
-            </Link>
-
           </div>
         </section>
 
