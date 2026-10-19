@@ -36,7 +36,18 @@ export default function CustomerHome() {
           <p className="text-xs text-blue-100">Order from your favourite local shops.</p>
         </div>
 
-        <h2 className="text-lg font-bold text-gray-900 mt-6">Categories (Koteson)</h2>
+        <h2 className="text-lg font-bold text-gray-900 mt-6">Categories (Quetation)</h2>
+        {/* My Requests Link */}
+        <Link href="/customer/quotations" className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-95 transition mt-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center text-xl">📝</div>
+            <div>
+              <p className="text-sm font-bold text-gray-900">My Estimate Requests</p>
+              <p className="text-[10px] text-gray-500">Check provider quotes & approve</p>
+            </div>
+          </div>
+          <span className="text-gray-400">›</span>
+        </Link>
         <div className="grid grid-cols-4 gap-2">
           <div className="bg-white p-3 rounded-xl shadow-sm text-center"><span className="text-2xl">🛒</span><p className="text-[10px] font-bold mt-1 text-gray-700">Grocery</p></div>
           <div className="bg-white p-3 rounded-xl shadow-sm text-center"><span className="text-2xl">💊</span><p className="text-[10px] font-bold mt-1 text-gray-700">Medical</p></div>
