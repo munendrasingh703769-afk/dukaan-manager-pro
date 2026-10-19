@@ -163,14 +163,12 @@ export default function OwnerDashboard() {
           </div>
         </section>
 
-        {/* Business Overview - Colorful */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold text-gray-900">Business Overview</h2>
             <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-md border border-gray-200 shadow-sm">📅 Today</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            
             <div onClick={() => setModalType('sales')} className="bg-gradient-to-br from-emerald-400 to-green-600 rounded-2xl p-3 shadow-md cursor-pointer active:scale-95 transition relative overflow-hidden">
               <div className="absolute -right-2 -bottom-2 text-5xl opacity-20">📈</div>
               <div className="flex items-center gap-2 mb-2 relative z-10">
@@ -227,6 +225,12 @@ export default function OwnerDashboard() {
             <Link href="/customers" className="bg-teal-50 rounded-xl p-3 flex items-center gap-2 active:scale-95 transition border border-teal-100">
               <span className="text-lg">👤</span><div><p className="text-sm font-bold text-teal-900">Add Customer</p><p className="text-[10px] text-teal-700">Register</p></div>
             </Link>
+            
+            <Link href="/owner/quotations" className="bg-orange-50 rounded-xl p-3 flex items-center gap-2 active:scale-95 transition border border-orange-100">
+              <span className="text-lg">📝</span>
+              <div><p className="text-sm font-bold text-orange-900">Quotations</p><p className="text-[10px] text-orange-700">Customer requests</p></div>
+            </Link>
+
           </div>
         </section>
 
@@ -298,21 +302,9 @@ export default function OwnerDashboard() {
 
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-6 px-1 z-20">
         <Link href="/owner" className="flex flex-col items-center gap-1 text-emerald-600"><span className="text-xl">🏠</span><span className="text-[10px] font-bold">Home</span></Link>
-        
-        <Link href="/orders" className="relative flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
-          <span className="text-xl">🛒</span>
-          <span className="text-[10px] font-medium">Orders</span>
-        </Link>
-
-        <button onClick={() => setModalType('scanner')} className="flex flex-col items-center justify-center bg-blue-600 text-white w-14 h-14 rounded-full -mt-6 shadow-lg border-4 border-white">
-          <span className="text-2xl">📷</span>
-        </button>
-
-        <Link href="/sales" className="flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600">
-          <span className="text-xl">🧾</span>
-          <span className="text-[10px] font-medium">Sales</span>
-        </Link>
-
+        <Link href="/orders" className="relative flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600"><span className="text-xl">🛒</span><span className="text-[10px] font-medium">Orders</span></Link>
+        <button onClick={() => setModalType('scanner')} className="flex flex-col items-center justify-center bg-blue-600 text-white w-14 h-14 rounded-full -mt-6 shadow-lg border-4 border-white"><span className="text-2xl">📷</span></button>
+        <Link href="/sales" className="flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600"><span className="text-xl">🧾</span><span className="text-[10px] font-medium">Sales</span></Link>
         <Link href="/settings" className="flex flex-col items-center gap-1 text-gray-400 hover:text-emerald-600"><span className="text-xl">⚙️</span><span className="text-[10px] font-medium">Settings</span></Link>
       </nav>
 
