@@ -216,7 +216,7 @@ export default function OwnerDashboard() {
             <Link href="/sales/new" className="bg-emerald-50 rounded-xl p-3 flex items-center gap-2 active:scale-95 transition border border-emerald-100">
               <span className="text-lg">🛒</span><div><p className="text-sm font-bold text-emerald-900">New Sale</p><p className="text-[10px] text-emerald-700">Create invoice</p></div>
             </Link>
-            <Link href="/purchases" className="bg-blue-50 rounded-xl p-3 flex items-center gap-2 active:scale-95 transition border border-blue-100">
+            <Link href="/purchases/new" className="bg-blue-50 rounded-xl p-3 flex items-center gap-2 active:scale-95 transition border border-blue-100">
               <span className="text-lg">🚚</span><div><p className="text-sm font-bold text-blue-900">Product & Stock</p><p className="text-[10px] text-blue-700">Add stock</p></div>
             </Link>
             <Link href="/products" className="bg-purple-50 rounded-xl p-3 flex items-center gap-2 active:scale-95 transition border border-purple-100">
