@@ -3,8 +3,6 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { fetchUserRole } from '@/lib/auth'
-
 type SaleItem = {
   id: string;
   product_name: string;
@@ -51,11 +49,11 @@ export default function SaleDetailPage() {
     loadData()
   }, [])
 
-  async function loadData() {
-    setLoading(true)
-    try {
-      const roleRes = await fetchUserRole()
-      setRole(roleRes)
+        const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
+        setRole(userData?.role || null)
+      }
       
       const { data, error: err } = await supabase
         .from('sales')
