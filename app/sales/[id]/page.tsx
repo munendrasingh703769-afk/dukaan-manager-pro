@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+
 type SaleItem = {
   id: string;
   product_name: string;
@@ -49,12 +50,18 @@ export default function SaleDetailPage() {
     loadData()
   }, [])
 
-        const { data: { user } } = await supabase.auth.getUser()
+  // 🔥 YAHAN MAIN FUNCTION SHURU HOTA HAI JO PEHLE MISSING THA
+  async function loadData() {
+    setLoading(true)
+    try {
+      // 1. User Role Fetch
+      const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
         setRole(userData?.role || null)
       }
       
+      // 2. Sale Data Fetch
       const { data, error: err } = await supabase
         .from('sales')
         .select('*')
@@ -67,8 +74,8 @@ export default function SaleDetailPage() {
         return
       }
 
+      // 3. Sale Items Fetch
       let itemsQuery = supabase.from('sale_items').select('id, product_name, hsn_code, qty, price_per_unit, total_price, tax_percentage').eq('sale_id', params.id)
-      
       const { data: itemsData } = await itemsQuery
       
       const itemsList = itemsData || []
@@ -85,6 +92,7 @@ export default function SaleDetailPage() {
 
       setItems(mappedItems)
 
+      // 4. State Update
       setSale({
         id: data.id,
         invoice_no: data.invoice_no,
@@ -124,7 +132,7 @@ export default function SaleDetailPage() {
     }
   }
 
-  // Convert Number to Words (Aapke logic ke hisaab se)
+  // Convert Number to Words
   const numberToWords = (num: number): string => {
     const a = ['','one ','two ','three ','four ', 'five ','six ','seven ','eight ','nine ','ten ','eleven ','twelve ','thirteen ','fourteen ','fifteen ','sixteen ','seventeen ','eighteen ','nineteen '];
     const b = ['', '', 'twenty','thirty','forty','fifty', 'sixty','seventy','eighty','ninety'];
