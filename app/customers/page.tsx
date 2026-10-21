@@ -18,6 +18,8 @@ export default function CustomersAndSalesPage() {
   // Customer Form State
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState(''); // 🔥 Naya
+  const [gstNumber, setGstNumber] = useState(''); // 🔥 Naya
   const [address, setAddress] = useState('');
   const [customerType, setCustomerType] = useState('Regular Customer');
   const [plan, setPlan] = useState('Free Plan');
@@ -56,6 +58,8 @@ export default function CustomersAndSalesPage() {
       business_id: activeId,
       name, 
       phone, 
+      email: email.trim() || null, // 🔥 Naya
+      gst_number: gstNumber.trim() || null, // 🔥 Naya
       address: address || 'Not Provided', 
       customer_type: customerType, 
       plan: plan, 
@@ -67,7 +71,7 @@ export default function CustomersAndSalesPage() {
       alert('Error: ' + error.message);
     } else { 
       alert('Customer Saved Successfully!'); 
-      setName(''); setPhone(''); setAddress(''); setOpeningUdhaar('0'); 
+      setName(''); setPhone(''); setEmail(''); setGstNumber(''); setAddress(''); setOpeningUdhaar('0'); 
       fetchCustomers(); 
     }
     setLoading(false);
@@ -81,7 +85,6 @@ export default function CustomersAndSalesPage() {
     setLoading(true);
     const selectedCust = customers.find(c => c.id === selectedCustomerId);
     
-    // Sale ya Quotation table me data dalna
     if (salesOrQuoteTab === 'sale') {
       const invoiceNo = `INV-${new Date().getTime().toString().slice(-6)}`;
       const { error } = await supabase.from('sales').insert([{ 
@@ -90,7 +93,7 @@ export default function CustomersAndSalesPage() {
         customer_name: selectedCust?.name, 
         invoice_no: invoiceNo,
         total_amount: parseFloat(amount), 
-        paid_amount: parseFloat(amount), // Maan lo pura paisa mil gaya
+        paid_amount: parseFloat(amount), 
         due_amount: 0,
         payment_method: 'cash',
         status: 'paid'
@@ -166,6 +169,7 @@ export default function CustomersAndSalesPage() {
                     <label className="text-xs font-bold text-slate-500 mb-1 block">Name *</label>
                     <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none" placeholder="Ex: Rakesh Kumar" required />
                   </div>
+                  
                   <div>
                     <label className="text-xs font-bold text-slate-500 mb-1 block">Phone *</label>
                     <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none" placeholder="9876543210" required />
@@ -174,6 +178,17 @@ export default function CustomersAndSalesPage() {
                     <label className="text-xs font-bold text-slate-500 mb-1 block">Opening Udhaar (₹)</label>
                     <input type="number" value={openingUdhaar} onChange={(e) => setOpeningUdhaar(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none" />
                   </div>
+
+                  {/* 🔥 Naye Fields: Email & GST */}
+                  <div className="col-span-2">
+                    <label className="text-xs font-bold text-slate-500 mb-1 block">Email Address (Gmail)</label>
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none" placeholder="customer@gmail.com" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs font-bold text-slate-500 mb-1 block">GST Number</label>
+                    <input type="text" value={gstNumber} onChange={(e) => setGstNumber(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none uppercase" placeholder="22AAAAA0000A1Z5" />
+                  </div>
+
                   <div className="col-span-2">
                     <label className="text-xs font-bold text-slate-500 mb-1 block">Address</label>
                     <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none" placeholder="Optional" />
@@ -207,22 +222,32 @@ export default function CustomersAndSalesPage() {
               ) : (
                 <div className="space-y-3">
                   {filteredCustomers.map((cust) => (
-                    <div key={cust.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center font-bold text-lg">
-                          {cust.name.charAt(0).toUpperCase()}
+                    <div key={cust.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center font-bold text-lg">
+                            {cust.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-800 text-sm">{cust.name}</p>
+                            <p className="text-[10px] text-slate-500 font-medium">📞 {cust.phone}</p>
+                            {cust.email && <p className="text-[10px] text-slate-500 font-medium">✉️ {cust.email}</p>}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-slate-800 text-sm">{cust.name}</p>
-                          <p className="text-[10px] text-slate-500 font-medium">{cust.phone}</p>
+                        <div className="text-right">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Udhaar</p>
+                          <p className={`font-black text-sm ${Number(cust.current_balance) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            ₹{Number(cust.current_balance || 0).toFixed(2)}
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Udhaar</p>
-                        <p className={`font-black text-sm ${Number(cust.current_balance) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          ₹{Number(cust.current_balance || 0).toFixed(2)}
-                        </p>
-                      </div>
+                      {/* GST aur Address dikhane ke liye */}
+                      {(cust.gst_number || cust.address) && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-2 text-[10px] text-slate-600">
+                          {cust.gst_number && <span className="bg-slate-100 px-2 py-1 rounded font-mono font-bold">GST: {cust.gst_number}</span>}
+                          {cust.address && <span className="truncate max-w-[200px]">📍 {cust.address}</span>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -253,6 +278,7 @@ export default function CustomersAndSalesPage() {
               {currentSelectedCustomer && (
                 <div className="bg-teal-50 border border-teal-100 p-3 rounded-xl space-y-1">
                   <p className="text-xs text-teal-800"><strong>Address:</strong> {currentSelectedCustomer.address}</p>
+                  {currentSelectedCustomer.gst_number && <p className="text-xs text-teal-800"><strong>GST:</strong> {currentSelectedCustomer.gst_number}</p>}
                   <p className="text-xs text-teal-800"><strong>Config:</strong> {currentSelectedCustomer.customer_type} | {currentSelectedCustomer.plan}</p>
                 </div>
               )}
