@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient'; 
 
@@ -57,56 +58,25 @@ setLoading(false);
 }; 
 
 const filteredCustomers = customers.filter(c => c.name?.toLowerCase().includes(searchQuery.toLowerCase()) || c.phone?.includes(searchQuery));
-const currentSelectedCustomer = customers.find(c => c.id === selectedCustomerId); 
-
-return ( 
+const currentSelectedCustomer = customers.find(c => c.id === selectedCustomerId);return ( 
 
 } 
 
 {activeTab === 'customers' ? (
-<button onClick={() => { setSelectedCustomerId(customer.id); setActiveTab('billing'); setSalesOrQuoteTab('sales'); }} className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-semibold text-slate-300 hover:bg-teal-500 hover:text-slate-950 transition-all">+ Sale
-<button onClick={() => { setSelectedCustomerId(customer.id); setActiveTab('billing'); setSalesOrQuoteTab('quotation'); }} className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-semibold text-slate-300 hover:bg-emerald-500 hover:text-slate-950 transition-all">+ Quote
-
-
-
-))
-)}
-
-
-
 ) : (
 
 
 <button className={flex-1 py-2.5 rounded-lg text-sm font-bold ${salesOrQuoteTab === 'sales' ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950' : 'text-slate-400'}} onClick={() => setSalesOrQuoteTab('sales')}>Sales Mode
 <button className={flex-1 py-2.5 rounded-lg text-sm font-bold ${salesOrQuoteTab === 'quotation' ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950' : 'text-slate-400'}} onClick={() => setSalesOrQuoteTab('quotation')}>Quotation Mode
+
+
 Select Customer
 <select value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none text-slate-200">
 -- Choose Account --
 {customers.map(c => ( {c.name} ({c.phone}) ))}
-
-
 {currentSelectedCustomer && (
 
 Address: {currentSelectedCustomer.address}
 Config: {currentSelectedCustomer.customer_type} | {currentSelectedCustomer.plan}
 
 )}
-Service Description
-<input type="text" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="Ex: Home AC Repair Service" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200" required />
-Total Price (₹)
-<input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200" required />
-
-GST %
-<select value={taxRate} onChange={(e) => setTaxRate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200">
-0%5%12%18%
-
-
-
-Execute {salesOrQuoteTab}
-
-
-)}
-
-
-);
-}
