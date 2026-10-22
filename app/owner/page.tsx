@@ -25,7 +25,7 @@ export default function OwnerDashboard() {
   
   const [lang, setLang] = useState<'en' | 'hi'>('en')
   const [modalType, setModalType] = useState<'sales' | 'udhaar' | 'stock' | 'profile' | 'scanner' | null>(null)
-
+  const [paymentRequests, setPaymentRequests] = useState<any[]>([])
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
