@@ -1,21 +1,25 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { getCurrentBusinessId } from '@/lib/business';
 
-export default function CustomersAndSalesPage() {
+export default function CustomersPage() {
   const supabase = createClient();
+  const router = useRouter();
   const activeId = getCurrentBusinessId();
 
+  // Tabs State
   const [activeTab, setActiveTab] = useState<'customers' | 'create_doc'>('customers');
   const [salesOrQuoteTab, setSalesOrQuoteTab] = useState<'sale' | 'quotation'>('sale');
   
+  // Customers Data & Search State
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Customer Form State
+  // Add Customer Form State
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState(''); 
@@ -23,13 +27,13 @@ export default function CustomersAndSalesPage() {
   const [address, setAddress] = useState('');
   const [openingUdhaar, setOpeningUdhaar] = useState('0');
 
-  // Document Form State
+  // Create Document (Sale/Quote) State
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [itemName, setItemName] = useState('');
   const [amount, setAmount] = useState('');
   const [taxRate, setTaxRate] = useState('18'); 
 
-  // 🔥 Payment Modal State
+  // Payment Modal State
   const [paymentModal, setPaymentModal] = useState<any>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payMode, setPayMode] = useState('cash');
@@ -38,6 +42,7 @@ export default function CustomersAndSalesPage() {
     if (activeId) fetchCustomers();
   }, [activeId]);
 
+  // 1. Fetch Customers
   const fetchCustomers = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -50,6 +55,7 @@ export default function CustomersAndSalesPage() {
     setLoading(false);
   };
 
+  // 2. Save New Customer
   const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !phone) return alert('Name & Phone are required!');
@@ -66,8 +72,9 @@ export default function CustomersAndSalesPage() {
       current_balance: parseFloat(openingUdhaar) || 0
     }]);
 
-    if (error) alert('Error: ' + error.message);
-    else { 
+    if (error) {
+      alert('Error: ' + error.message);
+    } else { 
       alert('Customer Saved Successfully!'); 
       setName(''); setPhone(''); setEmail(''); setGstNumber(''); setAddress(''); setOpeningUdhaar('0'); 
       fetchCustomers(); 
@@ -75,7 +82,7 @@ export default function CustomersAndSalesPage() {
     setLoading(false);
   }; 
 
-  // 🔥 Handle Payment Submission
+  // 3. Receive Payment (Udhaar Vasooli)
   const handleReceivePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!paymentModal || !payAmount) return;
@@ -85,7 +92,7 @@ export default function CustomersAndSalesPage() {
 
     setLoading(true);
 
-    // 1. Payment Record Save karo
+    // Payment Record Save karo
     const { error: payError } = await supabase.from('payments').insert([{
       business_id: activeId,
       customer_id: paymentModal.id,
@@ -99,9 +106,8 @@ export default function CustomersAndSalesPage() {
       return;
     }
 
-    // 2. Customer ka Current Balance kam karo
+    // Customer ka Current Balance kam karo
     const newBalance = Number(paymentModal.current_balance || 0) - amountToPay;
-    
     const { error: custError } = await supabase.from('customers')
       .update({ current_balance: newBalance })
       .eq('id', paymentModal.id);
@@ -112,11 +118,12 @@ export default function CustomersAndSalesPage() {
       alert(`₹${amountToPay} received successfully!`);
       setPaymentModal(null);
       setPayAmount('');
-      fetchCustomers(); // List refresh karo
+      fetchCustomers(); 
     }
     setLoading(false);
   };
 
+  // 4. Create Sale or Quotation
   const handleProcessTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomerId || !amount || !itemName) return alert('Please fill all details!');
@@ -158,6 +165,7 @@ export default function CustomersAndSalesPage() {
     setLoading(false);
   };
 
+  // Filter Customers by Search
   const filteredCustomers = customers.filter(c => 
     c.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     c.phone?.includes(searchQuery)
@@ -196,6 +204,7 @@ export default function CustomersAndSalesPage() {
         {/* ================= TAB 1: CUSTOMERS ================= */}
         {activeTab === 'customers' && (
           <div className="space-y-5 animate-fade-in">
+            
             {/* Add Customer Form */}
             <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
@@ -256,71 +265,56 @@ export default function CustomersAndSalesPage() {
               ) : (
                 <div className="space-y-3">
                   {filteredCustomers.map((cust) => (
-                    <div key={cust.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center font-bold text-lg">
-                            {cust.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-800 text-sm">{cust.name}</p>
-                            <p className="text-[10px] text-slate-500 font-medium">📞 {cust.phone}</p>
-                            {cust.email && <p className="text-[10px] text-slate-500 font-medium">✉️ {cust.email}</p>}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Udhaar</p>
-                          <p className={`font-black text-sm ${Number(cust.current_balance) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                            ₹{Number(cust.current_balance || 0).toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                  {/* Card Container */}
-                  <div 
-                    key={cust.id} 
-                    onClick={() => router.push(`/customers/${cust.id}`)} 
-                    className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 cursor-pointer hover:border-teal-400 transition active:scale-[0.98]"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center font-bold text-lg">
-                          {cust.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-800 text-sm">{cust.name}</p>
-                          <p className="text-[10px] text-slate-500 font-medium">📞 {cust.phone}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Udhaar</p>
-                        <p className={`font-black text-sm ${Number(cust.current_balance) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          ₹{Number(cust.current_balance || 0).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
-                      {/* Naya View History Button */}
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); router.push(`/customers/${cust.id}`); }}
-                        className="text-[10px] font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg active:scale-95 transition"
+                    <div key={cust.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                      {/* Card Top Area (Clickable for History) */}
+                      <div 
+                        onClick={() => router.push(`/customers/${cust.id}`)} 
+                        className="p-4 cursor-pointer hover:bg-slate-50 transition"
                       >
-                        📖 View History
-                      </button>
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center font-bold text-lg">
+                              {cust.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800 text-sm">{cust.name}</p>
+                              <p className="text-[10px] text-slate-500 font-medium">📞 {cust.phone}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Udhaar</p>
+                            <p className={`font-black text-sm ${Number(cust.current_balance) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                              ₹{Number(cust.current_balance || 0).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
 
-                      {/* Receive Payment Button */}
-                      {Number(cust.current_balance) > 0 && (
+                      {/* Card Bottom Actions Area */}
+                      <div className="bg-slate-50 border-t border-slate-100 px-4 py-3 flex justify-between items-center">
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setPaymentModal(cust); }} 
-                          className="bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold px-3 py-1.5 rounded-lg active:scale-95 transition"
+                          onClick={() => router.push(`/customers/${cust.id}`)} 
+                          className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg active:scale-95 transition shadow-sm"
                         >
-                          Receive ₹
+                          📖 View History
                         </button>
-                      )}
+                        
+                        {Number(cust.current_balance) > 0 && (
+                          <button 
+                            onClick={() => setPaymentModal(cust)} 
+                            className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-3 py-1.5 rounded-lg active:scale-95 transition shadow-sm"
+                          >
+                            Receive ₹
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                       
-               
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ================= TAB 2: CREATE DOCUMENT ================= */}
         {activeTab === 'create_doc' && (
@@ -378,7 +372,7 @@ export default function CustomersAndSalesPage() {
 
       </div>
 
-      {/* 🔥 PAYMENT MODAL (Pop-up) */}
+      {/* Payment Modal */}
       {paymentModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up">
