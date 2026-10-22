@@ -275,29 +275,52 @@ export default function CustomersAndSalesPage() {
                           </p>
                         </div>
                       </div>
-
-                      {/* Payment Receive Button */}
-                      <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
-                        <div className="text-[10px] text-slate-600">
-                          {cust.gst_number && <span className="bg-slate-100 px-2 py-1 rounded font-mono font-bold mr-2">GST: {cust.gst_number}</span>}
-                          {cust.address && <span>📍 {cust.address}</span>}
+                  {/* Card Container */}
+                  <div 
+                    key={cust.id} 
+                    onClick={() => router.push(`/customers/${cust.id}`)} 
+                    className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 cursor-pointer hover:border-teal-400 transition active:scale-[0.98]"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center font-bold text-lg">
+                          {cust.name.charAt(0).toUpperCase()}
                         </div>
-                        {Number(cust.current_balance) > 0 && (
-                          <button 
-                            onClick={() => setPaymentModal(cust)}
-                            className="bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold px-3 py-1.5 rounded-lg active:scale-95 transition"
-                          >
-                            Receive ₹
-                          </button>
-                        )}
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">{cust.name}</p>
+                          <p className="text-[10px] text-slate-500 font-medium">📞 {cust.phone}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Udhaar</p>
+                        <p className={`font-black text-sm ${Number(cust.current_balance) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          ₹{Number(cust.current_balance || 0).toFixed(2)}
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+
+                    <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
+                      {/* Naya View History Button */}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); router.push(`/customers/${cust.id}`); }}
+                        className="text-[10px] font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg active:scale-95 transition"
+                      >
+                        📖 View History
+                      </button>
+
+                      {/* Receive Payment Button */}
+                      {Number(cust.current_balance) > 0 && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setPaymentModal(cust); }} 
+                          className="bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold px-3 py-1.5 rounded-lg active:scale-95 transition"
+                        >
+                          Receive ₹
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                       
+               
 
         {/* ================= TAB 2: CREATE DOCUMENT ================= */}
         {activeTab === 'create_doc' && (
