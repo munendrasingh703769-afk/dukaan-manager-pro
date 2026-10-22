@@ -15,7 +15,7 @@ export default function CustomerLedgerPage() {
   const [ledger, setLedger] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 Search State
+  // Search State
   const [searchQuery, setSearchQuery] = useState('');
 
   // Payment Modal State
@@ -31,14 +31,38 @@ export default function CustomerLedgerPage() {
   const fetchLedgerData = async () => {
     setLoading(true);
     
+    // 1. Customer ki details fetch karo
     const { data: custData } = await supabase.from('customers').select('*').eq('id', customerId).single();
     if (custData) setCustomer(custData);
 
-    const { data: salesData } = await supabase.from('sales').select('id, invoice_no, total_amount, due_amount, created_at').eq('customer_id', customerId).gt('due_amount', 0);
-    const { data: paymentsData } = await supabase.from('payments').select('*').eq('customer_id', customerId);
+    // 2. Sales (Bills) fetch karo jisme udhaar baaki hai
+    const { data: salesData } = await supabase
+      .from('sales')
+      .select('id, invoice_no, total_amount, due_amount, created_at')
+      .eq('customer_id', customerId)
+      .gt('due_amount', 0); // Sirf wahi jisme due hai
+
+    // 3. Payments (Vasooli) fetch karo
+    const { data: paymentsData } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('customer_id', customerId);
 
     let combined: any[] = [];
     
+    // 4. Opening Balance ko history me sabse pehle add karo (agar hai toh)
+    if (custData && Number(custData.opening_balance) > 0) {
+      combined.push({
+        type: 'sale', // Red color dikhane ke liye
+        date: new Date(custData.created_at || new Date()), 
+        title: 'Opening Udhaar (Purana)',
+        amount: Number(custData.opening_balance),
+        due: Number(custData.opening_balance),
+        id: 'opening-bal'
+      });
+    }
+
+    // 5. Sales ko add karo
     salesData?.forEach(s => {
       combined.push({
         type: 'sale',
@@ -50,17 +74,20 @@ export default function CustomerLedgerPage() {
       });
     });
 
+    // 6. Payments ko add karo
     paymentsData?.forEach(p => {
       combined.push({
         type: 'payment',
         date: new Date(p.created_at),
-        title: `Payment (${p.payment_mode.toUpperCase()})`,
+        title: `Payment Received (${p.payment_mode.toUpperCase()})`,
         amount: Number(p.amount),
         id: p.id
       });
     });
 
+    // 7. Sabko date ke hisaab se sort karo (Latest sabse upar)
     combined.sort((a, b) => b.date.getTime() - a.date.getTime());
+    
     setLedger(combined);
     setLoading(false);
   };
@@ -72,6 +99,7 @@ export default function CustomerLedgerPage() {
     setSaving(true);
     const amountToPay = Number(payAmount);
 
+    // Payment history me save karo
     const { error: payError } = await supabase.from('payments').insert([{
       business_id: customer.business_id,
       customer_id: customerId,
@@ -85,17 +113,18 @@ export default function CustomerLedgerPage() {
       return;
     }
 
+    // Customer ka total udhaar kam karo
     const newBalance = Number(customer.current_balance || 0) - amountToPay;
     await supabase.from('customers').update({ current_balance: newBalance }).eq('id', customerId);
 
     alert(`₹${amountToPay} received successfully!`);
     setShowPayModal(false);
     setPayAmount('');
-    fetchLedgerData();
+    fetchLedgerData(); // Data refresh karo
     setSaving(false);
   };
 
-  // 🔥 Filter Logic: Search by Bill No, Amount, or Date
+  // Search Filter Logic (Bill No, Date, Amount se search hoga)
   const filteredLedger = ledger.filter(item => {
     const q = searchQuery.toLowerCase();
     const dateStr = item.date.toLocaleDateString('en-IN').toLowerCase();
@@ -146,7 +175,7 @@ export default function CustomerLedgerPage() {
         <div>
           <h3 className="text-sm font-black text-slate-800 mb-3 px-1 uppercase tracking-wide">Transaction History</h3>
           
-          {/* 🔥 SEARCH BAR YAHAN HAI */}
+          {/* Search Bar */}
           <div className="relative mb-5">
             <input 
               type="text" 
@@ -161,15 +190,17 @@ export default function CustomerLedgerPage() {
           <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
             
             {filteredLedger.length === 0 ? (
-              <p className="text-center text-slate-400 py-6 text-sm font-medium">Koi transaction nahi mili.</p>
+              <p className="text-center text-slate-400 py-6 text-sm font-medium bg-white rounded-xl border border-slate-100">Koi transaction nahi mili.</p>
             ) : (
               filteredLedger.map((item, index) => (
                 <div key={index} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-white shadow-sm shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 ${item.type === 'sale' ? 'text-rose-500' : 'text-emerald-500'} relative z-10`}>
+                  {/* Timeline Icon */}
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-slate-50 bg-white shadow-sm shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 ${item.type === 'sale' ? 'text-rose-500' : 'text-emerald-500'} relative z-10`}>
                     {item.type === 'sale' ? '🛒' : '💰'}
                   </div>
                   
-                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                  {/* Transaction Card */}
+                  <div className="w-[calc(100%-3.5rem)] bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                     <div className="flex justify-between items-start mb-1">
                       <p className="text-sm font-bold text-slate-800">{item.title}</p>
                       <p className={`text-sm font-black ${item.type === 'sale' ? 'text-rose-600' : 'text-emerald-600'}`}>
