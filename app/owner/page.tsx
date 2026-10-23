@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import Card from '@/components/ui/Card';
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId, setCurrentBusinessId } from '@/lib/business'
 
