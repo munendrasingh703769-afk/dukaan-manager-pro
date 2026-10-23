@@ -39,7 +39,7 @@ export default function OwnerDashboard() {
     fetchData();
   }, []);
 
-  async function fetchData() {
+  async function fetchData(overrideBizId?: string) {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -48,24 +48,29 @@ export default function OwnerDashboard() {
       const { data: profile } = await supabase.from('users').select('*, businesses(*)').eq('id', user.id).single();
       
       if (profile) {
-        // FIX: Array aur Object dono handle karne ka sahi tarika
         let bizList: Business[] = [];
         if (Array.isArray(profile.businesses)) {
           bizList = profile.businesses;
         } else if (profile.businesses) {
           bizList = [profile.businesses];
         }
-
+        
         setAllBusinesses(bizList);
         
         if (bizList.length > 0) {
           const storedBizId = typeof window !== 'undefined' ? localStorage.getItem('selectedBusinessId') : null;
-          let activeBiz = bizList.find((b: any) => b.id === storedBizId) || bizList[0];
-          
+          let activeBiz = bizList[0]; // Default pehla business
+
+          if (overrideBizId) {
+            activeBiz = bizList.find((b: any) => b.id === overrideBizId) || bizList[0];
+          } else if (storedBizId) {
+            activeBiz = bizList.find((b: any) => b.id === storedBizId) || bizList[0];
+          }
+
           if (typeof window !== 'undefined') localStorage.setItem('selectedBusinessId', activeBiz.id);
           setCurrentBusiness(activeBiz);
           
-          // FIX: Trial Days Calculation
+          // Trial Logic
           if (activeBiz.trial_start_date) {
             const start = new Date(activeBiz.trial_start_date).getTime();
             const now = new Date().getTime();
@@ -114,11 +119,8 @@ export default function OwnerDashboard() {
   }
 
   function handleBusinessSwitch(id: string) {
-    if (typeof window !== 'undefined') localStorage.setItem('selectedBusinessId', id);
-    const biz = allBusinesses.find(b => b.id === id);
-    if (biz) setCurrentBusiness(biz);
     setIsBizDropdownOpen(false);
-    fetchData();
+    fetchData(id);
   }
 
   async function handleDeleteBusiness() {
@@ -162,7 +164,7 @@ export default function OwnerDashboard() {
 
   return (
     <main className="min-h-screen bg-slate-50 pb-24">
-      {/* Header (Screenshot 1 jaisa) */}
+      {/* Header */}
       <header className="bg-white px-4 py-3 sticky top-0 z-40 border-b border-slate-200 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">V</div>
@@ -177,24 +179,28 @@ export default function OwnerDashboard() {
           <div className="relative">
             <button 
               onClick={() => setIsBizDropdownOpen(!isBizDropdownOpen)}
-              className="text-sm font-bold text-slate-800 flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-slate-200"
+              className="text-[11px] font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1 max-w-[110px]"
             >
-              <span className="truncate max-w-[80px]">{currentBusiness?.business_name || 'Dukaan...'}</span>
-              <span className="text-[10px] text-slate-500">▼</span>
+              <span className="truncate">{currentBusiness?.business_name || 'Dukaan...'}</span>
+              <span className="text-[8px]">▼</span>
             </button>
             
             {isBizDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
                 <div className="max-h-40 overflow-y-auto">
-                  {allBusinesses.map(b => (
-                    <button 
-                      key={b.id} 
-                      onClick={() => handleBusinessSwitch(b.id)}
-                      className={`w-full text-left px-3 py-2 text-xs font-medium border-b border-slate-50 hover:bg-slate-50 ${currentBusiness?.id === b.id ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-700'}`}
-                    >
-                      {b.business_name}
-                    </button>
-                  ))}
+                  {allBusinesses.length === 0 ? (
+                    <p className="p-3 text-xs text-slate-500">No business found</p>
+                  ) : (
+                    allBusinesses.map(b => (
+                      <button 
+                        key={b.id} 
+                        onClick={() => handleBusinessSwitch(b.id)}
+                        className={`w-full text-left px-3 py-2 text-xs font-medium border-b border-slate-50 hover:bg-slate-50 ${currentBusiness?.id === b.id ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-700'}`}
+                      >
+                        {b.business_name}
+                      </button>
+                    ))
+                  )}
                 </div>
                 <div className="p-2 bg-slate-50 border-t border-slate-200 flex flex-col gap-1">
                   <button onClick={() => router.push('/settings/business/new')} className="text-left px-2 py-1.5 text-[11px] font-bold text-emerald-600 hover:bg-white rounded transition-colors flex items-center gap-1">
@@ -266,7 +272,7 @@ export default function OwnerDashboard() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {/* Today's Sales FIXED: Added !bg-[#1e1e24] so text is visible */}
+          {/* Today's Sales FIXED (Added !bg-[#1e1e24]) */}
           <Card onClick={() => setModalType('todaySales')} className="cursor-pointer active:scale-95 transition-transform !bg-[#1e1e24] border-0 text-white shadow-md relative overflow-hidden">
             <div className="flex justify-between items-start mb-2 relative z-10">
               <p className="text-[11px] font-semibold tracking-wider text-slate-300 uppercase">Today's Sales</p>
