@@ -1,8 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase'; 
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
+import Card from '@/components/ui /Card';
+import Button from '@/components /ui/Button';
+import Badge from '@/components/ui /Badge';
 import { Building2, Crown, Bell, ScanLine, ArrowUpRight, AlertTriangle, TrendingUp, DollarSign, FileText, ChevronRight, UserPlus, ShoppingBag, PlusCircle, Trash2, Settings, Smartphone, LogOut, Check, X } from 'lucide-react';
 
 type Business = {
