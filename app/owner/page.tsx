@@ -230,20 +230,21 @@ export default function OwnerDashboard() {
           </div>
         )}
 
-        {/* Premium Trial Banner (Always Visible) */}
-        {currentBusiness && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm relative overflow-hidden flex items-center justify-between">
-            <div className="relative z-10 flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 text-xl">👑</div>
-              <div>
-                <h3 className="text-sm font-bold text-emerald-800 tracking-wide">
-                  {trialDays > 0 ? `Trial: ${trialDays} days left` : 'Trial Expired'}
-                </h3>
-                <p className="text-[11px] text-emerald-600 font-medium">Explore premium features</p>
-              </div>
+                {/* Premium Trial Banner (Always Visible) */}
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm relative overflow-hidden flex items-center justify-between">
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 text-xl">👑</div>
+            <div>
+              <h3 className="text-sm font-bold text-emerald-800 tracking-wide">
+                {trialDays > 0 ? `Trial: ${trialDays} days left` : 'Trial Expired'}
+              </h3>
+              <p className="text-[11px] text-emerald-600 font-medium">Upgrade to unlock all features</p>
             </div>
-            <Link href="/pricing" className="relative z-10 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-blue-700 active:scale-95 transition-all">Upgrade →</Link>
           </div>
+          <Link href="/pricing" className="relative z-10 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-blue-700 active:scale-95 transition-all">
+            Upgrade →
+          </Link>
+        </div>
         )}
         {/* Business Overview (Clickable Cards) */}
         <div className="flex items-center justify-between mt-6 mb-3 px-1">
