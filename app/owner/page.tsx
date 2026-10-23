@@ -25,7 +25,10 @@ export default function OwnerDashboard() {
   
   const [lang, setLang] = useState<'en' | 'hi'>('en')
   const [modalType, setModalType] = useState<'sales' | 'udhaar' | 'stock' | 'profile' | 'scanner' | null>(null)
+  
+  // 🔥 NAYA: Payment Requests State
   const [paymentRequests, setPaymentRequests] = useState<any[]>([])
+
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
@@ -49,7 +52,7 @@ export default function OwnerDashboard() {
       setTrialDays(diff > 0 ? diff : 0)
     } else { setTrialDays(7) }
 
-        const [ 
+    const [ 
       { count: custCount }, 
       { count: prodCount }, 
       { data: salesData }, 
@@ -80,6 +83,7 @@ export default function OwnerDashboard() {
 
     setLowStockItems(lowStockList)
     setRecentOrders(recentSalesData || [])
+    setPaymentRequests(reqData || []) 
     
     setCounts({ 
       customers: custCount || 0, 
@@ -89,11 +93,17 @@ export default function OwnerDashboard() {
       lowStock: lowStockCount, 
       monthlyProfit: 0 
     })
-        setPaymentRequests(reqData || []) 
     setLoading(false)
   }
 
-  // 🔥 YEH NAYA FUNCTION YAHAN PASTE KAREIN
+  function handleBusinessSwitch(e: React.ChangeEvent<HTMLSelectElement>) {
+    const newId = e.target.value
+    setCurrentBusinessId(newId)
+    setCurrentBusiness(businesses.find(b => b.id === newId) || null)
+    loadData() 
+  }
+
+  // 🔥 Approve/Reject Function
   async function handleRequestAction(req: any, action: 'approved' | 'rejected') {
     if (!confirm(`Are you sure you want to ${action} this payment?`)) return;
     
@@ -117,52 +127,26 @@ export default function OwnerDashboard() {
     loadData(); 
   }
 
-  function handleBusinessSwitch(e: React.ChangeEvent<HTMLSelectElement>) { {/* Yeh line 95 hai */}
-  function handleBusinessSwitch(e: React.ChangeEvent<HTMLSelectElement>) {
-    const newId = e.target.value
-    setCurrentBusinessId(newId)
-    setCurrentBusiness(businesses.find(b => b.id === newId) || null)
-    loadData() 
-  }
-
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]"><p className="animate-pulse text-indigo-600 font-bold">Loading Dashboard...</p></div>
   return (
     <main className="min-h-screen bg-[#F8FAFC] pb-24 font-sans relative">
       
-      {/* 🌟 PREMIUM BRAND HEADER */}
+      {/* Header */}
       <header className="bg-white/90 backdrop-blur-lg px-4 py-4 sticky top-0 z-20 border-b border-slate-200/60 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)]">
         <div className="max-w-md mx-auto flex items-center justify-between">
-          {/* Logo & Brand Name */}
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-600 text-white rounded-xl flex items-center justify-center font-black italic text-xl shadow-lg shadow-emerald-500/30 border border-white/20">
-              V
-            </div>
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-600 text-white rounded-xl flex items-center justify-center font-black italic text-xl shadow-lg shadow-emerald-500/30 border border-white/20">V</div>
             <div>
-              <h1 className="text-[22px] font-black bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 tracking-tighter leading-none">
-                VyapaarSetu
-              </h1>
+              <h1 className="text-[22px] font-black bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 tracking-tighter leading-none">VyapaarSetu</h1>
               <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-[0.2em] mt-0.5">Owner Panel</p>
             </div>
           </div>
-
-          {/* Right Icons */}
           <div className="flex items-center gap-3">
-            <select 
-              value={currentBusiness?.id} 
-              onChange={handleBusinessSwitch} 
-              className="bg-slate-100 text-slate-700 text-[10px] font-bold rounded-lg px-2 py-1.5 border-none outline-none max-w-[80px] truncate"
-            >
+            <select value={currentBusiness?.id} onChange={handleBusinessSwitch} className="bg-slate-100 text-slate-700 text-[10px] font-bold rounded-lg px-2 py-1.5 border-none outline-none max-w-[80px] truncate">
               {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-            
-            <button onClick={() => alert('No new notifications')} className="relative w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full active:scale-95 transition">
-              <span className="text-sm">🔔</span>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-            </button>
-            
-            <button onClick={() => setModalType('profile')} className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center active:scale-95 transition text-sm">
-              👤
-            </button>
+            <button onClick={() => alert('No new notifications')} className="relative w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full active:scale-95 transition"><span className="text-sm">🔔</span><span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span></button>
+            <button onClick={() => setModalType('profile')} className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center active:scale-95 transition text-sm">👤</button>
           </div>
         </div>
       </header>
@@ -183,7 +167,7 @@ export default function OwnerDashboard() {
           </div>
         )}
 
-        {/* Premium Trial Banner */}
+        {/* Trial Banner */}
         {trialDays > 0 && (
           <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-4 flex items-center justify-between shadow-lg shadow-orange-500/20 relative overflow-hidden">
             <div className="absolute -right-4 -top-4 text-6xl opacity-20">👑</div>
@@ -205,8 +189,6 @@ export default function OwnerDashboard() {
             <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200 shadow-sm">📅 Today</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            
-            {/* Today's Sales - Dark Premium */}
             <div onClick={() => setModalType('sales')} className="bg-slate-900 rounded-2xl p-4 shadow-lg cursor-pointer active:scale-95 transition">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Today's Sales</span>
@@ -214,8 +196,6 @@ export default function OwnerDashboard() {
               </div>
               <p className="text-xl font-black text-white">₹{counts.todaySales.toLocaleString('en-IN')}</p>
             </div>
-
-            {/* Total Udhaar - Light Premium */}
             <div onClick={() => setModalType('udhaar')} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 cursor-pointer active:scale-95 transition">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Udhaar</span>
@@ -223,8 +203,6 @@ export default function OwnerDashboard() {
               </div>
               <p className="text-xl font-black text-slate-800">₹{counts.totalUdhaar.toLocaleString('en-IN')}</p>
             </div>
-
-            {/* Low Stock - Light Premium */}
             <div onClick={() => setModalType('stock')} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 cursor-pointer active:scale-95 transition">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Low Stock</span>
@@ -232,8 +210,6 @@ export default function OwnerDashboard() {
               </div>
               <p className="text-xl font-black text-slate-800">{counts.lowStock} <span className="text-xs text-slate-500 font-medium">Items</span></p>
             </div>
-
-            {/* Profit - Indigo Premium */}
             <div className="bg-indigo-600 rounded-2xl p-4 shadow-lg shadow-indigo-200 relative overflow-hidden">
               <div className="flex items-center justify-between mb-3 relative z-10">
                 <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider">Net Profit</span>
@@ -241,9 +217,9 @@ export default function OwnerDashboard() {
               </div>
               <p className="text-xl font-black text-white relative z-10">₹{counts.monthlyProfit}</p>
             </div>
-
           </div>
         </section>
+
         {/* 🔥 Pending Payment Requests Section */}
         {paymentRequests.length > 0 && (
           <section className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm overflow-hidden animate-fade-in">
@@ -270,72 +246,49 @@ export default function OwnerDashboard() {
             </div>
           </section>
         )}
+
         {/* Quick Actions */}
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
             <Link href="/sales/new" className="bg-white rounded-2xl p-3 flex items-center gap-3 shadow-sm border border-slate-100 active:scale-95 transition">
               <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm border border-emerald-100">🛒</div>
-              <div>
-                <p className="text-xs font-bold text-slate-800">New Sale</p>
-                <p className="text-[9px] text-slate-500 font-medium">Create invoice</p>
-              </div>
+              <div><p className="text-xs font-bold text-slate-800">New Sale</p><p className="text-[9px] text-slate-500 font-medium">Create invoice</p></div>
             </Link>
-            
             <Link href="/purchases/new" className="bg-white rounded-2xl p-3 flex items-center gap-3 shadow-sm border border-slate-100 active:scale-95 transition">
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm border border-blue-100">🚚</div>
-              <div>
-                <p className="text-xs font-bold text-slate-800">Product & Stock</p>
-                <p className="text-[9px] text-slate-500 font-medium">Add inventory</p>
-              </div>
+              <div><p className="text-xs font-bold text-slate-800">Product & Stock</p><p className="text-[9px] text-slate-500 font-medium">Add inventory</p></div>
             </Link>
-
             <Link href="/products" className="bg-white rounded-2xl p-3 flex items-center gap-3 shadow-sm border border-slate-100 active:scale-95 transition">
               <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-sm border border-purple-100">📦</div>
-              <div>
-                <p className="text-xs font-bold text-slate-800">Add Product</p>
-                <p className="text-[9px] text-slate-500 font-medium">New item</p>
-              </div>
+              <div><p className="text-xs font-bold text-slate-800">Add Product</p><p className="text-[9px] text-slate-500 font-medium">New item</p></div>
             </Link>
-
             <Link href="/customers" className="bg-white rounded-2xl p-3 flex items-center gap-3 shadow-sm border border-slate-100 active:scale-95 transition">
               <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center text-sm border border-teal-100">👤</div>
-              <div>
-                <p className="text-xs font-bold text-slate-800">Add Customer</p>
-                <p className="text-[9px] text-slate-500 font-medium">Register</p>
-              </div>
+              <div><p className="text-xs font-bold text-slate-800">Add Customer</p><p className="text-[9px] text-slate-500 font-medium">Register</p></div>
             </Link>
-            
             <Link href="/owner/quotations" className="bg-white rounded-2xl p-3 flex items-center gap-3 shadow-sm border border-slate-100 active:scale-95 transition col-span-2">
               <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-sm border border-orange-100">📝</div>
-              <div>
-                <p className="text-xs font-bold text-slate-800">Quotations / Estimates</p>
-                <p className="text-[9px] text-slate-500 font-medium">Manage customer requests</p>
-              </div>
+              <div><p className="text-xs font-bold text-slate-800">Quotations / Estimates</p><p className="text-[9px] text-slate-500 font-medium">Manage customer requests</p></div>
             </Link>
           </div>
         </section>
 
-        {/* Premium Reports Banner */}
+        {/* Reports Banner */}
         <section>
           <Link href="/reports" className="bg-slate-900 rounded-2xl p-4 shadow-xl flex items-center justify-between active:scale-95 transition relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
             <div className="flex items-center gap-4 relative z-10">
               <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white text-lg backdrop-blur-md border border-white/10">📊</div>
-              <div>
-                <p className="text-sm font-black text-white">Reports & Analytics</p>
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">View sales, purchases & edit entries</p>
-              </div>
+              <div><p className="text-sm font-black text-white">Reports & Analytics</p><p className="text-[10px] text-slate-400 font-medium mt-0.5">View sales, purchases & edit entries</p></div>
             </div>
-            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center relative z-10 border border-white/10">
-               <span className="text-white text-sm font-bold">→</span>
-            </div>
+            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center relative z-10 border border-white/10"><span className="text-white text-sm font-bold">→</span></div>
           </Link>
         </section>
 
       </div>
 
-      {/* Modals (Same Logic, Updated UI) */}
+      {/* Modals (Stock, Profile, Scanner) */}
       {modalType && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center pb-0 sm:p-4">
           <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 animate-slide-up shadow-2xl">
@@ -354,15 +307,9 @@ export default function OwnerDashboard() {
                       <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-rose-100 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 text-lg">📦</div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-800">{item.name}</p>
-                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">Alert Limit: {item.low_stock_limit}</p>
-                          </div>
+                          <div><p className="text-sm font-bold text-slate-800">{item.name}</p><p className="text-[10px] text-slate-500 font-medium mt-0.5">Alert Limit: {item.low_stock_limit}</p></div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-lg font-black text-rose-600">{item.stock_qty}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Left</p>
-                        </div>
+                        <div className="text-right"><p className="text-lg font-black text-rose-600">{item.stock_qty}</p><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Left</p></div>
                       </div>
                     ))}
                   </div>
@@ -391,29 +338,16 @@ export default function OwnerDashboard() {
         </div>
       )}
 
-      {/* Premium Bottom Nav */}
+      {/* Bottom Nav */}
       <nav className="fixed bottom-0 w-full bg-white/90 backdrop-blur-lg border-t border-slate-200 flex justify-around items-center pt-2 pb-6 px-1 z-30 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)]">
         <Link href="/owner" className="flex flex-col items-center gap-1 text-slate-900">
-          <div className="w-12 h-8 bg-slate-100 rounded-full flex items-center justify-center">
-            <span className="text-lg">🏠</span>
-          </div>
+          <div className="w-12 h-8 bg-slate-100 rounded-full flex items-center justify-center"><span className="text-lg">🏠</span></div>
           <span className="text-[9px] font-black">Home</span>
         </Link>
-        <Link href="/orders" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-900 transition">
-          <span className="text-xl">🛒</span>
-          <span className="text-[9px] font-bold">Orders</span>
-        </Link>
-        <button onClick={() => setModalType('scanner')} className="flex flex-col items-center justify-center bg-slate-900 text-white w-14 h-14 rounded-full -mt-6 shadow-xl border-[3px] border-white active:scale-95 transition">
-          <span className="text-xl">📷</span>
-        </button>
-        <Link href="/sales" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-900 transition">
-          <span className="text-xl">🧾</span>
-          <span className="text-[9px] font-bold">Sales</span>
-        </Link>
-        <Link href="/settings" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-900 transition">
-          <span className="text-xl">⚙️</span>
-          <span className="text-[9px] font-bold">Settings</span>
-        </Link>
+        <Link href="/orders" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-900 transition"><span className="text-xl">🛒</span><span className="text-[9px] font-bold">Orders</span></Link>
+        <button onClick={() => setModalType('scanner')} className="flex flex-col items-center justify-center bg-slate-900 text-white w-14 h-14 rounded-full -mt-6 shadow-xl border-[3px] border-white active:scale-95 transition"><span className="text-xl">📷</span></button>
+        <Link href="/sales" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-900 transition"><span className="text-xl">🧾</span><span className="text-[9px] font-bold">Sales</span></Link>
+        <Link href="/settings" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-900 transition"><span className="text-xl">⚙️</span><span className="text-[9px] font-bold">Settings</span></Link>
       </nav>
 
     </main>
