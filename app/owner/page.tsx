@@ -33,7 +33,6 @@ export default function OwnerDashboard() {
   const [isBizDropdownOpen, setIsBizDropdownOpen] = useState(false);
 
   const [trialDays, setTrialDays] = useState(0);
-  const [userRole, setUserRole] = useState<string>('owner');
   const [viewMode, setViewMode] = useState<'today' | 'month' | 'all'>('today');
 
   useEffect(() => {
@@ -48,21 +47,22 @@ export default function OwnerDashboard() {
 
       const { data: profile } = await supabase.from('users').select('*, businesses(*)').eq('id', user.id).single();
       
-      if (profile) setUserRole(profile.role);
-
-      if (profile && profile.businesses) {
-        const bizList = Array.isArray(profile.businesses) ? profile.businesses : [profile.businesses];
+      if (profile) {
+        // null filter lagaya hai taaki crash na ho
+        let bizList = Array.isArray(profile.businesses) ? profile.businesses : [profile.businesses];
+        bizList = bizList.filter(Boolean); 
+        
         setAllBusinesses(bizList);
         
-        const storedBizId = typeof window !== 'undefined' ? localStorage.getItem('selectedBusinessId') : null;
-        let activeBiz = bizList.find((b: any) => b.id === storedBizId);
-        
-        if (!activeBiz && bizList.length > 0) {
-          activeBiz = bizList[0];
-          if (typeof window !== 'undefined') localStorage.setItem('selectedBusinessId', bizList[0].id);
-        }
+        if (bizList.length > 0) {
+          const storedBizId = typeof window !== 'undefined' ? localStorage.getItem('selectedBusinessId') : null;
+          let activeBiz = bizList.find((b: any) => b.id === storedBizId);
+          
+          if (!activeBiz) {
+            activeBiz = bizList[0];
+            if (typeof window !== 'undefined') localStorage.setItem('selectedBusinessId', bizList[0].id);
+          }
 
-        if (activeBiz) {
           setCurrentBusiness(activeBiz);
           
           if (activeBiz.trial_start_date) {
@@ -72,7 +72,6 @@ export default function OwnerDashboard() {
             setTrialDays(diff > 0 ? diff : 0);
           }
 
-          // Data Fetch with strict business_id filter
           const [custRes, prodRes] = await Promise.all([
             supabase.from('customers').select('id, name, current_balance, phone').eq('business_id', activeBiz.id),
             supabase.from('products').select('*').eq('business_id', activeBiz.id)
@@ -172,21 +171,23 @@ export default function OwnerDashboard() {
         </div>
         
         <div className="flex items-center gap-3 relative">
-          {/* Custom Business Dropdown with Edit/Delete */}
-          {allBusinesses.length > 0 && (
-            <div className="relative">
-              <button 
-                onClick={() => setIsBizDropdownOpen(!isBizDropdownOpen)}
-                className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1 max-w-[100px]"
-              >
-                <span className="truncate">{currentBusiness?.business_name || 'Select'}</span>
-                <span className="text-[8px]">▼</span>
-              </button>
-              
-              {isBizDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                  <div className="max-h-40 overflow-y-auto">
-                    {allBusinesses.map(b => (
+          {/* Custom Business Dropdown */}
+          <div className="relative">
+            <button 
+              onClick={() => setIsBizDropdownOpen(!isBizDropdownOpen)}
+              className="text-[11px] font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1 max-w-[110px]"
+            >
+              <span className="truncate">{currentBusiness?.business_name || 'Dukaan...'}</span>
+              <span className="text-[8px]">▼</span>
+            </button>
+            
+            {isBizDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                <div className="max-h-40 overflow-y-auto">
+                  {allBusinesses.length === 0 ? (
+                    <p className="p-3 text-xs text-slate-500">No business found</p>
+                  ) : (
+                    allBusinesses.map(b => (
                       <button 
                         key={b.id} 
                         onClick={() => handleBusinessSwitch(b.id)}
@@ -194,16 +195,16 @@ export default function OwnerDashboard() {
                       >
                         {b.business_name}
                       </button>
-                    ))}
-                  </div>
-                  <div className="p-2 bg-slate-50 border-t border-slate-200 flex flex-col gap-1">
-                    <button onClick={() => router.push('/settings/business')} className="text-left px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:text-indigo-600 hover:bg-white rounded transition-colors">✏️ Edit Business</button>
-                    <button onClick={handleDeleteBusiness} className="text-left px-2 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-white rounded transition-colors">🗑️ Delete Business</button>
-                  </div>
+                    ))
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+                <div className="p-2 bg-slate-50 border-t border-slate-200 flex flex-col gap-1">
+                  <button onClick={() => router.push('/settings/business')} className="text-left px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:text-indigo-600 hover:bg-white rounded transition-colors">✏️ Edit Business</button>
+                  <button onClick={handleDeleteBusiness} className="text-left px-2 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-white rounded transition-colors">🗑️ Delete Business</button>
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Working Bell Icon */}
           <button onClick={() => setModalType('notifications')} className="relative text-lg">
@@ -218,6 +219,7 @@ export default function OwnerDashboard() {
       </header>
 
       <div className="px-4 pt-5 space-y-6 max-w-md mx-auto">
+        
         {/* Business Info Card */}
         {currentBusiness && (
           <Card className="relative overflow-hidden border border-slate-200 shadow-sm bg-white p-4">
@@ -254,7 +256,6 @@ export default function OwnerDashboard() {
             <Link href="/pricing" className="relative z-10 bg-white text-orange-500 px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 active:scale-95 transition-all">Upgrade</Link>
           </div>
         )}
-
         {/* Business Overview */}
         <div className="flex items-center justify-between mt-6 mb-3 px-1">
           <h2 className="text-lg font-black text-slate-800 tracking-tight">Business Overview</h2>
@@ -331,6 +332,7 @@ export default function OwnerDashboard() {
             </div>
           </section>
         )}
+
         {/* Quick Actions */}
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Quick Actions</h2>
@@ -377,7 +379,7 @@ export default function OwnerDashboard() {
           </div>
         </section>
 
-        {/* NEW: More Features (Reports & E-commerce) */}
+        {/* More Features */}
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">More Features</h2>
           <div className="grid grid-cols-2 gap-3">
@@ -422,7 +424,7 @@ export default function OwnerDashboard() {
               <button onClick={() => setModalType(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">✕</button>
             </div>
 
-            {/* Notifications Modal */}
+            {/* Modals Content */}
             {modalType === 'notifications' && (
               <div className="text-center py-6">
                 <span className="text-4xl mb-3 block">🔔</span>
@@ -430,7 +432,6 @@ export default function OwnerDashboard() {
               </div>
             )}
 
-            {/* Today's Sales Modal */}
             {modalType === 'todaySales' && (
               <div className="text-center py-6">
                 <p className="text-xs text-slate-500 mb-2">Total revenue generated today</p>
@@ -439,7 +440,6 @@ export default function OwnerDashboard() {
               </div>
             )}
 
-            {/* Udhaar Modal */}
             {modalType === 'udhaar' && (
               <div className="text-center py-6">
                 <p className="text-xs text-slate-500 mb-2">Total pending amount from customers</p>
@@ -448,7 +448,6 @@ export default function OwnerDashboard() {
               </div>
             )}
 
-            {/* Low Stock Modal */}
             {modalType === 'lowStock' && (
               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                 {lowStockItems.length === 0 ? (
@@ -473,7 +472,6 @@ export default function OwnerDashboard() {
               </div>
             )}
 
-            {/* Profile Modal */}
             {modalType === 'profile' && (
               <div className="flex flex-col items-center py-4">
                 <div className="relative w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center text-3xl mb-3 border border-indigo-100 shadow-sm overflow-hidden">
@@ -489,7 +487,6 @@ export default function OwnerDashboard() {
               </div>
             )}
 
-            {/* Scanner Modal */}
             {modalType === 'scanner' && (
               <div className="flex flex-col gap-3">
                 <Button variant="outline" fullWidth onClick={() => { alert('Camera open...'); setModalType(null); }}>📸 Bill Photo Scan</Button>
@@ -497,15 +494,6 @@ export default function OwnerDashboard() {
                 <Button variant="primary" fullWidth onClick={() => { router.push('/purchases/new'); setModalType(null); }}>📝 Manual Entry</Button>
               </div>
             )}
-
-            {/* Sales Breakdown Modal */}
-            {modalType === 'sales' && (
-              <div className="text-center py-4">
-                <p className="text-sm text-slate-500 mb-4">Detailed breakdown coming soon.</p>
-                <Button variant="primary" fullWidth onClick={() => setModalType(null)}>Close</Button>
-              </div>
-            )}
-
           </div>
         </div>
       )}
