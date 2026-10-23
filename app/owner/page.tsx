@@ -11,6 +11,8 @@ import Badge from '@/components/ui/Badge';
 type Business = {
   id: string; business_name: string;
   business_type: string; owner_name: string;
+  phone: string | null;
+  gmail: string | null
   city: string | null; trial_start_date: string | null;
 };
 
