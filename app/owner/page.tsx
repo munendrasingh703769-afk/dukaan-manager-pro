@@ -89,7 +89,8 @@ export default function OwnerDashboard() {
       lowStock: lowStockCount, 
       monthlyProfit: 0 
     })
-    setLoading(false)
+        setPaymentRequests(reqData || []) 
+    setLoading(false) // Yeh line 92 par pehle se hai
   }
 
   function handleBusinessSwitch(e: React.ChangeEvent<HTMLSelectElement>) {
