@@ -5,10 +5,6 @@ import Link from 'next/link';
 
 import { createClient } from '@/lib/supabase/client';
 
-import Card from '@/components/ui /Card';
-import Button from '@/components /ui/Button';
-import Badge from '@/components/ui /Badge';
-
 type Business = {
   id: string; business_name: string;
   business_type: string; owner_name: string;
