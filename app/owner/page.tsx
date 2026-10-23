@@ -12,7 +12,6 @@ type Business = {
   id: string; business_name: string;
   business_type: string; owner_name: string;
   phone: string | null;
-  gmail: string | null
   city: string | null; trial_start_date: string | null;
 };
 
@@ -56,7 +55,7 @@ export default function OwnerDashboard() {
       
       if (profile) setUserRole(profile.role);
 
-      if (profile?.businesses && profile.businesses.length > 0) {
+      if (profile?.businesses) {
         const bizList = Array.isArray(profile.businesses) ? profile.businesses : [profile.businesses];
         const biz = bizList[0];
         setCurrentBusiness(biz);
@@ -86,7 +85,7 @@ export default function OwnerDashboard() {
           
           sales.forEach(s => {
             if (s.created_at.startsWith(today)) todaySalesAmt += Number(s.total_amount || 0);
-            profitAmt += Number(s.total_amount || 0);
+            profitAmt += Number(s.total_amount || 0); 
           });
           setTodaySales(todaySalesAmt);
           setTotalProfit(profitAmt);
@@ -119,7 +118,7 @@ export default function OwnerDashboard() {
       await supabase.from('customers').update({ current_balance: (cust.current_balance || 0) - req.amount }).eq('id', req.customer_id);
       await supabase.from('payment_requests').update({ status: 'approved' }).eq('id', req.id);
       setPaymentRequests(paymentRequests.filter(r => r.id !== req.id));
-      fetchData();
+      fetchData(); 
     }
   }
 
@@ -133,7 +132,8 @@ export default function OwnerDashboard() {
 
   return (
     <main className="min-h-screen bg-slate-50 pb-24">
-      {/* Header */}
+      {/* PART 2 Yahan Se Shuru Hoga */}
+      {/* Header (Purane buttons ke sath) */}
       <header className="bg-white px-4 py-3 sticky top-0 z-40 border-b border-slate-200 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">V</div>
@@ -142,8 +142,15 @@ export default function OwnerDashboard() {
             <p className="text-[10px] font-bold text-emerald-600 tracking-widest uppercase">Owner Panel</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setModalType('profile')} className="w-9 h-9 bg-slate-50 border border-slate-200 rounded-full flex items-center justify-center text-sm shadow-sm hover:bg-slate-100 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
+            Dukaan... <span className="text-[8px]">▼</span>
+          </div>
+          <button className="relative text-lg">
+            🔔
+            <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>
+          </button>
+          <button onClick={() => setModalType('profile')} className="w-9 h-9 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-sm shadow-sm hover:bg-indigo-100 transition-colors">
             👤
           </button>
         </div>
@@ -238,6 +245,7 @@ export default function OwnerDashboard() {
             <p className="text-2xl font-black relative z-10 tracking-tight">₹{(totalProfit || 0).toLocaleString('en-IN')}</p>
           </Card>
         </div>
+
         {/* Payment Requests Section */}
         {paymentRequests.length > 0 && (
           <section>
@@ -264,7 +272,8 @@ export default function OwnerDashboard() {
             </div>
           </section>
         )}
-
+        
+        {/* PART 3 Yahan Se Shuru Hoga */}
         {/* Quick Actions */}
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Quick Actions</h2>
@@ -360,12 +369,20 @@ export default function OwnerDashboard() {
               </div>
             )}
 
-            {/* Profile Modal Content */}
+            {/* Profile Modal Content (Photo Upload ke sath) */}
             {modalType === 'profile' && (
               <div className="flex flex-col items-center py-4">
-                <div className="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center text-3xl mb-3 border border-indigo-100 shadow-sm">👤</div>
+                <div className="relative w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center text-3xl mb-3 border border-indigo-100 shadow-sm overflow-hidden">
+                  👤
+                </div>
+                
+                <label className="bg-slate-900 text-white text-xs font-bold px-6 py-2.5 rounded-xl cursor-pointer shadow-md hover:bg-slate-800 active:scale-95 transition-all mb-5 inline-block">
+                  Upload Photo
+                  <input type="file" accept="image/*" className="hidden" onChange={() => alert("Photo upload coming soon! (Database connection pending)")} />
+                </label>
+
                 <p className="text-base font-bold text-slate-800">{currentBusiness?.owner_name || 'Owner'}</p>
-                <p className="text-xs text-slate-500 mb-4">{currentBusiness?.phone || 'Phone'}</p>
+                <p className="text-xs text-slate-500 mb-5">{currentBusiness?.phone || 'Phone'}</p>
                 <Button variant="outline" fullWidth onClick={() => router.push('/settings/business')}>Edit Business Details</Button>
               </div>
             )}
