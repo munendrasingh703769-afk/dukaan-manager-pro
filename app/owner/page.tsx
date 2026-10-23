@@ -1,154 +1,148 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabaseClient';
 import Card from '@/components/ui/Card';
-import { createClient } from '@/lib/supabase/client'
-import { getCurrentBusinessId, setCurrentBusinessId } from '@/lib/business'
+import Button from '@/components/ui/Button';
+import Badge from '@/components/ui/Badge';
 
-type Business = { id: string; name: string; owner_name: string | null; phone: string | null; city: string | null; trial_start_date: string | null; }
-type Counts = { customers: number; products: number; todaySales: number; totalUdhaar: number; lowStock: number; monthlyProfit: number; }
+type Business = {
+  id: string; business_name: string;
+  business_type: string; owner_name: string;
+  city: string | null; trial_start_date: string | null;
+};
+
+type Customer = {
+  id: string; name: string;
+  current_balance: number;
+  phone: string | null;
+};
 
 export default function OwnerDashboard() {
-  const router = useRouter()
-  const supabase = createClient()
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
-  const [loading, setLoading] = useState(true)
-  const [businesses, setBusinesses] = useState<Business[]>([])
-  const [currentBusiness, setCurrentBusiness] = useState<Business | null>(null)
-  
-  const [counts, setCounts] = useState<Counts>({ customers: 0, products: 0, todaySales: 0, totalUdhaar: 0, lowStock: 0, monthlyProfit: 0 })
-  
-  const [recentOrders, setRecentOrders] = useState<any[]>([])
-  const [lowStockItems, setLowStockItems] = useState<any[]>([]) 
-  const [trialDays, setTrialDays] = useState(7)
-  
-  const [lang, setLang] = useState<'en' | 'hi'>('en')
-  const [modalType, setModalType] = useState<'sales' | 'udhaar' | 'stock' | 'profile' | 'scanner' | null>(null)
-  
-  // 🔥 NAYA: Payment Requests State
-  const [paymentRequests, setPaymentRequests] = useState<any[]>([])
+  const [currentBusiness, setCurrentBusiness] = useState<Business | null>(null);
+  const [todaySales, setTodaySales] = useState(0);
+  const [totalUdhaar, setTotalUdhaar] = useState(0);
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const [totalProfit, setTotalProfit] = useState(0);
 
-  useEffect(() => { loadData() }, [])
+  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
+  const [modalType, setModalType] = useState<string | null>(null);
 
-  async function loadData() {
-    setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return router.push('/login')
+  const [trialDays, setTrialDays] = useState(0);
+  const [userRole, setUserRole] = useState<string>('owner');
+  const [viewMode, setViewMode] = useState<'today' | 'month' | 'all'>('today');
 
-    const { data: bizData } = await supabase.from('businesses').select('*').eq('owner_id', user.id).order('created_at')
-    if (!bizData || bizData.length === 0) return setLoading(false)
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-    setBusinesses(bizData)
-    let activeId = getCurrentBusinessId() || bizData[0].id
-    if (!bizData.find(b => b.id === activeId)) activeId = bizData[0].id
-    setCurrentBusinessId(activeId)
+  async function fetchData() {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push('/login'); return; }
 
-    const activeBiz = bizData.find(b => b.id === activeId) || bizData[0]
-    setCurrentBusiness(activeBiz)
-
-    if (activeBiz.trial_start_date) {
-      const diff = Math.ceil((new Date(activeBiz.trial_start_date).getTime() + (7 * 24 * 60 * 60 * 1000) - new Date().getTime()) / (1000 * 60 * 60 * 24))
-      setTrialDays(diff > 0 ? diff : 0)
-    } else { setTrialDays(7) }
-
-    const [ 
-      { count: custCount }, 
-      { count: prodCount }, 
-      { data: salesData }, 
-      { data: prodData }, 
-      { data: recentSalesData },
-      { data: reqData } 
-    ] = await Promise.all([
-      supabase.from('customers').select('*', { count: 'exact', head: true }).eq('business_id', activeId),
-      supabase.from('products').select('*', { count: 'exact', head: true }).eq('business_id', activeId),
-      supabase.from('sales').select('*').eq('business_id', activeId),
-      supabase.from('products').select('id, name, stock_qty, low_stock_limit').eq('business_id', activeId),
-      supabase.from('sales').select('id, invoice_no, total_amount, created_at').eq('business_id', activeId).order('created_at', { ascending: false }).limit(2),
-      supabase.from('payment_requests').select('*, customers(name)').eq('business_id', activeId).eq('status', 'pending').order('created_at', { ascending: false })
-    ])
-
-    let todaySalesAmt = 0, totalUdhaarAmt = 0
-    const today = new Date().toISOString().split('T')[0]
-
-    salesData?.forEach(s => {
-      if (new Date(s.created_at).toISOString().split('T')[0] === today) todaySalesAmt += Number(s.total_amount)
-      if (s.due_amount && Number(s.due_amount) > 0) totalUdhaarAmt += Number(s.due_amount)
-    })
-
-    let lowStockCount = 0, lowStockList: any[] = []
-    prodData?.forEach(p => {
-      if (p.stock_qty <= p.low_stock_limit) { lowStockCount++; lowStockList.push(p) }
-    })
-
-    setLowStockItems(lowStockList)
-    setRecentOrders(recentSalesData || [])
-    setPaymentRequests(reqData || []) 
-    
-    setCounts({ 
-      customers: custCount || 0, 
-      products: prodCount || 0, 
-      todaySales: todaySalesAmt, 
-      totalUdhaar: totalUdhaarAmt, 
-      lowStock: lowStockCount, 
-      monthlyProfit: 0 
-    })
-    setLoading(false)
-  }
-
-  function handleBusinessSwitch(e: React.ChangeEvent<HTMLSelectElement>) {
-    const newId = e.target.value
-    setCurrentBusinessId(newId)
-    setCurrentBusiness(businesses.find(b => b.id === newId) || null)
-    loadData() 
-  }
-
-  // 🔥 Approve/Reject Function
-  async function handleRequestAction(req: any, action: 'approved' | 'rejected') {
-    if (!confirm(`Are you sure you want to ${action} this payment?`)) return;
-    
-    await supabase.from('payment_requests').update({ status: action }).eq('id', req.id);
-    
-    if (action === 'approved') {
-      await supabase.from('payments').insert([{
-        business_id: currentBusiness?.id,
-        customer_id: req.customer_id,
-        amount: req.amount,
-        payment_mode: 'UPI (Manual)'
-      }]);
+      const { data: profile } = await supabase
+        .from('users').select('*, businesses(*)').eq('id', user.id).single();
       
-      const { data: cust } = await supabase.from('customers').select('current_balance').eq('id', req.customer_id).single();
-      if (cust) {
-        await supabase.from('customers').update({ current_balance: Number(cust.current_balance) - Number(req.amount) }).eq('id', req.customer_id);
+      if (profile) setUserRole(profile.role);
+
+      if (profile?.businesses && profile.businesses.length > 0) {
+        const bizList = Array.isArray(profile.businesses) ? profile.businesses : [profile.businesses];
+        const biz = bizList[0];
+        setCurrentBusiness(biz);
+
+        if (biz.trial_start_date) {
+          const start = new Date(biz.trial_start_date).getTime();
+          const now = new Date().getTime();
+          const diff = 14 - Math.floor((now - start) / (1000 * 60 * 60 * 24));
+          setTrialDays(diff > 0 ? diff : 0);
+        }
+
+        const [custRes, prodRes] = await Promise.all([
+          supabase.from('customers').select('*').eq('business_id', biz.id),
+          supabase.from('products').select('*').eq('business_id', biz.id)
+        ]);
+
+        const customers = custRes.data || [];
+        setTotalUdhaar(customers.reduce((sum, c) => sum + (c.current_balance || 0), 0));
+        setLowStockItems((prodRes.data || []).filter(p => p.stock_qty <= (p.low_stock_limit || 5)));
+        setLowStockCount((prodRes.data || []).filter(p => p.stock_qty <= (p.low_stock_limit || 5)).length);
+
+        const { data: sales } = await supabase.from('sales').select('*').eq('business_id', biz.id).order('created_at', { ascending: false });
+        if (sales) {
+          let todaySalesAmt = 0;
+          let profitAmt = 0;
+          const today = new Date().toISOString().split('T')[0];
+          
+          sales.forEach(s => {
+            if (s.created_at.startsWith(today)) todaySalesAmt += Number(s.total_amount || 0);
+            profitAmt += Number(s.total_amount || 0);
+          });
+          setTodaySales(todaySalesAmt);
+          setTotalProfit(profitAmt);
+        }
+
+        const { data: reqs } = await supabase.from('payment_requests').select('*, customers(name)').eq('business_id', biz.id).eq('status', 'pending').order('created_at', { ascending: false });
+        setPaymentRequests(reqs || []);
       }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
-    
-    alert(`Payment ${action} successfully!`);
-    loadData(); 
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]"><p className="animate-pulse text-indigo-600 font-bold">Loading Dashboard...</p></div>
+  const handleNavigation = (e: React.MouseEvent, path: string) => {
+    e.preventDefault();
+    router.push(path);
+  };
+
+  async function handleRequestAction(req: any, action: 'approved' | 'rejected') {
+    if (action === 'rejected') {
+      await supabase.from('payment_requests').update({ status: 'rejected' }).eq('id', req.id);
+      setPaymentRequests(paymentRequests.filter(r => r.id !== req.id));
+      return;
+    }
+
+    const { data: cust } = await supabase.from('customers').select('current_balance').eq('id', req.customer_id).single();
+    if (cust) {
+      await supabase.from('customers').update({ current_balance: (cust.current_balance || 0) - req.amount }).eq('id', req.customer_id);
+      await supabase.from('payment_requests').update({ status: 'approved' }).eq('id', req.id);
+      setPaymentRequests(paymentRequests.filter(r => r.id !== req.id));
+      fetchData();
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-[#F8FAFC] pb-24 font-sans relative">
-      
+    <main className="min-h-screen bg-slate-50 pb-24">
       {/* Header */}
-      <header className="bg-white/90 backdrop-blur-lg px-4 py-4 sticky top-0 z-20 border-b border-slate-200/60 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.05)]">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-600 text-white rounded-xl flex items-center justify-center font-black italic text-xl shadow-lg shadow-emerald-500/30 border border-white/20">V</div>
-            <div>
-              <h1 className="text-[22px] font-black bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 tracking-tighter leading-none">VyapaarSetu</h1>
-              <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-[0.2em] mt-0.5">Owner Panel</p>
-            </div>
+      <header className="bg-white px-4 py-3 sticky top-0 z-40 border-b border-slate-200 shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">V</div>
+          <div>
+            <h1 className="text-base font-black text-slate-800 leading-tight tracking-tight">VyapaarSetu</h1>
+            <p className="text-[10px] font-bold text-emerald-600 tracking-widest uppercase">Owner Panel</p>
           </div>
-          <div className="flex items-center gap-3">
-            <select value={currentBusiness?.id} onChange={handleBusinessSwitch} className="bg-slate-100 text-slate-700 text-[10px] font-bold rounded-lg px-2 py-1.5 border-none outline-none max-w-[80px] truncate">
-              {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-            <button onClick={() => alert('No new notifications')} className="relative w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full active:scale-95 transition"><span className="text-sm">🔔</span><span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span></button>
-            <button onClick={() => setModalType('profile')} className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center active:scale-95 transition text-sm">👤</button>
-          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setModalType('profile')} className="w-9 h-9 bg-slate-50 border border-slate-200 rounded-full flex items-center justify-center text-sm shadow-sm hover:bg-slate-100 transition-colors">
+            👤
+          </button>
         </div>
       </header>
 
@@ -156,93 +150,113 @@ export default function OwnerDashboard() {
         
         {/* Business Info Card */}
         {currentBusiness && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex gap-4 items-center relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-emerald-50 to-transparent rounded-bl-full pointer-events-none"></div>
-            <div className="w-14 h-14 rounded-xl bg-emerald-50 flex items-center justify-center text-2xl shrink-0 border border-emerald-100">🏪</div>
-            <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-slate-900 text-sm truncate">{currentBusiness.name}</h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">{currentBusiness.owner_name || 'Add Owner'}</p>
-              <p className="text-[11px] text-slate-500 truncate mt-0.5">📍 {currentBusiness.city || 'Add Location'}</p>
+          <Card className="relative overflow-hidden border border-slate-200 shadow-sm bg-white p-4">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+            <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-2xl shadow-inner border border-indigo-100">
+                  {currentBusiness.business_type === 'shop' ? '🏪' : currentBusiness.business_type === 'service' ? '🔧' : '💼'}
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-800 line-clamp-1">{currentBusiness.business_name || 'My Business'}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{currentBusiness.owner_name || 'Owner'}</p>
+                  {currentBusiness.city && (
+                    <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1"><span>📍</span> {currentBusiness.city}</p>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => router.push('/settings/business')} className="px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-100 active:scale-95 transition-all">Edit</button>
             </div>
-            <Link href="/settings/business" className="bg-slate-50 text-slate-600 border border-slate-200 text-[10px] font-bold px-3 py-1.5 rounded-lg active:scale-95 transition z-10 relative">Edit</Link>
-          </div>
+          </Card>
         )}
 
-        {/* Trial Banner */}
+        {/* Premium Trial Banner */}
         {trialDays > 0 && (
-          <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-4 flex items-center justify-between shadow-lg shadow-orange-500/20 relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 text-6xl opacity-20">👑</div>
-            <div className="flex items-center gap-3 relative z-10">
-              <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center text-white text-sm border border-white/30">✨</div>
-              <div>
-                <p className="text-xs font-black text-white">Premium Trial</p>
-                <p className="text-[10px] text-orange-100 font-medium">{trialDays} days remaining</p>
+          <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-4 shadow-md relative overflow-hidden flex items-center justify-between">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-xl -mr-5 -mt-5"></div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">✨</span>
+                <h3 className="text-sm font-bold text-white tracking-wide">Premium Trial</h3>
               </div>
+              <p className="text-xs text-indigo-100 font-medium">{trialDays} days remaining</p>
             </div>
-            <Link href="/pricing" className="bg-white text-orange-600 text-[10px] font-black px-4 py-2 rounded-xl shadow-sm active:scale-95 transition relative z-10">Upgrade</Link>
+            <Link href="/pricing" className="relative z-10 bg-white text-indigo-600 px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 active:scale-95 transition-all">Upgrade</Link>
           </div>
         )}
 
-        {/* Business Overview (KPIs) */}
-        <section>
-          <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-sm font-black text-slate-800 tracking-tight">Business Overview</h2>
-            <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200 shadow-sm">📅 Today</span>
+        {/* Business Overview */}
+        <div className="flex items-center justify-between mt-6 mb-3 px-1">
+          <h2 className="text-lg font-bold text-slate-800 tracking-tight">Business Overview</h2>
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm">
+            <span className="text-[10px]">📅</span>
+            <span className="text-[11px] font-semibold text-slate-600">Today</span>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div onClick={() => setModalType('sales')} className="bg-slate-900 rounded-2xl p-4 shadow-lg cursor-pointer active:scale-95 transition">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Today's Sales</span>
-                <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400 text-xs">📈</div>
-              </div>
-              <p className="text-xl font-black text-white">₹{counts.todaySales.toLocaleString('en-IN')}</p>
-            </div>
-            <div onClick={() => setModalType('udhaar')} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 cursor-pointer active:scale-95 transition">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Udhaar</span>
-                <div className="w-6 h-6 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 text-xs">👥</div>
-              </div>
-              <p className="text-xl font-black text-slate-800">₹{counts.totalUdhaar.toLocaleString('en-IN')}</p>
-            </div>
-            <div onClick={() => setModalType('stock')} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 cursor-pointer active:scale-95 transition">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Low Stock</span>
-                <div className="w-6 h-6 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 text-xs">⚠️</div>
-              </div>
-              <p className="text-xl font-black text-slate-800">{counts.lowStock} <span className="text-xs text-slate-500 font-medium">Items</span></p>
-            </div>
-            <div className="bg-indigo-600 rounded-2xl p-4 shadow-lg shadow-indigo-200 relative overflow-hidden">
-              <div className="flex items-center justify-between mb-3 relative z-10">
-                <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider">Net Profit</span>
-                <Link href="/reports" className="text-[9px] font-black text-indigo-900 bg-white px-2 py-0.5 rounded shadow-sm">View</Link>
-              </div>
-              <p className="text-xl font-black text-white relative z-10">₹{counts.monthlyProfit}</p>
-            </div>
-          </div>
-        </section>
+        </div>
 
-        {/* 🔥 Pending Payment Requests Section */}
-        {paymentRequests.length > 0 && (
-          <section className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm overflow-hidden animate-fade-in">
-            <div className="bg-amber-500 px-4 py-2 flex items-center justify-between">
-              <h2 className="text-xs font-black text-white uppercase tracking-wider">Pending Payment Requests</h2>
-              <span className="bg-white text-amber-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{paymentRequests.length} New</span>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Today's Sales */}
+          <Card className="bg-gradient-to-br from-indigo-600 to-violet-600 border-0 text-white shadow-md relative overflow-hidden">
+            <div className="absolute -right-4 -top-4 w-16 h-16 bg-white/10 rounded-full blur-lg"></div>
+            <div className="flex justify-between items-start mb-2 relative z-10">
+              <p className="text-[11px] font-semibold tracking-wider text-indigo-100 uppercase">Today's Sales</p>
+              <span className="text-sm bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">📈</span>
             </div>
-            <div className="p-3 space-y-3">
-              {paymentRequests.map(req => (
-                <div key={req.id} className="bg-white p-3 rounded-xl border border-amber-100 flex justify-between items-center shadow-sm">
-                  <div>
-                    <p className="text-sm font-bold text-slate-800">{req.customers?.name || 'Customer'}</p>
-                    <p className="text-[10px] text-slate-500 font-medium mt-0.5">{new Date(req.created_at).toLocaleString()}</p>
+            <p className="text-2xl font-black relative z-10 tracking-tight">₹{(todaySales || 0).toLocaleString('en-IN')}</p>
+          </Card>
+
+          {/* Total Udhaar */}
+          <Card className="border border-slate-200 shadow-sm relative overflow-hidden bg-white">
+            <div className="flex justify-between items-start mb-2">
+              <p className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Total Udhaar</p>
+              <span className="text-sm bg-rose-50 text-rose-500 p-1.5 rounded-lg">👥</span>
+            </div>
+            <p className="text-2xl font-black text-rose-500 tracking-tight">₹{(totalUdhaar || 0).toLocaleString('en-IN')}</p>
+          </Card>
+
+          {/* Low Stock */}
+          <Card onClick={() => setModalType('lowStock')} className="cursor-pointer hover:border-amber-200 transition-all border border-slate-200 shadow-sm relative overflow-hidden bg-white">
+            <div className="flex justify-between items-start mb-2">
+              <p className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Low Stock</p>
+              <span className="text-sm bg-amber-50 text-amber-500 p-1.5 rounded-lg">⚠️</span>
+            </div>
+            <p className="text-2xl font-black text-slate-800 tracking-tight flex items-baseline gap-1">
+              {lowStockCount || 0} <span className="text-xs font-medium text-slate-400">Items</span>
+            </p>
+          </Card>
+
+          {/* Net Profit */}
+          <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 border-0 text-white shadow-md relative overflow-hidden">
+             <div className="absolute -right-4 -top-4 w-16 h-16 bg-white/10 rounded-full blur-lg"></div>
+            <div className="flex justify-between items-start mb-2 relative z-10">
+              <p className="text-[11px] font-semibold tracking-wider text-emerald-100 uppercase">Net Profit</p>
+              <button onClick={() => setModalType('sales')} className="text-[10px] bg-white/20 px-2 py-0.5 rounded text-white font-semibold backdrop-blur-sm hover:bg-white/30 transition-colors">View</button>
+            </div>
+            <p className="text-2xl font-black relative z-10 tracking-tight">₹{(totalProfit || 0).toLocaleString('en-IN')}</p>
+          </Card>
+        </div>
+        {/* Payment Requests Section */}
+        {paymentRequests.length > 0 && (
+          <section>
+            <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Payment Requests</h2>
+            <div className="space-y-3">
+              {paymentRequests.map((req) => (
+                <Card key={req.id} className="border border-indigo-100 bg-indigo-50/30 p-3 shadow-sm">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">{req.customers?.name || 'Customer'}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Pending Approval</p>
+                    </div>
+                    <Badge variant="warning">Pending</Badge>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-black text-emerald-600 mb-1">₹{req.amount}</p>
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-indigo-100/50">
+                    <p className="text-lg font-black text-slate-800">₹{req.amount}</p>
                     <div className="flex gap-2">
-                      <button onClick={() => handleRequestAction(req, 'rejected')} className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded">Reject</button>
-                      <button onClick={() => handleRequestAction(req, 'approved')} className="bg-emerald-600 text-white text-[10px] font-bold px-3 py-1 rounded shadow-sm">Approve</button>
+                      <Button variant="danger" size="sm" onClick={() => handleRequestAction(req, 'rejected')} className="px-3">Reject</Button>
+                      <Button variant="primary" size="sm" onClick={() => handleRequestAction(req, 'approved')} className="px-3">Approve</Button>
                     </div>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           </section>
@@ -252,105 +266,149 @@ export default function OwnerDashboard() {
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Link href="/sales/new" className="bg-white rounded-2xl p-3 flex items-center gap-3 shadow-sm border border-slate-100 active:scale-95 transition">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm border border-emerald-100">🛒</div>
-              <div><p className="text-xs font-bold text-slate-800">New Sale</p><p className="text-[9px] text-slate-500 font-medium">Create invoice</p></div>
-            </Link>
-            <Link href="/purchases/new" className="bg-white rounded-2xl p-3 flex items-center gap-3 shadow-sm border border-slate-100 active:scale-95 transition">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm border border-blue-100">🚚</div>
-              <div><p className="text-xs font-bold text-slate-800">Product & Stock</p><p className="text-[9px] text-slate-500 font-medium">Add inventory</p></div>
-            </Link>
-            <Link href="/products" className="bg-white rounded-2xl p-3 flex items-center gap-3 shadow-sm border border-slate-100 active:scale-95 transition">
-              <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-sm border border-purple-100">📦</div>
-              <div><p className="text-xs font-bold text-slate-800">Add Product</p><p className="text-[9px] text-slate-500 font-medium">New item</p></div>
-            </Link>
-            <Link href="/customers" className="bg-white rounded-2xl p-3 flex items-center gap-3 shadow-sm border border-slate-100 active:scale-95 transition">
-              <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center text-sm border border-teal-100">👤</div>
-              <div><p className="text-xs font-bold text-slate-800">Add Customer</p><p className="text-[9px] text-slate-500 font-medium">Register</p></div>
-            </Link>
-            <Link href="/owner/quotations" className="bg-white rounded-2xl p-3 flex items-center gap-3 shadow-sm border border-slate-100 active:scale-95 transition col-span-2">
-              <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-sm border border-orange-100">📝</div>
-              <div><p className="text-xs font-bold text-slate-800">Quotations / Estimates</p><p className="text-[9px] text-slate-500 font-medium">Manage customer requests</p></div>
-            </Link>
-          </div>
-        </section>
+            <Card onClick={() => router.push('/sales/new')} className="cursor-pointer hover:border-indigo-200 transition-all active:scale-95 p-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg shadow-sm">🛒</div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">New Sale</p>
+                  <p className="text-[11px] text-slate-500">Create invoice</p>
+                </div>
+              </div>
+            </Card>
 
-        {/* Reports Banner */}
-        <section>
-          <Link href="/reports" className="bg-slate-900 rounded-2xl p-4 shadow-xl flex items-center justify-between active:scale-95 transition relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-            <div className="flex items-center gap-4 relative z-10">
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white text-lg backdrop-blur-md border border-white/10">📊</div>
-              <div><p className="text-sm font-black text-white">Reports & Analytics</p><p className="text-[10px] text-slate-400 font-medium mt-0.5">View sales, purchases & edit entries</p></div>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center relative z-10 border border-white/10"><span className="text-white text-sm font-bold">→</span></div>
-          </Link>
+            <Card onClick={() => router.push('/products')} className="cursor-pointer hover:border-blue-200 transition-all active:scale-95 p-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg shadow-sm">📦</div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Product & Stock</p>
+                  <p className="text-[11px] text-slate-500">Add inventory</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card onClick={() => router.push('/purchases/new')} className="cursor-pointer hover:border-emerald-200 transition-all active:scale-95 p-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg shadow-sm">🛍️</div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Add Product</p>
+                  <p className="text-[11px] text-slate-500">New item</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card onClick={() => router.push('/customers')} className="cursor-pointer hover:border-violet-200 transition-all active:scale-95 p-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-lg shadow-sm">👤</div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Add Customer</p>
+                  <p className="text-[11px] text-slate-500">Register</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card onClick={() => router.push('/owner/quotations')} className="cursor-pointer hover:border-amber-200 transition-all active:scale-95 p-3 col-span-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg shadow-sm">📝</div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Quotations</p>
+                  <p className="text-[11px] text-slate-500">Estimates for customer</p>
+                </div>
+              </div>
+            </Card>
+          </div>
         </section>
 
       </div>
 
-      {/* Modals (Stock, Profile, Scanner) */}
+      {/* Modals (Popups) */}
       {modalType && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-center justify-center pb-0 sm:p-4">
-          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 animate-slide-up shadow-2xl">
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="text-lg font-black text-slate-800 tracking-tight">
-                {modalType === 'stock' ? "Low Stock Alerts" : modalType === 'profile' ? "My Profile" : "Details"}
-              </h3>
-              <button onClick={() => setModalType(null)} className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200">&times;</button>
-            </div>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setModalType(null)}>
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-elevated animate-scale-in" onClick={e => e.stopPropagation()}>
             
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-              {modalType === 'stock' && (
-                lowStockItems.length === 0 ? <p className="text-sm text-slate-500 text-center py-6 font-medium">No items are low on stock.</p> : (
-                  <div className="space-y-3">
-                    {lowStockItems.map((item, idx) => (
-                      <div key={idx} className="bg-white p-4 rounded-2xl shadow-sm border border-rose-100 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 text-lg">📦</div>
-                          <div><p className="text-sm font-bold text-slate-800">{item.name}</p><p className="text-[10px] text-slate-500 font-medium mt-0.5">Alert Limit: {item.low_stock_limit}</p></div>
-                        </div>
-                        <div className="text-right"><p className="text-lg font-black text-rose-600">{item.stock_qty}</p><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Left</p></div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              )}
-              {modalType === 'profile' && (
-                <div className="flex flex-col items-center py-4">
-                  <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center text-4xl mb-4 border border-slate-200">👤</div>
-                  <label className="bg-slate-900 text-white text-xs font-bold px-6 py-2.5 rounded-xl cursor-pointer shadow-md">Upload Photo<input type="file" accept="image/*" className="hidden" onChange={() => alert('Photo upload coming soon!')} /></label>
-                  <p className="text-base font-black text-slate-800 mt-5">{currentBusiness?.owner_name || 'Owner Name'}</p>
-                  <p className="text-xs text-slate-500 font-medium">{currentBusiness?.phone || 'Phone'}</p>
-                  <button onClick={() => router.push('/settings/business')} className="mt-6 text-xs font-bold text-indigo-600 border border-indigo-200 px-4 py-2 rounded-xl">Edit Business Details</button>
-                </div>
-              )}
-              {modalType === 'scanner' && (
-                <div className="flex flex-col gap-3">
-                  <button onClick={() => { alert('Camera open ho raha hai...'); setModalType(null); }} className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 active:bg-slate-100 transition"><div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-2xl">📸</div><div className="text-left"><p className="font-bold text-slate-800 text-sm">Bill Photo Scan</p><p className="text-[10px] text-slate-500">Auto-create Purchase entry</p></div></button>
-                  <button onClick={() => { alert('QR Scanner open ho raha hai...'); setModalType(null); }} className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 active:bg-slate-100 transition"><div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center text-2xl">🔳</div><div className="text-left"><p className="font-bold text-slate-800 text-sm">Scan QR Code</p><p className="text-[10px] text-slate-500">Scan product or customer QR</p></div></button>
-                  <button onClick={() => { router.push('/purchases/new'); setModalType(null); }} className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 active:bg-slate-100 transition"><div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center text-2xl">✍️</div><div className="text-left"><p className="font-bold text-slate-800 text-sm">Manual Entry</p><p className="text-[10px] text-slate-500">Enter details manually</p></div></button>
-                </div>
-              )}
-              {(modalType === 'sales' || modalType === 'udhaar') && <p className="text-sm text-slate-500 text-center py-6 font-medium">Detailed breakdown coming soon.</p>}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-800">
+                {modalType === 'profile' ? 'My Profile' : modalType === 'scanner' ? 'Scanner' : modalType === 'lowStock' ? 'Low Stock Alerts' : 'Sales Details'}
+              </h3>
+              <button onClick={() => setModalType(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">✕</button>
             </div>
-            <button onClick={() => setModalType(null)} className="w-full mt-6 bg-slate-100 text-slate-700 font-bold py-3.5 rounded-xl hover:bg-slate-200 transition">Close</button>
+
+            {/* Low Stock Modal Content */}
+            {modalType === 'lowStock' && (
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                {lowStockItems.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-6">No items low on stock.</p>
+                ) : (
+                  lowStockItems.map((item, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500 text-sm">📦</div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{item.name}</p>
+                          <p className="text-[10px] text-slate-500">Alert limit: {item.low_stock_limit || 5}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-rose-500">{item.stock_qty}</p>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider">Left</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Profile Modal Content */}
+            {modalType === 'profile' && (
+              <div className="flex flex-col items-center py-4">
+                <div className="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center text-3xl mb-3 border border-indigo-100 shadow-sm">👤</div>
+                <p className="text-base font-bold text-slate-800">{currentBusiness?.owner_name || 'Owner'}</p>
+                <p className="text-xs text-slate-500 mb-4">{currentBusiness?.phone || 'Phone'}</p>
+                <Button variant="outline" fullWidth onClick={() => router.push('/settings/business')}>Edit Business Details</Button>
+              </div>
+            )}
+
+            {/* Scanner Modal Content */}
+            {modalType === 'scanner' && (
+              <div className="flex flex-col gap-3">
+                <Button variant="outline" fullWidth onClick={() => { alert('Camera open...'); setModalType(null); }}>📸 Bill Photo Scan</Button>
+                <Button variant="outline" fullWidth onClick={() => { alert('Scanner open...'); setModalType(null); }}>🔍 Scan QR Code</Button>
+                <Button variant="primary" fullWidth onClick={() => { router.push('/purchases/new'); setModalType(null); }}>📝 Manual Entry</Button>
+              </div>
+            )}
+
+            {modalType === 'sales' && (
+              <div className="text-center py-4">
+                <p className="text-sm text-slate-500 mb-4">Detailed breakdown coming soon.</p>
+                <Button variant="primary" fullWidth onClick={() => setModalType(null)}>Close</Button>
+              </div>
+            )}
+
           </div>
         </div>
       )}
 
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 w-full bg-white/90 backdrop-blur-lg border-t border-slate-200 flex justify-around items-center pt-2 pb-6 px-1 z-30 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)]">
-        <Link href="/owner" className="flex flex-col items-center gap-1 text-slate-900">
-          <div className="w-12 h-8 bg-slate-100 rounded-full flex items-center justify-center"><span className="text-lg">🏠</span></div>
-          <span className="text-[9px] font-black">Home</span>
+        <Link href="/owner" className="flex flex-col items-center gap-1 text-indigo-600">
+          <div className="w-12 h-8 bg-indigo-50 rounded-full flex items-center justify-center"><span className="text-lg">🏠</span></div>
+          <span className="text-[10px] font-bold">Home</span>
         </Link>
-        <Link href="/orders" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-900 transition"><span className="text-xl">🛒</span><span className="text-[9px] font-bold">Orders</span></Link>
-        <button onClick={() => setModalType('scanner')} className="flex flex-col items-center justify-center bg-slate-900 text-white w-14 h-14 rounded-full -mt-6 shadow-xl border-[3px] border-white active:scale-95 transition"><span className="text-xl">📷</span></button>
-        <Link href="/sales" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-900 transition"><span className="text-xl">🧾</span><span className="text-[9px] font-bold">Sales</span></Link>
-        <Link href="/settings" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-900 transition"><span className="text-xl">⚙️</span><span className="text-[9px] font-bold">Settings</span></Link>
+        <Link href="/orders" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors">
+          <span className="text-lg">🛒</span>
+          <span className="text-[10px] font-semibold">Orders</span>
+        </Link>
+        <button onClick={() => setModalType('scanner')} className="flex flex-col items-center justify-center bg-slate-900 text-white w-14 h-14 rounded-full -mt-6 shadow-lg border-4 border-white active:scale-95 transition-transform">
+          <span className="text-xl">📸</span>
+        </button>
+        <Link href="/sales" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors">
+          <span className="text-lg">📄</span>
+          <span className="text-[10px] font-semibold">Sales</span>
+        </Link>
+        <Link href="/settings" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors">
+          <span className="text-lg">⚙️</span>
+          <span className="text-[10px] font-semibold">Settings</span>
+        </Link>
       </nav>
-
     </main>
-  )
+  );
 }
