@@ -245,7 +245,7 @@ export default function OwnerDashboard() {
             Upgrade →
           </Link>
         </div>
-        )}
+        
         {/* Business Overview (Clickable Cards) */}
         <div className="flex items-center justify-between mt-6 mb-3 px-1">
           <h2 className="text-lg font-black text-slate-800 tracking-tight">Business Overview</h2>
