@@ -48,9 +48,8 @@ export default function OwnerDashboard() {
       const { data: profile } = await supabase.from('users').select('*, businesses(*)').eq('id', user.id).single();
       
       if (profile) {
-        // null filter lagaya hai taaki crash na ho
         let bizList = Array.isArray(profile.businesses) ? profile.businesses : [profile.businesses];
-        bizList = bizList.filter(Boolean); 
+        bizList = bizList.filter(Boolean); // Null error fix
         
         setAllBusinesses(bizList);
         
@@ -65,13 +64,17 @@ export default function OwnerDashboard() {
 
           setCurrentBusiness(activeBiz);
           
+          // Trial Logic (Aapka Purana)
           if (activeBiz.trial_start_date) {
             const start = new Date(activeBiz.trial_start_date).getTime();
             const now = new Date().getTime();
             const diff = 14 - Math.floor((now - start) / (1000 * 60 * 60 * 24));
             setTrialDays(diff > 0 ? diff : 0);
+          } else {
+            setTrialDays(0); // Agar date nahi hai
           }
 
+          // Data Fetching
           const [custRes, prodRes] = await Promise.all([
             supabase.from('customers').select('id, name, current_balance, phone').eq('business_id', activeBiz.id),
             supabase.from('products').select('*').eq('business_id', activeBiz.id)
@@ -137,7 +140,6 @@ export default function OwnerDashboard() {
     try {
       const { error } = await supabase.from('payment_requests').update({ status }).eq('id', req.id);
       if (error) throw error;
-
       if (status === 'approved') {
         const customer = await supabase.from('customers').select('current_balance').eq('id', req.customer_id).single();
         if (customer.data) {
@@ -171,7 +173,7 @@ export default function OwnerDashboard() {
         </div>
         
         <div className="flex items-center gap-3 relative">
-          {/* Custom Business Dropdown */}
+          {/* Business Dropdown */}
           <div className="relative">
             <button 
               onClick={() => setIsBizDropdownOpen(!isBizDropdownOpen)}
@@ -184,21 +186,21 @@ export default function OwnerDashboard() {
             {isBizDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
                 <div className="max-h-40 overflow-y-auto">
-                  {allBusinesses.length === 0 ? (
-                    <p className="p-3 text-xs text-slate-500">No business found</p>
-                  ) : (
-                    allBusinesses.map(b => (
-                      <button 
-                        key={b.id} 
-                        onClick={() => handleBusinessSwitch(b.id)}
-                        className={`w-full text-left px-3 py-2 text-xs font-medium border-b border-slate-50 hover:bg-slate-50 ${currentBusiness?.id === b.id ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-700'}`}
-                      >
-                        {b.business_name}
-                      </button>
-                    ))
-                  )}
+                  {allBusinesses.map(b => (
+                    <button 
+                      key={b.id} 
+                      onClick={() => handleBusinessSwitch(b.id)}
+                      className={`w-full text-left px-3 py-2 text-xs font-medium border-b border-slate-50 hover:bg-slate-50 ${currentBusiness?.id === b.id ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-700'}`}
+                    >
+                      {b.business_name}
+                    </button>
+                  ))}
                 </div>
                 <div className="p-2 bg-slate-50 border-t border-slate-200 flex flex-col gap-1">
+                  {/* Naya Business Add Karne Ka Option */}
+                  <button onClick={() => router.push('/settings/business/new')} className="text-left px-2 py-1.5 text-[11px] font-bold text-emerald-600 hover:bg-white rounded transition-colors flex items-center gap-1">
+                    <span className="text-sm">+</span> Add New Business
+                  </button>
                   <button onClick={() => router.push('/settings/business')} className="text-left px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:text-indigo-600 hover:bg-white rounded transition-colors">✏️ Edit Business</button>
                   <button onClick={handleDeleteBusiness} className="text-left px-2 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-white rounded transition-colors">🗑️ Delete Business</button>
                 </div>
@@ -206,7 +208,6 @@ export default function OwnerDashboard() {
             )}
           </div>
           
-          {/* Working Bell Icon */}
           <button onClick={() => setModalType('notifications')} className="relative text-lg">
             🔔
             <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>
@@ -220,6 +221,23 @@ export default function OwnerDashboard() {
 
       <div className="px-4 pt-5 space-y-6 max-w-md mx-auto">
         
+        {/* Trial Banner (Purana Design) */}
+        {trialDays > 0 && (
+          <div className="bg-gradient-to-r from-orange-400 to-orange-500 rounded-2xl p-4 shadow-md relative overflow-hidden flex items-center justify-between">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/20 rounded-full blur-xl -mr-5 -mt-5"></div>
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white">✨</div>
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-wide">Premium Trial</h3>
+                <p className="text-[11px] text-orange-50 font-medium">{trialDays} days remaining</p>
+              </div>
+            </div>
+            <Link href="/pricing" className="relative z-10 bg-white text-orange-500 px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 active:scale-95 transition-all">
+              Upgrade
+            </Link>
+          </div>
+        )}
+
         {/* Business Info Card */}
         {currentBusiness && (
           <Card className="relative overflow-hidden border border-slate-200 shadow-sm bg-white p-4">
@@ -237,24 +255,8 @@ export default function OwnerDashboard() {
                   )}
                 </div>
               </div>
-              <button onClick={() => router.push('/settings/business')} className="px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-100 active:scale-95 transition-all">Edit</button>
             </div>
           </Card>
-        )}
-
-        {/* Premium Trial Banner */}
-        {trialDays > 0 && (
-          <div className="bg-gradient-to-r from-orange-400 to-orange-500 rounded-2xl p-4 shadow-md relative overflow-hidden flex items-center justify-between">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-white/20 rounded-full blur-xl -mr-5 -mt-5"></div>
-            <div className="relative z-10 flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white">✨</div>
-              <div>
-                <h3 className="text-sm font-bold text-white tracking-wide">Premium Trial</h3>
-                <p className="text-[11px] text-orange-50 font-medium">{trialDays} days remaining</p>
-              </div>
-            </div>
-            <Link href="/pricing" className="relative z-10 bg-white text-orange-500 px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 active:scale-95 transition-all">Upgrade</Link>
-          </div>
         )}
         {/* Business Overview */}
         <div className="flex items-center justify-between mt-6 mb-3 px-1">
@@ -266,7 +268,6 @@ export default function OwnerDashboard() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {/* Today's Sales */}
           <Card onClick={() => setModalType('todaySales')} className="cursor-pointer active:scale-95 transition-transform bg-[#1e1e24] border-0 text-white shadow-md relative overflow-hidden">
             <div className="flex justify-between items-start mb-2 relative z-10">
               <p className="text-[11px] font-semibold tracking-wider text-slate-300 uppercase">Today's Sales</p>
@@ -275,7 +276,6 @@ export default function OwnerDashboard() {
             <p className="text-2xl font-black relative z-10 tracking-tight">₹{(todaySales || 0).toLocaleString('en-IN')}</p>
           </Card>
 
-          {/* Total Udhaar */}
           <Card onClick={() => setModalType('udhaar')} className="cursor-pointer active:scale-95 transition-transform border border-slate-200 shadow-sm relative overflow-hidden bg-white">
             <div className="flex justify-between items-start mb-2">
               <p className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Total Udhaar</p>
@@ -284,7 +284,6 @@ export default function OwnerDashboard() {
             <p className="text-2xl font-black text-rose-500 tracking-tight">₹{(totalUdhaar || 0).toLocaleString('en-IN')}</p>
           </Card>
 
-          {/* Low Stock */}
           <Card onClick={() => setModalType('lowStock')} className="cursor-pointer active:scale-95 transition-transform border border-slate-200 shadow-sm relative overflow-hidden bg-white">
             <div className="flex justify-between items-start mb-2">
               <p className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Low Stock</p>
@@ -295,7 +294,6 @@ export default function OwnerDashboard() {
             </p>
           </Card>
 
-          {/* Net Profit */}
           <Card onClick={() => setModalType('sales')} className="cursor-pointer active:scale-95 transition-transform bg-gradient-to-br from-indigo-600 to-violet-600 border-0 text-white shadow-md relative overflow-hidden">
              <div className="absolute -right-4 -top-4 w-16 h-16 bg-white/10 rounded-full blur-lg"></div>
             <div className="flex justify-between items-start mb-2 relative z-10">
@@ -424,7 +422,6 @@ export default function OwnerDashboard() {
               <button onClick={() => setModalType(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">✕</button>
             </div>
 
-            {/* Modals Content */}
             {modalType === 'notifications' && (
               <div className="text-center py-6">
                 <span className="text-4xl mb-3 block">🔔</span>
