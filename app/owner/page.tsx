@@ -1,9 +1,13 @@
 'use client';
-
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase/Client'; // (Agar error aaye to createClient use karein)
+
+import { createClient } from '@/lib/supabase/client';
+
+import Card from '@/components/ui /Card';
+import Button from '@/components /ui/Button';
+import Badge from '@/components/ui /Badge';
 
 type Business = {
   id: string; business_name: string;
@@ -18,6 +22,7 @@ type Customer = {
   phone: string | null;
 };
 export default function OwnerDashboard() {
+const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
