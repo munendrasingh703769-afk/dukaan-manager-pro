@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabaseClient'; // (Agar error aaye to createClient use karein)
+import { supabase } from '@/lib/supabase/Client'; // (Agar error aaye to createClient use karein)
 
 type Business = {
   id: string; business_name: string;
@@ -17,7 +17,7 @@ type Customer = {
   current_balance: number;
   phone: string | null;
 };
-
+const supabase = createClient();
 export default function OwnerDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
