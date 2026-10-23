@@ -145,7 +145,7 @@ export default function OwnerDashboard() {
   const todayDate = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   return (
     <main className="min-h-screen bg-slate-50 pb-24">
-      {/* Header */}
+            {/* Header */}
       <header className="bg-white px-4 py-3 sticky top-0 z-40 border-b border-slate-200 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">V</div>
@@ -156,7 +156,7 @@ export default function OwnerDashboard() {
         </div>
         
         <div className="flex items-center gap-3 relative">
-          {/* Business Dropdown */}
+          {/* Business Dropdown with Edit/Delete */}
           <div className="relative">
             <button 
               onClick={() => setIsBizDropdownOpen(!isBizDropdownOpen)}
@@ -167,7 +167,7 @@ export default function OwnerDashboard() {
             </button>
             
             {isBizDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
                 <div className="max-h-40 overflow-y-auto">
                   {allBusinesses.map(b => (
                     <button 
@@ -205,7 +205,7 @@ export default function OwnerDashboard() {
 
       <div className="px-4 pt-5 space-y-6 max-w-md mx-auto">
         
-        {/* Business Info Card */}
+                {/* Business Info Card (Owner Details) */}
         {currentBusiness && (
           <div className="relative overflow-hidden border border-slate-200 shadow-sm bg-white p-4 rounded-2xl">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -225,7 +225,7 @@ export default function OwnerDashboard() {
                   )}
                 </div>
               </div>
-              <button onClick={() => router.push('/settings/business')} className="px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 active:scale-95 transition-all">✏️ Edit</button>
+              <Link href="/settings/business" className="px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 active:scale-95 transition-all">✏️ Edit</Link>
             </div>
           </div>
         )}
