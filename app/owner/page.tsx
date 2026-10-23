@@ -90,9 +90,34 @@ export default function OwnerDashboard() {
       monthlyProfit: 0 
     })
         setPaymentRequests(reqData || []) 
-    setLoading(false) // Yeh line 92 par pehle se hai
+    setLoading(false)
   }
 
+  // 🔥 YEH NAYA FUNCTION YAHAN PASTE KAREIN
+  async function handleRequestAction(req: any, action: 'approved' | 'rejected') {
+    if (!confirm(`Are you sure you want to ${action} this payment?`)) return;
+    
+    await supabase.from('payment_requests').update({ status: action }).eq('id', req.id);
+    
+    if (action === 'approved') {
+      await supabase.from('payments').insert([{
+        business_id: currentBusiness?.id,
+        customer_id: req.customer_id,
+        amount: req.amount,
+        payment_mode: 'UPI (Manual)'
+      }]);
+      
+      const { data: cust } = await supabase.from('customers').select('current_balance').eq('id', req.customer_id).single();
+      if (cust) {
+        await supabase.from('customers').update({ current_balance: Number(cust.current_balance) - Number(req.amount) }).eq('id', req.customer_id);
+      }
+    }
+    
+    alert(`Payment ${action} successfully!`);
+    loadData(); 
+  }
+
+  function handleBusinessSwitch(e: React.ChangeEvent<HTMLSelectElement>) { {/* Yeh line 95 hai */}
   function handleBusinessSwitch(e: React.ChangeEvent<HTMLSelectElement>) {
     const newId = e.target.value
     setCurrentBusinessId(newId)
@@ -219,7 +244,32 @@ export default function OwnerDashboard() {
 
           </div>
         </section>
-
+        {/* 🔥 Pending Payment Requests Section */}
+        {paymentRequests.length > 0 && (
+          <section className="bg-amber-50 rounded-2xl border border-amber-200 shadow-sm overflow-hidden animate-fade-in">
+            <div className="bg-amber-500 px-4 py-2 flex items-center justify-between">
+              <h2 className="text-xs font-black text-white uppercase tracking-wider">Pending Payment Requests</h2>
+              <span className="bg-white text-amber-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{paymentRequests.length} New</span>
+            </div>
+            <div className="p-3 space-y-3">
+              {paymentRequests.map(req => (
+                <div key={req.id} className="bg-white p-3 rounded-xl border border-amber-100 flex justify-between items-center shadow-sm">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{req.customers?.name || 'Customer'}</p>
+                    <p className="text-[10px] text-slate-500 font-medium mt-0.5">{new Date(req.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-black text-emerald-600 mb-1">₹{req.amount}</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleRequestAction(req, 'rejected')} className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded">Reject</button>
+                      <button onClick={() => handleRequestAction(req, 'approved')} className="bg-emerald-600 text-white text-[10px] font-bold px-3 py-1 rounded shadow-sm">Approve</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
         {/* Quick Actions */}
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Quick Actions</h2>
