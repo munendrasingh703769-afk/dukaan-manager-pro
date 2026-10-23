@@ -17,7 +17,6 @@ type Customer = {
   current_balance: number;
   phone: string | null;
 };
-const supabase = createClient();
 export default function OwnerDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
