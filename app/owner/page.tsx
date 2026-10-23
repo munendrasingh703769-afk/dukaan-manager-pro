@@ -48,33 +48,33 @@ export default function OwnerDashboard() {
       const { data: profile } = await supabase.from('users').select('*, businesses(*)').eq('id', user.id).single();
       
       if (profile) {
-        let bizList = Array.isArray(profile.businesses) ? profile.businesses : [profile.businesses];
-        bizList = bizList.filter(Boolean); // Null error fix
-        
+        // FIX: Array aur Object dono handle karne ka sahi tarika
+        let bizList: Business[] = [];
+        if (Array.isArray(profile.businesses)) {
+          bizList = profile.businesses;
+        } else if (profile.businesses) {
+          bizList = [profile.businesses];
+        }
+
         setAllBusinesses(bizList);
         
         if (bizList.length > 0) {
           const storedBizId = typeof window !== 'undefined' ? localStorage.getItem('selectedBusinessId') : null;
-          let activeBiz = bizList.find((b: any) => b.id === storedBizId);
+          let activeBiz = bizList.find((b: any) => b.id === storedBizId) || bizList[0];
           
-          if (!activeBiz) {
-            activeBiz = bizList[0];
-            if (typeof window !== 'undefined') localStorage.setItem('selectedBusinessId', bizList[0].id);
-          }
-
+          if (typeof window !== 'undefined') localStorage.setItem('selectedBusinessId', activeBiz.id);
           setCurrentBusiness(activeBiz);
           
-          // Trial Logic (Aapka Purana)
+          // FIX: Trial Days Calculation
           if (activeBiz.trial_start_date) {
             const start = new Date(activeBiz.trial_start_date).getTime();
             const now = new Date().getTime();
             const diff = 14 - Math.floor((now - start) / (1000 * 60 * 60 * 24));
             setTrialDays(diff > 0 ? diff : 0);
           } else {
-            setTrialDays(0); // Agar date nahi hai
+            setTrialDays(0);
           }
 
-          // Data Fetching
           const [custRes, prodRes] = await Promise.all([
             supabase.from('customers').select('id, name, current_balance, phone').eq('business_id', activeBiz.id),
             supabase.from('products').select('*').eq('business_id', activeBiz.id)
@@ -162,7 +162,7 @@ export default function OwnerDashboard() {
 
   return (
     <main className="min-h-screen bg-slate-50 pb-24">
-      {/* Header */}
+      {/* Header (Screenshot 1 jaisa) */}
       <header className="bg-white px-4 py-3 sticky top-0 z-40 border-b border-slate-200 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">V</div>
@@ -177,10 +177,10 @@ export default function OwnerDashboard() {
           <div className="relative">
             <button 
               onClick={() => setIsBizDropdownOpen(!isBizDropdownOpen)}
-              className="text-[11px] font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1 max-w-[110px]"
+              className="text-sm font-bold text-slate-800 flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-slate-200"
             >
-              <span className="truncate">{currentBusiness?.business_name || 'Dukaan...'}</span>
-              <span className="text-[8px]">▼</span>
+              <span className="truncate max-w-[80px]">{currentBusiness?.business_name || 'Dukaan...'}</span>
+              <span className="text-[10px] text-slate-500">▼</span>
             </button>
             
             {isBizDropdownOpen && (
@@ -197,7 +197,6 @@ export default function OwnerDashboard() {
                   ))}
                 </div>
                 <div className="p-2 bg-slate-50 border-t border-slate-200 flex flex-col gap-1">
-                  {/* Naya Business Add Karne Ka Option */}
                   <button onClick={() => router.push('/settings/business/new')} className="text-left px-2 py-1.5 text-[11px] font-bold text-emerald-600 hover:bg-white rounded transition-colors flex items-center gap-1">
                     <span className="text-sm">+</span> Add New Business
                   </button>
@@ -221,23 +220,6 @@ export default function OwnerDashboard() {
 
       <div className="px-4 pt-5 space-y-6 max-w-md mx-auto">
         
-        {/* Trial Banner (Purana Design) */}
-        {trialDays > 0 && (
-          <div className="bg-gradient-to-r from-orange-400 to-orange-500 rounded-2xl p-4 shadow-md relative overflow-hidden flex items-center justify-between">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-white/20 rounded-full blur-xl -mr-5 -mt-5"></div>
-            <div className="relative z-10 flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white">✨</div>
-              <div>
-                <h3 className="text-sm font-bold text-white tracking-wide">Premium Trial</h3>
-                <p className="text-[11px] text-orange-50 font-medium">{trialDays} days remaining</p>
-              </div>
-            </div>
-            <Link href="/pricing" className="relative z-10 bg-white text-orange-500 px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 active:scale-95 transition-all">
-              Upgrade
-            </Link>
-          </div>
-        )}
-
         {/* Business Info Card */}
         {currentBusiness && (
           <Card className="relative overflow-hidden border border-slate-200 shadow-sm bg-white p-4">
@@ -255,8 +237,24 @@ export default function OwnerDashboard() {
                   )}
                 </div>
               </div>
+              <button onClick={() => router.push('/settings/business')} className="px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-100 active:scale-95 transition-all">Edit</button>
             </div>
           </Card>
+        )}
+
+        {/* Premium Trial Banner */}
+        {trialDays > 0 && (
+          <div className="bg-gradient-to-r from-orange-400 to-orange-500 rounded-2xl p-4 shadow-md relative overflow-hidden flex items-center justify-between">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/20 rounded-full blur-xl -mr-5 -mt-5"></div>
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white">✨</div>
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-wide">Premium Trial</h3>
+                <p className="text-[11px] text-orange-50 font-medium">{trialDays} days remaining</p>
+              </div>
+            </div>
+            <Link href="/pricing" className="relative z-10 bg-white text-orange-500 px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 active:scale-95 transition-all">Upgrade</Link>
+          </div>
         )}
         {/* Business Overview */}
         <div className="flex items-center justify-between mt-6 mb-3 px-1">
@@ -268,7 +266,8 @@ export default function OwnerDashboard() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Card onClick={() => setModalType('todaySales')} className="cursor-pointer active:scale-95 transition-transform bg-[#1e1e24] border-0 text-white shadow-md relative overflow-hidden">
+          {/* Today's Sales FIXED: Added !bg-[#1e1e24] so text is visible */}
+          <Card onClick={() => setModalType('todaySales')} className="cursor-pointer active:scale-95 transition-transform !bg-[#1e1e24] border-0 text-white shadow-md relative overflow-hidden">
             <div className="flex justify-between items-start mb-2 relative z-10">
               <p className="text-[11px] font-semibold tracking-wider text-slate-300 uppercase">Today's Sales</p>
               <span className="text-sm bg-white/10 p-1.5 rounded-lg">📈</span>
