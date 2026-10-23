@@ -11,8 +11,8 @@ import Badge from '@/components/ui/Badge';
 type Business = {
   id: string; business_name: string;
   business_type: string; owner_name: string;
-  phone: string | null;
   city: string | null; trial_start_date: string | null;
+  phone: string | null;
 };
 
 type Customer = {
@@ -27,6 +27,7 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
 
   const [currentBusiness, setCurrentBusiness] = useState<Business | null>(null);
+  const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
   const [todaySales, setTodaySales] = useState(0);
   const [totalUdhaar, setTotalUdhaar] = useState(0);
   const [lowStockCount, setLowStockCount] = useState(0);
@@ -44,55 +45,65 @@ export default function OwnerDashboard() {
     fetchData();
   }, []);
 
+  // Aapka Exact Purana Function
   async function fetchData() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      const { data: profile } = await supabase
-        .from('users').select('*, businesses(*)').eq('id', user.id).single();
-      
-      if (profile) setUserRole(profile.role);
+      const { data: profile } = await supabase.from('users').select('*, businesses(*)').eq('id', user.id).single();
+      if (profile) {
+        const businesses = Array.isArray(profile.businesses) ? profile.businesses : [profile.businesses].filter(Boolean);
+        setAllBusinesses(businesses);
 
-      if (profile?.businesses) {
-        const bizList = Array.isArray(profile.businesses) ? profile.businesses : [profile.businesses];
-        const biz = bizList[0];
-        setCurrentBusiness(biz);
-
-        if (biz.trial_start_date) {
-          const start = new Date(biz.trial_start_date).getTime();
-          const now = new Date().getTime();
-          const diff = 14 - Math.floor((now - start) / (1000 * 60 * 60 * 24));
-          setTrialDays(diff > 0 ? diff : 0);
+        const storedBizId = localStorage.getItem('selectedBusinessId');
+        let activeBiz = businesses.find((b: any) => b.id === storedBizId);
+        
+        if (!activeBiz && businesses.length > 0) {
+          activeBiz = businesses[0];
+          localStorage.setItem('selectedBusinessId', businesses[0].id);
         }
 
-        const [custRes, prodRes] = await Promise.all([
-          supabase.from('customers').select('*').eq('business_id', biz.id),
-          supabase.from('products').select('*').eq('business_id', biz.id)
-        ]);
+        if (activeBiz) {
+          setCurrentBusiness(activeBiz);
+          if (activeBiz.trial_start_date) {
+            const start = new Date(activeBiz.trial_start_date).getTime();
+            const now = new Date().getTime();
+            const diff = 14 - Math.floor((now - start) / (1000 * 60 * 60 * 24));
+            setTrialDays(diff > 0 ? diff : 0);
+          }
 
-        const customers = custRes.data || [];
-        setTotalUdhaar(customers.reduce((sum, c) => sum + (c.current_balance || 0), 0));
-        setLowStockItems((prodRes.data || []).filter(p => p.stock_qty <= (p.low_stock_limit || 5)));
-        setLowStockCount((prodRes.data || []).filter(p => p.stock_qty <= (p.low_stock_limit || 5)).length);
+          const [custRes, prodRes] = await Promise.all([
+            supabase.from('customers').select('id, name, current_balance, phone').eq('business_id', activeBiz.id),
+            supabase.from('products').select('*').eq('business_id', activeBiz.id)
+          ]);
 
-        const { data: sales } = await supabase.from('sales').select('*').eq('business_id', biz.id).order('created_at', { ascending: false });
-        if (sales) {
-          let todaySalesAmt = 0;
-          let profitAmt = 0;
-          const today = new Date().toISOString().split('T')[0];
+          const customers = custRes.data || [];
+          const products = prodRes.data || [];
+
+          setTotalUdhaar(customers.reduce((sum, c) => sum + (c.current_balance || 0), 0));
+          const lowStock = products.filter(p => p.stock_qty <= (p.low_stock_limit || 5));
+          setLowStockCount(lowStock.length);
+          setLowStockItems(lowStock);
+
+          const { data: sales } = await supabase.from('sales').select('id, total_amount, created_at').eq('business_id', activeBiz.id).order('created_at', { ascending: false });
           
-          sales.forEach(s => {
-            if (s.created_at.startsWith(today)) todaySalesAmt += Number(s.total_amount || 0);
-            profitAmt += Number(s.total_amount || 0); 
-          });
-          setTodaySales(todaySalesAmt);
+          let salesAmt = 0;
+          let profitAmt = 0;
+          if (sales) {
+            const today = new Date().toISOString().split('T')[0];
+            sales.forEach(s => {
+              if (s.created_at.startsWith(today)) salesAmt += Number(s.total_amount || 0);
+              profitAmt += Number(s.total_amount || 0); 
+            });
+          }
+          setTodaySales(salesAmt);
           setTotalProfit(profitAmt);
-        }
 
-        const { data: reqs } = await supabase.from('payment_requests').select('*, customers(name)').eq('business_id', biz.id).eq('status', 'pending').order('created_at', { ascending: false });
-        setPaymentRequests(reqs || []);
+          const { data: reqs } = await supabase.from('payment_requests').select('*, customers(name)').eq('business_id', activeBiz.id).eq('status', 'pending').order('created_at', { ascending: false });
+          setPaymentRequests(reqs || []);
+        }
       }
     } catch (error) {
       console.error(error);
@@ -101,24 +112,30 @@ export default function OwnerDashboard() {
     }
   }
 
-  const handleNavigation = (e: React.MouseEvent, path: string) => {
-    e.preventDefault();
-    router.push(path);
-  };
+  // Aapka Exact Purana Switch Function
+  function handleBusinessSwitch(e: React.ChangeEvent<HTMLSelectElement>) {
+    const newId = e.target.value;
+    localStorage.setItem('selectedBusinessId', newId);
+    const biz = allBusinesses.find(b => b.id === newId);
+    if (biz) setCurrentBusiness(biz);
+    fetchData();
+  }
 
-  async function handleRequestAction(req: any, action: 'approved' | 'rejected') {
-    if (action === 'rejected') {
-      await supabase.from('payment_requests').update({ status: 'rejected' }).eq('id', req.id);
-      setPaymentRequests(paymentRequests.filter(r => r.id !== req.id));
-      return;
-    }
+  // Aapka Exact Purana Action Function
+  async function handleRequestAction(req: any, status: 'approved' | 'rejected') {
+    try {
+      const { error } = await supabase.from('payment_requests').update({ status }).eq('id', req.id);
+      if (error) throw error;
 
-    const { data: cust } = await supabase.from('customers').select('current_balance').eq('id', req.customer_id).single();
-    if (cust) {
-      await supabase.from('customers').update({ current_balance: (cust.current_balance || 0) - req.amount }).eq('id', req.customer_id);
-      await supabase.from('payment_requests').update({ status: 'approved' }).eq('id', req.id);
-      setPaymentRequests(paymentRequests.filter(r => r.id !== req.id));
+      if (status === 'approved') {
+        const customer = await supabase.from('customers').select('current_balance').eq('id', req.customer_id).single();
+        if (customer.data) {
+          await supabase.from('customers').update({ current_balance: (customer.data.current_balance || 0) - req.amount }).eq('id', req.customer_id);
+        }
+      }
       fetchData(); 
+    } catch (err: any) {
+      alert(err.message);
     }
   }
 
@@ -133,7 +150,7 @@ export default function OwnerDashboard() {
   return (
     <main className="min-h-screen bg-slate-50 pb-24">
       {/* PART 2 Yahan Se Shuru Hoga */}
-      {/* Header (Purane buttons ke sath) */}
+      {/* Header */}
       <header className="bg-white px-4 py-3 sticky top-0 z-40 border-b border-slate-200 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">V</div>
@@ -142,15 +159,26 @@ export default function OwnerDashboard() {
             <p className="text-[10px] font-bold text-emerald-600 tracking-widest uppercase">Owner Panel</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
-            Dukaan... <span className="text-[8px]">▼</span>
-          </div>
+        
+        <div className="flex items-center gap-2">
+          {/* Multiple Business Dropdown (Aapka Purana Feature) */}
+          {allBusinesses.length > 0 && (
+            <select 
+              value={currentBusiness?.id || ''} 
+              onChange={handleBusinessSwitch}
+              className="text-xs font-bold text-slate-700 bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 outline-none max-w-[110px] truncate"
+            >
+              {allBusinesses.map(b => (
+                <option key={b.id} value={b.id}>{b.business_name}</option>
+              ))}
+            </select>
+          )}
+          
           <button className="relative text-lg">
             🔔
             <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>
           </button>
-          <button onClick={() => setModalType('profile')} className="w-9 h-9 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-sm shadow-sm hover:bg-indigo-100 transition-colors">
+          <button onClick={() => setModalType('profile')} className="w-9 h-9 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-sm shadow-sm">
             👤
           </button>
         </div>
@@ -168,8 +196,8 @@ export default function OwnerDashboard() {
                   {currentBusiness.business_type === 'shop' ? '🏪' : currentBusiness.business_type === 'service' ? '🔧' : '💼'}
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-800 line-clamp-1">{currentBusiness.business_name || 'My Business'}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">{currentBusiness.owner_name || 'Owner'}</p>
+                  <h2 className="text-base font-bold text-slate-800 line-clamp-1">{currentBusiness.business_name}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{currentBusiness.owner_name}</p>
                   {currentBusiness.city && (
                     <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1"><span>📍</span> {currentBusiness.city}</p>
                   )}
@@ -200,7 +228,7 @@ export default function OwnerDashboard() {
           <h2 className="text-lg font-bold text-slate-800 tracking-tight">Business Overview</h2>
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm">
             <span className="text-[10px]">📅</span>
-            <span className="text-[11px] font-semibold text-slate-600">Today</span>
+            <span className="text-[11px] font-semibold text-slate-600 capitalize">{viewMode}</span>
           </div>
         </div>
 
@@ -344,7 +372,7 @@ export default function OwnerDashboard() {
               <button onClick={() => setModalType(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">✕</button>
             </div>
 
-            {/* Low Stock Modal Content */}
+            {/* Low Stock Modal */}
             {modalType === 'lowStock' && (
               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                 {lowStockItems.length === 0 ? (
@@ -369,25 +397,23 @@ export default function OwnerDashboard() {
               </div>
             )}
 
-            {/* Profile Modal Content (Photo Upload ke sath) */}
+            {/* Profile Modal (Photo Upload ke sath) */}
             {modalType === 'profile' && (
               <div className="flex flex-col items-center py-4">
                 <div className="relative w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center text-3xl mb-3 border border-indigo-100 shadow-sm overflow-hidden">
                   👤
                 </div>
-                
                 <label className="bg-slate-900 text-white text-xs font-bold px-6 py-2.5 rounded-xl cursor-pointer shadow-md hover:bg-slate-800 active:scale-95 transition-all mb-5 inline-block">
                   Upload Photo
-                  <input type="file" accept="image/*" className="hidden" onChange={() => alert("Photo upload coming soon! (Database connection pending)")} />
+                  <input type="file" accept="image/*" className="hidden" onChange={() => alert("Photo upload coming soon!")} />
                 </label>
-
                 <p className="text-base font-bold text-slate-800">{currentBusiness?.owner_name || 'Owner'}</p>
                 <p className="text-xs text-slate-500 mb-5">{currentBusiness?.phone || 'Phone'}</p>
                 <Button variant="outline" fullWidth onClick={() => router.push('/settings/business')}>Edit Business Details</Button>
               </div>
             )}
 
-            {/* Scanner Modal Content */}
+            {/* Scanner Modal */}
             {modalType === 'scanner' && (
               <div className="flex flex-col gap-3">
                 <Button variant="outline" fullWidth onClick={() => { alert('Camera open...'); setModalType(null); }}>📸 Bill Photo Scan</Button>
