@@ -49,12 +49,20 @@ export default function OwnerDashboard() {
       setTrialDays(diff > 0 ? diff : 0)
     } else { setTrialDays(7) }
 
-    const [ { count: custCount }, { count: prodCount }, { data: salesData }, { data: prodData }, { data: recentSalesData } ] = await Promise.all([
+        const [ 
+      { count: custCount }, 
+      { count: prodCount }, 
+      { data: salesData }, 
+      { data: prodData }, 
+      { data: recentSalesData },
+      { data: reqData } 
+    ] = await Promise.all([
       supabase.from('customers').select('*', { count: 'exact', head: true }).eq('business_id', activeId),
       supabase.from('products').select('*', { count: 'exact', head: true }).eq('business_id', activeId),
       supabase.from('sales').select('*').eq('business_id', activeId),
       supabase.from('products').select('id, name, stock_qty, low_stock_limit').eq('business_id', activeId),
-      supabase.from('sales').select('id, invoice_no, total_amount, created_at').eq('business_id', activeId).order('created_at', { ascending: false }).limit(2)
+      supabase.from('sales').select('id, invoice_no, total_amount, created_at').eq('business_id', activeId).order('created_at', { ascending: false }).limit(2),
+      supabase.from('payment_requests').select('*, customers(name)').eq('business_id', activeId).eq('status', 'pending').order('created_at', { ascending: false })
     ])
 
     let todaySalesAmt = 0, totalUdhaarAmt = 0
