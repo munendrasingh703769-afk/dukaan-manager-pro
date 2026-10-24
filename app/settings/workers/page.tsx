@@ -3,133 +3,257 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { getCurrentBusinessId, setCurrentBusinessId } from '@/lib/business'
+import { getCurrentBusinessId } from '@/lib/business'
+
+type Member = {
+  id: string
+  user_id: string
+  role: string
+  status: string
+  permissions: any
+  email?: string
+  full_name?: string
+}
+
+type Invite = {
+  id: string
+  email: string
+  role: string
+  token: string
+  expires_at: string
+  created_at: string
+}
 
 export default function WorkersPage() {
   const supabase = createClient()
+
+  const [members, setMembers] = useState<Member[]>([])
+  const [invites, setInvites] = useState<Invite[]>([])
+
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [workers, setWorkers] = useState<any[]>([])
+  const [message, setMessage] = useState('')
+
+  const [newEmail, setNewEmail] = useState('')
+  const [newRole, setNewRole] = useState('staff')
 
   useEffect(() => {
-    loadWorkers()
+    loadData()
   }, [])
 
-  async function loadWorkers() {
+  async function loadData() {
     setLoading(true)
-    setError('')
+    const businessId = getCurrentBusinessId()
+    if (!businessId) {
+      setError('Business not found')
+      setLoading(false)
+      return
+    }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        window.location.href = '/login'
-        return
-      }
-
-      // 1. Business ID check
-      let bid: string | null = getCurrentBusinessId()
-
-      if (!bid) {
-        const { data: biz } = await supabase
-          .from('businesses')
-          .select('id')
-          .eq('owner_id', user.id)
-          .limit(1)
-          .single()
-
-        if (biz && biz.id) {
-          bid = biz.id as string
-          setCurrentBusinessId(biz.id as string)
-        }
-      }
-
-      if (!bid) {
-        setError('Business not found. Please create a business first.')
-        setLoading(false)
-        return
-      }
-
-      const businessId: string = bid
-
-      // 2. Workers fetch karo, par OWNER ko chhod do
-      const { data, error: err } = await supabase
+      // 1. Fetch Members
+      const { data: membersData, error: memErr } = await supabase
         .from('business_members')
+        .select('*, profiles:user_id(*)')
+        .eq('business_id', businessId)
+
+      if (memErr) throw memErr
+
+      // Format members
+      if (membersData) {
+        const formattedMembers = membersData.map((m: any) => ({
+          id: m.id,
+          user_id: m.user_id,
+          role: m.role,
+          status: m.status || 'active',
+          permissions: m.permissions,
+          email: m.profiles?.email || 'No email',
+          full_name: m.profiles?.full_name || 'No name',
+        }))
+        setMembers(formattedMembers)
+      }
+
+      // 2. Fetch Pending Invites
+      const { data: inviteData } = await supabase
+        .from('business_invites')
         .select('*')
         .eq('business_id', businessId)
-        .neq('role', 'owner') // <--- Owner ko list se hataya
+        .is('accepted_at', null)
+        .gt('expires_at', new Date().toISOString())
 
-      if (err) {
-        setWorkers([])
-      } else if (data) {
-        setWorkers(data)
-      }
-    } catch (err) {
-      console.error(err)
+      if (inviteData) setInvites(inviteData)
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to load workers')
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading) {
-    return <main className="p-4 flex items-center justify-center min-h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></main>
+  async function inviteWorker(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newEmail) return
+
+    setSaving(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const businessId = getCurrentBusinessId()
+      if (!businessId) throw new Error('No business selected')
+
+      // Check if already invited or member
+      const isAlreadyMember = members.some(m => m.email?.toLowerCase() === newEmail.toLowerCase())
+      if (isAlreadyMember) throw new Error('User is already a team member')
+
+      const { data, error: invErr } = await supabase
+        .from('business_invites')
+        .insert({
+          business_id: businessId,
+          email: newEmail.toLowerCase(),
+          role: newRole,
+          token: crypto.randomUUID(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+        })
+        .select()
+        .single()
+
+      if (invErr) throw invErr
+
+      setInvites([...invites, data])
+      setNewEmail('')
+      setMessage('Invite sent successfully!')
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
+  async function cancelInvite(id: string) {
+    if (!confirm('Cancel this invite?')) return
+    const { error: delErr } = await supabase.from('business_invites').delete().eq('id', id)
+    if (!delErr) setInvites(invites.filter(i => i.id !== id))
+  }
+
+  async function removeWorker(memberId: string, role: string) {
+    if (role === 'owner') {
+      alert('Owner ko remove nahi kar sakte!')
+      return
+    }
+    if (!confirm('Remove this worker?')) return
+
+    const { error: delErr } = await supabase.from('business_members').delete().eq('id', memberId)
+    if (!delErr) setMembers(members.filter(m => m.id !== memberId))
+  }
+
+  if (loading) {
+    return <main className="p-8 flex justify-center"><div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full"></div></main>
+  }
   return (
-    <main className="p-4 max-w-md mx-auto">
+    <main className="p-4 max-w-md mx-auto pb-24">
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">👥</span>
-          <h1 className="text-2xl font-bold text-gray-900">Workers</h1>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          👥 Workers & Permissions
+        </h1>
         <Link href="/settings" className="text-blue-600 text-sm font-medium">
-          ← Settings
+          ← Back
         </Link>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      {message && <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">{message}</div>}
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        {/* Flex wrap lagaya taaki button text ko na kaate */}
-        <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
+      {/* Invite Form */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm mb-6">
+        <h2 className="text-base font-bold text-gray-900 mb-3">Invite New Worker</h2>
+        <form onSubmit={inviteWorker} className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Email Address</label>
+            <input 
+              type="email" 
+              required
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="worker@example.com"
+              className="w-full rounded-lg border p-2.5 text-sm outline-none focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
+            <select 
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+              className="w-full rounded-lg border p-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+            >
+              <option value="manager">Manager (Full Access)</option>
+              <option value="staff">Staff (Billing & Sales)</option>
+              <option value="viewer">Viewer (Read Only)</option>
+            </select>
+          </div>
           <button 
-            onClick={() => alert('Add Worker feature coming soon!')}
-            className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            type="submit" 
+            disabled={saving}
+            className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            + Add Worker
+            {saving ? 'Sending...' : 'Send Invite'}
           </button>
-        </div>
+        </form>
+      </div>
 
-        {workers.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-6 bg-gray-50 rounded-xl">
-            Koi worker nahi hai. Naya worker add karne ke liye upar button dabayein.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {workers.map((worker) => (
-              <div key={worker.id} className="flex justify-between items-center p-3 border border-gray-100 rounded-xl bg-gray-50">
-                <div>
-                  {/* Agar name nahi hai toh email ya user_id dikhayega */}
-                  <p className="text-sm font-bold text-gray-900">
-                    {worker.name || worker.email || `User ID: ${worker.user_id?.slice(0, 5)}...`}
-                  </p>
-                  <p className="text-xs text-gray-500 capitalize">{worker.role || 'Staff'}</p>
+      {/* Active Members List */}
+      <div className="mb-8">
+        <h2 className="text-lg font-bold text-gray-900 mb-3">Active Members</h2>
+        <div className="space-y-3">
+          {members.map((w) => (
+            <div key={w.id} className="flex justify-between items-center p-3 border border-gray-200 rounded-xl bg-white shadow-sm">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-gray-900 truncate">
+                  {w.full_name} {w.role === 'owner' && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded ml-1">You</span>}
+                </p>
+                <p className="text-xs text-gray-500 truncate">{w.email}</p>
+                <div className="text-[10px] text-gray-500 mt-1 capitalize font-medium">
+                  Role: {w.role} • Status: {w.status || 'Active'}
                 </div>
+              </div>
+              {w.role !== 'owner' && (
                 <button 
-                  onClick={() => alert('Remove feature coming soon!')}
-                  className="text-red-500 text-xs font-bold hover:underline"
+                  onClick={() => removeWorker(w.id, w.role)}
+                  className="rounded-lg bg-red-50 text-red-600 px-3 py-1.5 text-xs font-bold hover:bg-red-100"
                 >
                   Remove
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Pending Invites */}
+      {invites.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 mb-3">⏳ Pending Invites ({invites.length})</h2>
+          <div className="space-y-3">
+            {invites.map((inv) => (
+              <div key={inv.id} className="flex justify-between items-center p-3 border border-yellow-200 rounded-xl bg-yellow-50">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-gray-900 truncate">{inv.email}</p>
+                  <p className="text-[10px] text-gray-600 mt-0.5">
+                    Role: {inv.role} • Expires: {new Date(inv.expires_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => cancelInvite(inv.id)}
+                  className="rounded-lg bg-white border border-red-200 text-red-600 px-3 py-1.5 text-xs font-bold hover:bg-red-50"
+                >
+                  Cancel
                 </button>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </main>
   )
 }
