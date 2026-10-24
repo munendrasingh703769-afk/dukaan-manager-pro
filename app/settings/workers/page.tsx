@@ -26,7 +26,7 @@ export default function WorkersPage() {
         return
       }
 
-      // Fix: 'bid' ko string | null declare kiya
+      // 1. Business ID check
       let bid: string | null = getCurrentBusinessId()
 
       if (!bid) {
@@ -49,13 +49,14 @@ export default function WorkersPage() {
         return
       }
 
-      // Ab pakka pata hai ki bid me value hai, isliye naye variable me save kiya
       const businessId: string = bid
 
+      // 2. Workers fetch karo, par OWNER ko chhod do
       const { data, error: err } = await supabase
         .from('business_members')
         .select('*')
         .eq('business_id', businessId)
+        .neq('role', 'owner') // <--- Owner ko list se hataya
 
       if (err) {
         setWorkers([])
@@ -92,7 +93,8 @@ export default function WorkersPage() {
       )}
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex justify-between items-center mb-4">
+        {/* Flex wrap lagaya taaki button text ko na kaate */}
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
           <button 
             onClick={() => alert('Add Worker feature coming soon!')}
@@ -103,7 +105,7 @@ export default function WorkersPage() {
         </div>
 
         {workers.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-6">
+          <p className="text-sm text-gray-500 text-center py-6 bg-gray-50 rounded-xl">
             Koi worker nahi hai. Naya worker add karne ke liye upar button dabayein.
           </p>
         ) : (
@@ -111,10 +113,18 @@ export default function WorkersPage() {
             {workers.map((worker) => (
               <div key={worker.id} className="flex justify-between items-center p-3 border border-gray-100 rounded-xl bg-gray-50">
                 <div>
-                  <p className="text-sm font-bold text-gray-900">{worker.name || worker.email || 'Worker'}</p>
-                  <p className="text-xs text-gray-500">{worker.role || 'Staff'}</p>
+                  {/* Agar name nahi hai toh email ya user_id dikhayega */}
+                  <p className="text-sm font-bold text-gray-900">
+                    {worker.name || worker.email || `User ID: ${worker.user_id?.slice(0, 5)}...`}
+                  </p>
+                  <p className="text-xs text-gray-500 capitalize">{worker.role || 'Staff'}</p>
                 </div>
-                <button className="text-red-500 text-xs font-medium hover:underline">Remove</button>
+                <button 
+                  onClick={() => alert('Remove feature coming soon!')}
+                  className="text-red-500 text-xs font-bold hover:underline"
+                >
+                  Remove
+                </button>
               </div>
             ))}
           </div>
