@@ -176,7 +176,7 @@ export default function OwnerDashboard() {
                   <button onClick={() => router.push('/settings/business/new')} className="text-left px-2 py-1.5 text-[11px] font-bold text-emerald-600 hover:bg-white rounded transition-colors flex items-center gap-1">
                     <span className="text-sm">+</span> Add New Business
                   </button>
-                  <button onClick={() => router.push('/settings/business')} className="text-left px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:text-indigo-600 hover:bg-white rounded transition-colors">✏️ Edit Business</button>
+                  
                   <button onClick={handleDeleteBusiness} className="text-left px-2 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-white rounded transition-colors">🗑️ Delete Business</button>
                 </div>
               </div>
