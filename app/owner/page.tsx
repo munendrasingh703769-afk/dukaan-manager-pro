@@ -205,23 +205,23 @@ export default function OwnerDashboard() {
 
       <div className="px-4 pt-5 space-y-6 max-w-md mx-auto">
         
-        {/* Business Info Card (Owner Details) */}
+                {/* Business Info Card (Owner Details) */}
         {currentBusiness && (
           <div className="relative overflow-hidden border border-slate-200 shadow-sm bg-white p-4 rounded-2xl">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
             <div className="flex items-center justify-between relative z-10">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-2xl shadow-inner border border-emerald-100">
-                  {currentBusiness.business_type === 'shop' ? '🏪' : currentBusiness.business_type === 'service' ? '🔧' : '💼'}
+                  {currentBusiness?.business_type === 'shop' ? '🏪' : currentBusiness?.business_type === 'service' ? '🔧' : '💼'}
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-800 line-clamp-1">{currentBusiness.business_name}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Owner: {currentBusiness.owner_name}</p>
-                  {currentBusiness.phone && (
-                    <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1"><span>📞</span> {currentBusiness.phone}</p>
+                  <h2 className="text-base font-bold text-slate-800 line-clamp-1">{currentBusiness?.business_name}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Owner: {currentBusiness?.owner_name}</p>
+                  {currentBusiness?.phone && (
+                    <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1"><span>📞</span> {currentBusiness?.phone}</p>
                   )}
-                  {currentBusiness.city && (
-                    <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1"><span>📍</span> {currentBusiness.city}</p>
+                  {currentBusiness?.city && (
+                    <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1"><span>📍</span> {currentBusiness?.city}</p>
                   )}
                 </div>
               </div>
