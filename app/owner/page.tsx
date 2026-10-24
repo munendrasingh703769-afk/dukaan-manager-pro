@@ -6,9 +6,12 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
 type Business = {
-  id: string; business_name: string;
-  business_type: string; owner_name: string;
-  city: string | null; trial_start_date: string | null;
+  id: string; 
+  name: string; // Database column fix: business_name -> name
+  business_type: string; 
+  owner_name: string;
+  city: string | null; 
+  trial_start_date: string | null;
   phone: string | null;
 };
 
@@ -25,10 +28,8 @@ export default function OwnerDashboard() {
   const [totalProfit, setTotalProfit] = useState(0);
 
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
-  const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
   const [modalType, setModalType] = useState<string | null>(null);
   const [isBizDropdownOpen, setIsBizDropdownOpen] = useState(false);
-
   const [trialDays, setTrialDays] = useState(0);
 
   useEffect(() => {
@@ -41,69 +42,66 @@ export default function OwnerDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      const { data: profile } = await supabase.from('users').select('*, businesses(*)').eq('id', user.id).single();
-      
-      if (profile) {
-        let bizList: Business[] = [];
-        if (profile.businesses) {
-          bizList = Array.isArray(profile.businesses) ? profile.businesses : [profile.businesses];
-        }
-        
+      // Fetch businesses directly from businesses table
+      const { data: bizList } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('created_at');
+
+      if (bizList && bizList.length > 0) {
         setAllBusinesses(bizList);
         
-        if (bizList.length > 0) {
-          const storedBizId = typeof window !== 'undefined' ? localStorage.getItem('selectedBusinessId') : null;
-          let activeBiz = bizList[0]; 
+        const storedBizId = typeof window !== 'undefined' ? localStorage.getItem('selectedBusinessId') : null;
+        let activeBiz = bizList[0]; 
 
-          if (overrideBizId) {
-            activeBiz = bizList.find((b: any) => b.id === overrideBizId) || bizList[0];
-          } else if (storedBizId) {
-            activeBiz = bizList.find((b: any) => b.id === storedBizId) || bizList[0];
-          }
-
-          if (typeof window !== 'undefined') localStorage.setItem('selectedBusinessId', activeBiz.id);
-          setCurrentBusiness(activeBiz);
-          
-          if (activeBiz.trial_start_date) {
-            const start = new Date(activeBiz.trial_start_date).getTime();
-            const now = new Date().getTime();
-            const daysPassed = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-            const daysLeft = 15 - daysPassed;
-            setTrialDays(daysLeft > 0 ? daysLeft : 0);
-          } else {
-            setTrialDays(0);
-          }
-
-          const [custRes, prodRes] = await Promise.all([
-            supabase.from('customers').select('id, name, current_balance, phone').eq('business_id', activeBiz.id),
-            supabase.from('products').select('*').eq('business_id', activeBiz.id)
-          ]);
-
-          const customers = custRes.data || [];
-          const products = prodRes.data || [];
-
-          setTotalUdhaar(customers.reduce((sum, c) => sum + (c.current_balance || 0), 0));
-          const lowStock = products.filter(p => p.stock_qty <= (p.low_stock_limit || 5));
-          setLowStockCount(lowStock.length);
-          setLowStockItems(lowStock);
-
-          const { data: sales } = await supabase.from('sales').select('id, total_amount, created_at').eq('business_id', activeBiz.id).order('created_at', { ascending: false });
-          
-          let salesAmt = 0;
-          let profitAmt = 0;
-          if (sales) {
-            const today = new Date().toISOString().split('T')[0];
-            sales.forEach(s => {
-              if (s.created_at.startsWith(today)) salesAmt += Number(s.total_amount || 0);
-              profitAmt += Number(s.total_amount || 0); 
-            });
-          }
-          setTodaySales(salesAmt);
-          setTotalProfit(profitAmt);
-
-          const { data: reqs } = await supabase.from('payment_requests').select('*, customers(name)').eq('business_id', activeBiz.id).eq('status', 'pending').order('created_at', { ascending: false });
-          setPaymentRequests(reqs || []);
+        if (overrideBizId) {
+          activeBiz = bizList.find((b: any) => b.id === overrideBizId) || bizList[0];
+        } else if (storedBizId) {
+          activeBiz = bizList.find((b: any) => b.id === storedBizId) || bizList[0];
         }
+
+        if (typeof window !== 'undefined') localStorage.setItem('selectedBusinessId', activeBiz.id);
+        setCurrentBusiness(activeBiz);
+        
+        // Trial Logic
+        if (activeBiz.trial_start_date) {
+          const start = new Date(activeBiz.trial_start_date).getTime();
+          const now = new Date().getTime();
+          const daysPassed = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+          const daysLeft = 15 - daysPassed;
+          setTrialDays(daysLeft > 0 ? daysLeft : 0);
+        } else {
+          setTrialDays(15); // Default if date is missing
+        }
+
+        // Fetch Stats Data
+        const [custRes, prodRes] = await Promise.all([
+          supabase.from('customers').select('id, name, current_balance, phone').eq('business_id', activeBiz.id),
+          supabase.from('products').select('*').eq('business_id', activeBiz.id)
+        ]);
+
+        const customers = custRes.data || [];
+        const products = prodRes.data || [];
+
+        setTotalUdhaar(customers.reduce((sum, c) => sum + (c.current_balance || 0), 0));
+        const lowStock = products.filter(p => p.stock_qty <= (p.low_stock_limit || 5));
+        setLowStockCount(lowStock.length);
+        setLowStockItems(lowStock);
+
+        const { data: sales } = await supabase.from('sales').select('id, total_amount, created_at').eq('business_id', activeBiz.id).order('created_at', { ascending: false });
+        
+        let salesAmt = 0;
+        let profitAmt = 0;
+        if (sales) {
+          const today = new Date().toISOString().split('T')[0];
+          sales.forEach(s => {
+            if (s.created_at.startsWith(today)) salesAmt += Number(s.total_amount || 0);
+            profitAmt += Number(s.total_amount || 0); 
+          });
+        }
+        setTodaySales(salesAmt);
+        setTotalProfit(profitAmt);
       }
     } catch (error) {
       console.error(error);
@@ -114,37 +112,20 @@ export default function OwnerDashboard() {
 
   function handleBusinessSwitch(id: string) {
     setIsBizDropdownOpen(false);
+    localStorage.setItem('selectedBusinessId', id);
     fetchData(id);
   }
 
   async function handleDeleteBusiness() {
     if (!currentBusiness) return;
-    if (window.confirm(`Are you sure you want to delete ${currentBusiness.business_name}?`)) {
+    if (window.confirm(`Are you sure you want to delete ${currentBusiness.name}?`)) {
       try {
-        const { error } = await supabase.from('businesses').delete().eq('id', currentBusiness.id);
-        if (error) throw error;
+        await supabase.from('businesses').delete().eq('id', currentBusiness.id);
         localStorage.removeItem('selectedBusinessId');
-        alert("Business deleted successfully.");
         window.location.reload();
       } catch (err: any) {
-        alert("Error deleting business: " + err.message);
+        alert("Error deleting business.");
       }
-    }
-  }
-
-  async function handleRequestAction(req: any, status: 'approved' | 'rejected') {
-    try {
-      const { error } = await supabase.from('payment_requests').update({ status }).eq('id', req.id);
-      if (error) throw error;
-      if (status === 'approved') {
-        const customer = await supabase.from('customers').select('current_balance').eq('id', req.customer_id).single();
-        if (customer.data) {
-          await supabase.from('customers').update({ current_balance: (customer.data.current_balance || 0) - req.amount }).eq('id', req.customer_id);
-        }
-      }
-      fetchData(); 
-    } catch (err: any) {
-      alert(err.message);
     }
   }
 
@@ -174,7 +155,7 @@ export default function OwnerDashboard() {
               onClick={() => setIsBizDropdownOpen(!isBizDropdownOpen)}
               className="text-[11px] font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1 max-w-[110px] active:scale-95 transition"
             >
-              <span className="truncate">{currentBusiness?.business_name || 'Dukaan...'}</span>
+              <span className="truncate">{currentBusiness?.name || 'Dukaan...'}</span>
               <span className="text-[8px]">▼</span>
             </button>
             
@@ -187,7 +168,7 @@ export default function OwnerDashboard() {
                       onClick={() => handleBusinessSwitch(b.id)}
                       className={`w-full text-left px-3 py-2 text-xs font-medium border-b border-slate-50 hover:bg-slate-50 ${currentBusiness?.id === b.id ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-700'}`}
                     >
-                      {b.business_name}
+                      {b.name}
                     </button>
                   ))}
                 </div>
@@ -225,7 +206,7 @@ export default function OwnerDashboard() {
                   {currentBusiness.business_type === 'shop' ? '🏪' : currentBusiness.business_type === 'service' ? '🔧' : '💼'}
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-800 line-clamp-1">{currentBusiness.business_name}</h2>
+                  <h2 className="text-base font-bold text-slate-800 line-clamp-1">{currentBusiness.name}</h2>
                   <p className="text-xs text-slate-500 mt-0.5">Owner: {currentBusiness.owner_name}</p>
                   {currentBusiness.phone && (
                     <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1"><span>📞</span> {currentBusiness.phone}</p>
@@ -241,12 +222,14 @@ export default function OwnerDashboard() {
         )}
 
         {/* Premium Trial Banner */}
-        {currentBusiness && trialDays > 0 && (
+        {currentBusiness && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm relative overflow-hidden flex items-center justify-between">
             <div className="relative z-10 flex items-center gap-3">
               <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 text-xl">👑</div>
               <div>
-                <h3 className="text-sm font-bold text-emerald-800 tracking-wide">Trial: {trialDays} days left</h3>
+                <h3 className="text-sm font-bold text-emerald-800 tracking-wide">
+                  {trialDays > 0 ? `Trial: ${trialDays} days left` : 'Trial Expired'}
+                </h3>
                 <p className="text-[11px] text-emerald-600 font-medium">Explore premium features</p>
               </div>
             </div>
@@ -303,34 +286,30 @@ export default function OwnerDashboard() {
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
-            <div onClick={() => router.push('/sales/new')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-indigo-200 transition-all active:scale-95 p-3 shadow-sm">
+            <Link href="/sales/new" className="bg-white border border-slate-200 rounded-2xl hover:border-indigo-200 transition-all active:scale-95 p-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg shadow-sm">🛒</div>
                 <div><p className="text-sm font-bold text-slate-800">New Sale</p></div>
               </div>
-            </div>
-            <div onClick={() => router.push('/products')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-blue-200 transition-all active:scale-95 p-3 shadow-sm">
+            </Link>
+            <Link href="/products" className="bg-white border border-slate-200 rounded-2xl hover:border-blue-200 transition-all active:scale-95 p-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg shadow-sm">📦</div>
                 <div><p className="text-sm font-bold text-slate-800">Product & Stock</p></div>
               </div>
-            </div>
-            <div onClick={() => router.push('/purchases/new')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-emerald-200 transition-all active:scale-95 p-3 shadow-sm">
+            </Link>
+            <Link href="/products/new" className="bg-white border border-slate-200 rounded-2xl hover:border-emerald-200 transition-all active:scale-95 p-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg shadow-sm">🛍️</div>
                 <div><p className="text-sm font-bold text-slate-800">Add Product</p></div>
               </div>
-            </div>
-            <div onClick={() => router.push('/customers')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-violet-200 transition-all active:scale-95 p-3 shadow-sm">
+            </Link>
+            <Link href="/customers/new" className="bg-white border border-slate-200 rounded-2xl hover:border-violet-200 transition-all active:scale-95 p-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-lg shadow-sm">👤</div>
                 <div><p className="text-sm font-bold text-slate-800">Add Customer</p></div>
               </div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm flex items-center gap-3 col-span-2">
-                <div className="w-10 h-10 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center text-lg shadow-sm">📝</div>
-                <div><p className="text-sm font-bold text-slate-800">Quotations</p><p className="text-[10px] text-slate-500">Estimates for customer</p></div>
-            </div>
+            </Link>
           </div>
         </section>
 
@@ -338,34 +317,34 @@ export default function OwnerDashboard() {
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Business Modules</h2>
           <div className="grid grid-cols-2 gap-3">
-            <div onClick={() => router.push('/purchases')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
+            <Link href="/purchases" className="bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center text-sm shadow-sm">🛍️</div>
                 <p className="text-xs font-bold text-slate-800">Purchases</p>
-            </div>
-            <div onClick={() => router.push('/customers')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
+            </Link>
+            <Link href="/customers" className="bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm shadow-sm">👥</div>
                 <p className="text-xs font-bold text-slate-800">Customers</p>
-            </div>
-            <div onClick={() => router.push('/suppliers')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
+            </Link>
+            <Link href="/suppliers" className="bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-sm shadow-sm">🚚</div>
                 <p className="text-xs font-bold text-slate-800">Suppliers</p>
-            </div>
-            <div onClick={() => router.push('/payments')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
+            </Link>
+            <Link href="/payments" className="bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center text-sm shadow-sm">💰</div>
                 <p className="text-xs font-bold text-slate-800">Udhaar & Pay</p>
-            </div>
-            <div onClick={() => router.push('/expenses')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
+            </Link>
+            <Link href="/expenses" className="bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-sm shadow-sm">💵</div>
                 <p className="text-xs font-bold text-slate-800">Expenses</p>
-            </div>
-            <div onClick={() => router.push('/reports')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
+            </Link>
+            <Link href="/reports" className="bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center text-sm shadow-sm">📊</div>
                 <p className="text-xs font-bold text-slate-800">Reports & GST</p>
-            </div>
-            <div onClick={() => router.push('/settings/staff')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2 col-span-2">
+            </Link>
+            <Link href="/settings/workers" className="bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex items-center gap-2 col-span-2">
                 <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-sm shadow-sm">🛡️</div>
                 <p className="text-xs font-bold text-slate-800">Staff & Perms</p>
-            </div>
+            </Link>
           </div>
         </section>
 
@@ -373,44 +352,20 @@ export default function OwnerDashboard() {
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">More Features</h2>
           <div className="grid grid-cols-3 gap-2">
-            <div onClick={() => router.push('/reports')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex flex-col items-center justify-center text-center gap-2">
+            <Link href="/reports" className="bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex flex-col items-center justify-center text-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-lg shadow-sm">📈</div>
                 <p className="text-[10px] font-bold text-slate-800 leading-tight">Reports<br/>Analysis</p>
-            </div>
-            <div onClick={() => router.push('/storefront')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex flex-col items-center justify-center text-center gap-2">
+            </Link>
+            <button onClick={() => alert('E-commerce feature coming soon!')} className="bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex flex-col items-center justify-center text-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-lg shadow-sm">🌐</div>
                 <p className="text-[10px] font-bold text-slate-800 leading-tight">E-<br/>commerce</p>
-            </div>
-            <div onClick={() => router.push('/owner/quotations')} className="cursor-pointer bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex flex-col items-center justify-center text-center gap-2">
+            </button>
+            <button onClick={() => alert('Quotation feature coming soon!')} className="bg-white border border-slate-200 rounded-2xl hover:border-slate-300 transition-all active:scale-95 p-3 shadow-sm flex flex-col items-center justify-center text-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-lg shadow-sm">📝</div>
                 <p className="text-[10px] font-bold text-slate-800 leading-tight">Quotation</p>
-            </div>
+            </button>
           </div>
         </section>
-
-        {/* Payment Requests */}
-        {paymentRequests.length > 0 && (
-          <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-            <h2 className="text-sm font-black text-slate-800 mb-3 tracking-tight">Pending Payment Requests</h2>
-            <div className="space-y-3">
-              {paymentRequests.map((req) => (
-                <div key={req.id} className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-xs font-bold text-slate-800">{req.customers?.name || 'Customer'}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Amount: ₹{req.amount}</p>
-                    </div>
-                    <p className="text-[10px] font-bold text-slate-400">{new Date(req.created_at).toLocaleDateString()}</p>
-                  </div>
-                  <div className="flex gap-2 mt-1">
-                    <button onClick={() => handleRequestAction(req, 'approved')} className="flex-1 bg-emerald-500 text-white text-[10px] font-bold py-1.5 rounded-lg active:scale-95 transition">Approve</button>
-                    <button onClick={() => handleRequestAction(req, 'rejected')} className="flex-1 bg-rose-500 text-white text-[10px] font-bold py-1.5 rounded-lg active:scale-95 transition">Reject</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
       </div>
       {/* Modals */}
       {modalType && (
@@ -487,6 +442,7 @@ export default function OwnerDashboard() {
                 <button onClick={() => { setModalType(null); router.push('/settings/business'); }} className="w-full border border-slate-200 text-slate-700 font-bold text-xs py-3 rounded-xl hover:bg-slate-50 transition">Edit Business Details</button>
               </div>
             )}
+
             {modalType === 'scanner' && (
               <div className="flex flex-col gap-3">
                 <button onClick={() => { alert('Camera open...'); setModalType(null); }} className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:bg-slate-100 transition text-left">
@@ -539,4 +495,3 @@ export default function OwnerDashboard() {
     </main>
   );
 }
-      
