@@ -11,14 +11,13 @@ type Member = {
   role: string
   status: string
   permissions: any
-  profile_name?: string
+  full_name?: string
 }
 
 type Invite = {
   id: string
   email: string
   role: string
-  token: string
   expires_at: string
 }
 
@@ -33,8 +32,16 @@ export default function WorkersPage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
+  // Form State
   const [newEmail, setNewEmail] = useState('')
   const [newRole, setNewRole] = useState('staff')
+  const [perms, setPerms] = useState({
+    view_sales: true,
+    add_sales: true,
+    view_purchases: false,
+    view_profit: false,
+    manage_settings: false
+  })
 
   useEffect(() => {
     loadData()
@@ -50,32 +57,45 @@ export default function WorkersPage() {
     }
 
     try {
-      // 1. Fetch Members (Join with profiles for name)
+      // 1. Fetch Members (Without joining profiles to avoid error)
       const { data: membersData, error: memErr } = await supabase
         .from('business_members')
-        .select('*, profiles(full_name)')
+        .select('*')
         .eq('business_id', businessId)
 
       if (memErr) throw memErr
 
-      if (membersData) {
-        const formattedMembers = membersData.map((m: any) => ({
-          id: m.id,
-          user_id: m.user_id,
-          role: m.role,
-          status: m.status || 'active',
-          permissions: m.permissions,
-          profile_name: m.profiles?.full_name || 'Unknown User',
-        }))
+      if (membersData && membersData.length > 0) {
+        // 2. Fetch Profiles manually
+        const userIds = membersData.map(m => m.user_id)
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds)
+
+        // Merge them
+        const formattedMembers = membersData.map((m: any) => {
+          const profile = profilesData?.find(p => p.id === m.user_id)
+          return {
+            id: m.id,
+            user_id: m.user_id,
+            role: m.role,
+            status: m.status || 'active',
+            permissions: m.permissions,
+            full_name: profile?.full_name || 'Unknown User',
+          }
+        })
         setMembers(formattedMembers)
+      } else {
+        setMembers([])
       }
 
-      // 2. Fetch Pending Invites
-      const { data: inviteData, error: invErr } = await supabase
+      // 3. Fetch Pending Invites
+      const { data: inviteData } = await supabase
         .from('business_invites')
         .select('*')
         .eq('business_id', businessId)
-        .is('status', 'pending') // Aapke DB me status column hai
+        .eq('status', 'pending')
 
       if (inviteData) setInvites(inviteData)
 
@@ -97,10 +117,6 @@ export default function WorkersPage() {
     try {
       const businessId = getCurrentBusinessId()
       if (!businessId) throw new Error('No business selected')
-
-      // Check if already a member
-      const isAlreadyMember = members.some(m => m.profile_name?.toLowerCase() === newEmail.toLowerCase())
-      if (isAlreadyMember) throw new Error('User is already a team member')
 
       const { data, error: invErr } = await supabase
         .from('business_invites')
@@ -129,8 +145,8 @@ export default function WorkersPage() {
 
   async function cancelInvite(id: string) {
     if (!confirm('Cancel this invite?')) return
-    const { error: delErr } = await supabase.from('business_invites').delete().eq('id', id)
-    if (!delErr) setInvites(invites.filter(i => i.id !== id))
+    await supabase.from('business_invites').delete().eq('id', id)
+    setInvites(invites.filter(i => i.id !== id))
   }
 
   async function removeWorker(memberId: string, role: string) {
@@ -140,8 +156,8 @@ export default function WorkersPage() {
     }
     if (!confirm('Remove this worker?')) return
 
-    const { error: delErr } = await supabase.from('business_members').delete().eq('id', memberId)
-    if (!delErr) setMembers(members.filter(m => m.id !== memberId))
+    await supabase.from('business_members').delete().eq('id', memberId)
+    setMembers(members.filter(m => m.id !== memberId))
   }
 
   if (loading) {
@@ -161,10 +177,10 @@ export default function WorkersPage() {
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       {message && <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">{message}</div>}
 
-      {/* Invite Form */}
+      {/* Invite Form with Checkboxes */}
       <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm mb-6">
         <h2 className="text-base font-bold text-gray-900 mb-3">Invite New Worker</h2>
-        <form onSubmit={inviteWorker} className="space-y-3">
+        <form onSubmit={inviteWorker} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Email Address</label>
             <input 
@@ -176,18 +192,48 @@ export default function WorkersPage() {
               className="w-full rounded-lg border p-2.5 text-sm outline-none focus:border-blue-500"
             />
           </div>
+
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Role Type</label>
             <select 
               value={newRole}
               onChange={(e) => setNewRole(e.target.value)}
               className="w-full rounded-lg border p-2.5 text-sm outline-none focus:border-blue-500 bg-white"
             >
-              <option value="manager">Manager (Full Access)</option>
-              <option value="staff">Staff (Billing & Sales)</option>
-              <option value="viewer">Viewer (Read Only)</option>
+              <option value="manager">Manager</option>
+              <option value="ca">CA (Chartered Accountant)</option>
+              <option value="staff">Staff / Salesman</option>
+              <option value="viewer">Viewer</option>
             </select>
           </div>
+
+          {/* Permissions Checkboxes */}
+          <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+            <p className="text-xs font-bold text-gray-700 mb-2">Permissions:</p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={perms.view_sales} onChange={e => setPerms({...perms, view_sales: e.target.checked})} className="w-4 h-4 text-blue-600 rounded" />
+                Sales dekh sakta hai
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={perms.add_sales} onChange={e => setPerms({...perms, add_sales: e.target.checked})} className="w-4 h-4 text-blue-600 rounded" />
+                Nayi Sale kar sakta hai
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={perms.view_purchases} onChange={e => setPerms({...perms, view_purchases: e.target.checked})} className="w-4 h-4 text-blue-600 rounded" />
+                Purchases dekh sakta hai
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={perms.view_profit} onChange={e => setPerms({...perms, view_profit: e.target.checked})} className="w-4 h-4 text-blue-600 rounded" />
+                Profit / Reports dekh sakta hai
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input type="checkbox" checked={perms.manage_settings} onChange={e => setPerms({...perms, manage_settings: e.target.checked})} className="w-4 h-4 text-blue-600 rounded" />
+                Settings change kar sakta hai
+              </label>
+            </div>
+          </div>
+
           <button 
             type="submit" 
             disabled={saving}
@@ -206,7 +252,7 @@ export default function WorkersPage() {
             <div key={w.id} className="flex justify-between items-center p-3 border border-gray-200 rounded-xl bg-white shadow-sm">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-gray-900 truncate">
-                  {w.profile_name} {w.role === 'owner' && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded ml-1">You</span>}
+                  {w.full_name} {w.role === 'owner' && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded ml-1">You</span>}
                 </p>
                 <div className="text-[10px] text-gray-500 mt-1 capitalize font-medium">
                   Role: {w.role} • Status: {w.status}
@@ -222,6 +268,7 @@ export default function WorkersPage() {
               )}
             </div>
           ))}
+          {members.length === 0 && <p className="text-sm text-gray-500">No members found.</p>}
         </div>
       </div>
 
