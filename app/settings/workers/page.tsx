@@ -26,10 +26,9 @@ export default function WorkersPage() {
         return
       }
 
-      // 1. Current Business ID nikalo
-      let bid = getCurrentBusinessId()
+      // Fix: 'bid' ko string | null declare kiya
+      let bid: string | null = getCurrentBusinessId()
 
-      // 2. Agar localStorage me nahi hai, toh database se fetch karo
       if (!bid) {
         const { data: biz } = await supabase
           .from('businesses')
@@ -38,9 +37,9 @@ export default function WorkersPage() {
           .limit(1)
           .single()
 
-        if (biz) {
-          bid = biz.id
-          setCurrentBusinessId(bid)
+        if (biz && biz.id) {
+          bid = biz.id as string
+          setCurrentBusinessId(biz.id as string)
         }
       }
 
@@ -50,14 +49,15 @@ export default function WorkersPage() {
         return
       }
 
-      // 3. Workers fetch karo (business_members table se)
+      // Ab pakka pata hai ki bid me value hai, isliye naye variable me save kiya
+      const businessId: string = bid
+
       const { data, error: err } = await supabase
         .from('business_members')
         .select('*')
-        .eq('business_id', bid)
+        .eq('business_id', businessId)
 
       if (err) {
-        // Agar business_members table nahi hai, toh khaali list dikhao
         setWorkers([])
       } else if (data) {
         setWorkers(data)
