@@ -205,30 +205,43 @@ export default function OwnerDashboard() {
 
       <div className="px-4 pt-5 space-y-6 max-w-md mx-auto">
         
-                {/* Business Info Card (Owner Details) */}
-        {currentBusiness && (
-          <div className="relative overflow-hidden border border-slate-200 shadow-sm bg-white p-4 rounded-2xl">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-            <div className="flex items-center justify-between relative z-10">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-2xl shadow-inner border border-emerald-100">
-                  {currentBusiness?.business_type === 'shop' ? '🏪' : currentBusiness?.business_type === 'service' ? '🔧' : '💼'}
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-800 line-clamp-1">{currentBusiness?.business_name}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Owner: {currentBusiness?.owner_name}</p>
-                  {currentBusiness?.phone && (
-                    <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1"><span>📞</span> {currentBusiness?.phone}</p>
-                  )}
-                  {currentBusiness?.city && (
-                    <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1"><span>📍</span> {currentBusiness?.city}</p>
-                  )}
-                </div>
-              </div>
-              <Link href="/settings/business" className="px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 active:scale-95 transition-all">✏️ Edit</Link>
-            </div>
-          </div>
-        )}
+                {/* Business Info Card */} {currentBusiness && (
+
+<div className="bg-whit e rounded-2x1 p-4 shadow-sm borde r border-slate-100 flex gap-4 item s-center relative overflow-hidden"
+
+>
+
+<div className=
+
+"absolute right-0 top-0 w-24 h-2 4 bg-gradient-to-br from-emeral d-50 to-transparent rounded-bl-full pointer-events-none"></div
+
+>
+
+<div className= "w-14 h-14 rounded-x1 bg-emeral d-50 flex items-center justify -center text-2x1 shrink-0 borde r border-emerald-100"></div >
+
+<div className=
+
+"flex-1 min-w-0">
+
+<h2 className=
+
+"font-bold text-slate-900 text-sm truncate">{current Business.name}</h2>
+
+<p className="text -[11px] text-slate-500 mt-0.5"> {currentBusiness.owner_name ||
+
+'Add Owner'}</p>
+
+<p className=
+
+"text-[11px] text-slate-500 trunc ate mt-0.5"> {currentBusiness. city || 'Add Location'}</p>
+
+</div>
+
+<Link href="/settings/business" className="bg-slate-50 t ext-slate-600 border border-slate -200 text-[10px] font-bold px-3 py -1.5 rounded-lg active: scale-95 tr ansition z-10 relative">Edit</Link >
+
+</div>
+
+)}
                 {/* Premium Trial Banner (Always Visible) */}
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm relative overflow-hidden flex items-center justify-between">
           <div className="relative z-10 flex items-center gap-3">
