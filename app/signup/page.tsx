@@ -1,285 +1,261 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signUp, validatePassword } from '@/lib/auth'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-export const dynamic = 'force-dynamic'
-function SignupForm() {
+
+export default function SignupPage() {
   const router = useRouter()
-  const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [referralCode, setReferralCode] = useState('')
-  const [inviteToken, setInviteToken] = useState('')
-  const [inviteBusinessName, setInviteBusinessName] = useState('')
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const supabase = createClient()
+
+  const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
-  const searchParams = useSearchParams()
+  const [message, setMessage] = useState('')
 
-  useEffect(() => {
-    const token = searchParams.get('invite')
-    if (token) {
-      setInviteToken(token)
-      localStorage.setItem('invite_token', token)
-      loadInvite(token)
-    }
-  }, [searchParams])
+  // Form Data
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [address, setAddress] = useState('')
+  const [referral, setReferral] = useState('')
+  
+  const [otp, setOtp] = useState('')
+  const [password, setPassword] = useState('')
+  
+  // Role State
+  const [role, setRole] = useState('shopkeeper')
+  const [businessName, setBusinessName] = useState('')
+  const [phone, setPhone] = useState('')
 
-  async function loadInvite(token: string) {
-    try {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('business_invites')
-        .select('email, business_id, role, status')
-        .eq('token', token)
-        .eq('status', 'pending')
-        .maybeSingle()
-
-      if (data) {
-        if (data.email) {
-          setEmail(data.email)
-          setInviteEmail(data.email)
-        }
-        const { data: biz } = await supabase
-          .from('businesses')
-          .select('name')
-          .eq('id', data.business_id)
-          .maybeSingle()
-        if (biz) setInviteBusinessName(biz.name || '')
-      }
-    } catch (e) {
-      console.error('Invite load error:', e)
-    }
-  }
-
-  async function handleSignup(e: React.FormEvent) {
+  // STEP 1: Send OTP (Check if email exists)
+  async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
-
-    if (!fullName.trim()) {
-      setError('Poora naam bharein')
-      return
-    }
-    if (!email.trim()) {
-      setError('Email bharein')
-      return
-    }
-    if (password !== confirmPassword) {
-      setError('Dono password match nahi kar rahe')
-      return
-    }
-    const pwErr = validatePassword(password)
-    if (pwErr) {
-      setError(pwErr)
-      return
-    }
-
+    if (!email || !fullName) return setError('Name and Email are required')
+    
     setLoading(true)
-    // Referral code metadata me daalo
-    if (referralCode.trim()) {
-      localStorage.setItem('ref_code', referralCode.trim().toUpperCase())
-    }
-    const { error: err } = await signUp(email.trim(), password, fullName.trim())
-
-    if (err) {
-      if (err.message.toLowerCase().includes('already registered')) {
-        setError('Ye email pehle se registered hai. Login karein.')
-      } else {
-        setError(err.message)
-      }
+    setError('')
+    
+    // Check if email exists in database
+    const { data: exists } = await supabase.rpc('check_user_exists', { email_input: email })
+    
+    if (exists) {
+      setError('Yeh email pehle se registered hai. Kripya Login karein.')
       setLoading(false)
       return
     }
 
+    // Send OTP
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true }
+    })
+
+    if (otpError) {
+      setError(otpError.message)
+    } else {
+      setMessage('OTP sent to your email!')
+      setStep(2)
+    }
     setLoading(false)
-    setSuccess(true)
   }
 
-  if (success) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg text-center">
-          <div className="text-5xl">📧</div>
-          <h1 className="mt-4 text-2xl font-bold text-gray-900">
-            Email Verify Karein
-          </h1>
-          <p className="mt-3 text-sm text-gray-600">
-            Humne aapke email <b>{email}</b> pe ek verification link bheja hai.
-            Inbox (ya spam) check karein aur link pe click karein.
-          </p>
-          <p className="mt-3 text-xs text-gray-500">
-            Verify karne ke baad login karein.
-          </p>
-          <Link
-            href="/login"
-            className="mt-6 inline-block rounded bg-blue-600 px-6 py-3 text-white"
-          >
-            Login Page pe jaayein
-          </Link>
-        </div>
-      </main>
-    )
+  // STEP 2: Verify OTP
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault()
+    if (!otp) return setError('Please enter OTP')
+    
+    setLoading(true)
+    setError('')
+
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: 'email'
+    })
+
+    if (verifyError) {
+      setError(verifyError.message)
+    } else {
+      setStep(3)
+    }
+    setLoading(false)
   }
 
+  // STEP 3: Set Password
+  async function handleSetPassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (password.length < 6) return setError('Password must be at least 6 characters')
+    
+    setLoading(true)
+    const { error: passError } = await supabase.auth.updateUser({ password })
+
+    if (passError) {
+      setError(passError.message)
+    } else {
+      setStep(4)
+    }
+    setLoading(false)
+  }
+
+  // STEP 4: Save Role & Business Details
+  async function handleFinishSetup(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return setError('Session expired. Please try again.')
+
+    // 1. Update Profile
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      id: user.id,
+      full_name: fullName,
+      address: address,
+      referral_code: referral,
+      user_type: role
+    })
+
+    if (profileError) {
+      setError(profileError.message)
+      setLoading(false)
+      return
+    }
+
+    // 2. Create Business (Only if not customer)
+    if (role !== 'customer') {
+      const { error: bizError } = await supabase.from('businesses').insert({
+        name: businessName,
+        owner_name: fullName,
+        phone: phone,
+        owner_id: user.id
+      })
+      
+      if (bizError) {
+        setError("Business creation failed: " + bizError.message)
+        setLoading(false)
+        return
+      }
+    }
+
+    // 3. Redirect based on role
+    setMessage('Account created successfully! Welcome to VyapaarSetu.')
+    setTimeout(() => {
+      if (role === 'customer') router.push('/customer') // Customer Dashboard
+      else if (role === 'service_provider') router.push('/services') // Provider Dashboard
+      else router.push('/owner') // Shopkeeper/B2B Dashboard
+    }, 1500)
+    
+    setLoading(false)
+  }
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
-        {inviteToken && (
-          <div className="mb-4 rounded-lg bg-purple-50 border border-purple-200 p-3">
-            <div className="text-sm font-bold text-purple-900">
-              🎉 Aapko invite kiya gaya hai!
+    <main className="min-h-screen bg-slate-50 p-4 flex flex-col justify-center items-center">
+      <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-xl border border-slate-100">
+        
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-black text-slate-800">VyapaarSetu</h1>
+          <p className="text-sm text-slate-500">Create your account</p>
+        </div>
+
+        {error && <div className="mb-4 text-xs bg-red-50 text-red-600 p-3 rounded-lg text-center font-medium">{error}</div>}
+        {message && <div className="mb-4 text-xs bg-green-50 text-green-600 p-3 rounded-lg text-center font-medium">{message}</div>}
+
+        {/* STEP 1: Details */}
+        {step === 1 && (
+          <form onSubmit={handleSendOtp} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-700">Full Name *</label>
+              <input required type="text" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full mt-1 p-2.5 border rounded-xl text-sm outline-none focus:border-blue-500" placeholder="Munendra Singh" />
             </div>
-            {inviteBusinessName && (
-              <div className="text-xs text-purple-700 mt-1">
-                Business: <b>{inviteBusinessName}</b>
+            <div>
+              <label className="text-xs font-bold text-slate-700">Email Address *</label>
+              <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full mt-1 p-2.5 border rounded-xl text-sm outline-none focus:border-blue-500" placeholder="name@gmail.com" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-700">Address</label>
+              <input type="text" value={address} onChange={e => setAddress(e.target.value)} className="w-full mt-1 p-2.5 border rounded-xl text-sm outline-none focus:border-blue-500" placeholder="Bareilly, UP" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-700">Referral Code (Optional)</label>
+              <input type="text" value={referral} onChange={e => setReferral(e.target.value)} className="w-full mt-1 p-2.5 border rounded-xl text-sm outline-none focus:border-blue-500" placeholder="e.g. DUK4427" />
+            </div>
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl mt-4 hover:bg-emerald-700">
+              {loading ? 'Sending OTP...' : 'Generate OTP'}
+            </button>
+          </form>
+        )}
+
+        {/* STEP 2: OTP */}
+        {step === 2 && (
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
+            <p className="text-sm text-slate-600 text-center">We sent a 6-digit code to <b>{email}</b></p>
+            <input required type="text" value={otp} onChange={e => setOtp(e.target.value)} className="w-full p-3 border rounded-xl text-center text-xl tracking-widest font-bold outline-none focus:border-blue-500" placeholder="123456" maxLength={6} />
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl mt-4 hover:bg-emerald-700">
+              {loading ? 'Verifying...' : 'Verify OTP'}
+            </button>
+          </form>
+        )}
+
+        {/* STEP 3: Password */}
+        {step === 3 && (
+          <form onSubmit={handleSetPassword} className="space-y-4">
+            <p className="text-sm text-slate-600 text-center mb-4">Email verified! Create a secure password.</p>
+            <div>
+              <label className="text-xs font-bold text-slate-700">New Password *</label>
+              <input required type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full mt-1 p-2.5 border rounded-xl text-sm outline-none focus:border-blue-500" placeholder="Min 6 characters" />
+            </div>
+            <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl mt-4 hover:bg-emerald-700">
+              {loading ? 'Saving...' : 'Set Password'}
+            </button>
+          </form>
+        )}
+              <select value={role} onChange={e => setRole(e.target.value)} className="w-full mt-1 p-2.5 border rounded-xl text-sm bg-white outline-none focus:border-blue-500">
+                <option value="shopkeeper">🏪 Dukaandaar (Shopkeeper)</option>
+                <option value="business">🏭 Business / Manufacturer (B2B)</option>
+                <option value="service_provider">🔧 Online Service Provider</option>
+                <option value="customer">🛒 Customer (Aam Grahak)</option> {/* <--- YEH WAPAS ADD KAR DO */}
+              </select>
+        {/* STEP 4: Role & Business Details */}
+        {step === 4 && (
+          <form onSubmit={handleFinishSetup} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-700">Select Your Role *</label>
+              <select value={role} onChange={e => setRole(e.target.value)} className="w-full mt-1 p-2.5 border rounded-xl text-sm bg-white outline-none focus:border-blue-500">
+                <option value="shopkeeper">🏪 Dukaandaar (Shopkeeper)</option>
+                <option value="business">🏭 Business / Manufacturer (B2B)</option>
+                <option value="service_provider">🔧 Online Service Provider</option>
+                <option value="customer">🛒 Customer (Aam Grahak)</option>
+              </select>
+            </div>
+
+            {/* Business Details only show if not a customer */}
+            {role !== 'customer' && (
+              <div className="bg-slate-50 p-3 rounded-xl space-y-3 mt-4 border border-slate-200">
+                <p className="text-xs font-bold text-slate-600 mb-2">Business / Shop Details:</p>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Business Name *</label>
+                  <input required type="text" value={businessName} onChange={e => setBusinessName(e.target.value)} className="w-full mt-1 p-2.5 border rounded-xl text-sm outline-none focus:border-blue-500" placeholder={role === 'service_provider' ? "e.g. Ram Electrician Services" : "e.g. Shree Ram Kirana"} />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Phone Number</label>
+                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full mt-1 p-2.5 border rounded-xl text-sm outline-none focus:border-blue-500" placeholder="9876543210" />
+                </div>
               </div>
             )}
-            <div className="text-xs text-purple-600 mt-1">
-              Signup karein — aapko automatically is business me add kar diya jayega.
-            </div>
-          </div>
+
+            <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl mt-4 hover:bg-blue-700">
+              {loading ? 'Creating Account...' : 'Finish & Go to Dashboard'}
+            </button>
+          </form>
         )}
 
-        <h1 className="text-2xl font-bold text-gray-900">
-          VyaparSetu
-        </h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Naya account banayein
-        </p>
-
-        {error && (
-          <div className="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-            {error}
-          </div>
+        {step === 1 && (
+          <p className="text-center text-xs text-slate-500 mt-6">
+            Already have an account? <Link href="/login" className="text-blue-600 font-bold hover:underline">Login</Link>
+          </p>
         )}
 
-        <form onSubmit={handleSignup} className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Poora Naam
-            </label>
-            <input
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="mt-1 w-full rounded border p-2"
-              placeholder="Ram Kumar"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={`mt-1 w-full rounded border p-2 ${inviteToken ? 'bg-gray-100' : ''}`}
-              placeholder="aap@example.com"
-              autoComplete="email"
-              readOnly={!!inviteToken}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded border p-2 pr-14"
-                placeholder="8+ chars, 1 capital, 1 number"
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-600 font-medium"
-              >
-                {showPassword ? 'HIDE' : 'SHOW'}
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Kam se kam 8 character, 1 capital, 1 small, 1 number
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Confirm Password
-            </label>
-            <div className="relative">
-              <input
-                type={showConfirm ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 w-full rounded border p-2 pr-14"
-                placeholder="••••••••"
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirm(!showConfirm)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-600 font-medium"
-              >
-                {showConfirm ? 'HIDE' : 'SHOW'}
-              </button>
-            </div>
-          </div>
-
-          {!inviteToken && (
-            <div className="rounded-lg bg-purple-50 border border-purple-200 p-3">
-              <label className="block text-sm font-medium text-purple-900">
-                Referral Code (optional)
-              </label>
-              <input
-                type="text"
-                value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                className="mt-1 w-full rounded border p-2 font-mono"
-                placeholder="jaise: BKK5735"
-              />
-              <p className="mt-1 text-xs text-purple-700">
-                🎁 Dost ka code daalein — dono ko 1 mahina free!
-              </p>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded bg-green-600 px-4 py-3 text-white disabled:opacity-50"
-          >
-            {loading ? 'Creating...' : 'Sign Up'}
-          </button>
-        </form>
-
-        <div className="mt-4 text-center text-sm text-gray-600">
-          Pehle se account?{' '}
-          <Link href="/login" className="text-blue-600 font-medium">
-            Login karein
-          </Link>
-        </div>
       </div>
     </main>
-  )
-}
-export default function SignupPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <SignupForm />
-    </Suspense>
   )
 }
