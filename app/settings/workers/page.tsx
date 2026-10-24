@@ -11,8 +11,7 @@ type Member = {
   role: string
   status: string
   permissions: any
-  email?: string
-  full_name?: string
+  profile_name?: string
 }
 
 type Invite = {
@@ -21,7 +20,6 @@ type Invite = {
   role: string
   token: string
   expires_at: string
-  created_at: string
 }
 
 export default function WorkersPage() {
@@ -46,21 +44,20 @@ export default function WorkersPage() {
     setLoading(true)
     const businessId = getCurrentBusinessId()
     if (!businessId) {
-      setError('Business not found')
+      setError('Business not found. Please select a business.')
       setLoading(false)
       return
     }
 
     try {
-      // 1. Fetch Members
+      // 1. Fetch Members (Join with profiles for name)
       const { data: membersData, error: memErr } = await supabase
         .from('business_members')
-        .select('*, profiles:user_id(*)')
+        .select('*, profiles(full_name)')
         .eq('business_id', businessId)
 
       if (memErr) throw memErr
 
-      // Format members
       if (membersData) {
         const formattedMembers = membersData.map((m: any) => ({
           id: m.id,
@@ -68,19 +65,17 @@ export default function WorkersPage() {
           role: m.role,
           status: m.status || 'active',
           permissions: m.permissions,
-          email: m.profiles?.email || 'No email',
-          full_name: m.profiles?.full_name || 'No name',
+          profile_name: m.profiles?.full_name || 'Unknown User',
         }))
         setMembers(formattedMembers)
       }
 
       // 2. Fetch Pending Invites
-      const { data: inviteData } = await supabase
+      const { data: inviteData, error: invErr } = await supabase
         .from('business_invites')
         .select('*')
         .eq('business_id', businessId)
-        .is('accepted_at', null)
-        .gt('expires_at', new Date().toISOString())
+        .is('status', 'pending') // Aapke DB me status column hai
 
       if (inviteData) setInvites(inviteData)
 
@@ -103,8 +98,8 @@ export default function WorkersPage() {
       const businessId = getCurrentBusinessId()
       if (!businessId) throw new Error('No business selected')
 
-      // Check if already invited or member
-      const isAlreadyMember = members.some(m => m.email?.toLowerCase() === newEmail.toLowerCase())
+      // Check if already a member
+      const isAlreadyMember = members.some(m => m.profile_name?.toLowerCase() === newEmail.toLowerCase())
       if (isAlreadyMember) throw new Error('User is already a team member')
 
       const { data, error: invErr } = await supabase
@@ -114,7 +109,8 @@ export default function WorkersPage() {
           email: newEmail.toLowerCase(),
           role: newRole,
           token: crypto.randomUUID(),
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+          status: 'pending',
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
         })
         .select()
         .single()
@@ -210,11 +206,10 @@ export default function WorkersPage() {
             <div key={w.id} className="flex justify-between items-center p-3 border border-gray-200 rounded-xl bg-white shadow-sm">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-gray-900 truncate">
-                  {w.full_name} {w.role === 'owner' && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded ml-1">You</span>}
+                  {w.profile_name} {w.role === 'owner' && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded ml-1">You</span>}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{w.email}</p>
                 <div className="text-[10px] text-gray-500 mt-1 capitalize font-medium">
-                  Role: {w.role} • Status: {w.status || 'Active'}
+                  Role: {w.role} • Status: {w.status}
                 </div>
               </div>
               {w.role !== 'owner' && (
