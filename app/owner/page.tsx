@@ -412,7 +412,6 @@ export default function OwnerDashboard() {
           </section>
         )}
       </div>
-
       {/* Modals */}
       {modalType && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setModalType(null)}>
@@ -488,7 +487,6 @@ export default function OwnerDashboard() {
                 <button onClick={() => { setModalType(null); router.push('/settings/business'); }} className="w-full border border-slate-200 text-slate-700 font-bold text-xs py-3 rounded-xl hover:bg-slate-50 transition">Edit Business Details</button>
               </div>
             )}
-
             {modalType === 'scanner' && (
               <div className="flex flex-col gap-3">
                 <button onClick={() => { alert('Camera open...'); setModalType(null); }} className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:bg-slate-100 transition text-left">
@@ -502,7 +500,7 @@ export default function OwnerDashboard() {
                 <button onClick={() => { router.push('/purchases/new'); setModalType(null); }} className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:bg-slate-100 transition text-left">
                   <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xl">📝</div>
                   <div><p className="text-sm font-bold text-slate-800">Manual Entry</p><p className="text-[10px] text-slate-500">Enter details manually</p></div>
-</button>
+                </button>
               </div>
             )}
 
@@ -515,6 +513,7 @@ export default function OwnerDashboard() {
           </div>
         </div>
       )}
+
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 w-full bg-white/90 backdrop-blur-lg border-t border-slate-200 flex justify-around items-center pt-2 pb-6 px-1 z-30 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)]">
         <Link href="/owner" className="flex flex-col items-center gap-1 text-indigo-600">
@@ -525,7 +524,7 @@ export default function OwnerDashboard() {
           <span className="text-lg">🛒</span>
           <span className="text-[10px] font-semibold">Orders</span>
         </Link>
-<button onClick={() => setModalType('scanner')} className="flex flex-col items-center justify-center bg-slate-900 text-white w-14 h-14 rounded-full -mt-6 shadow-lg border-4 border-white active:scale-95 transition-transform">
+        <button onClick={() => setModalType('scanner')} className="flex flex-col items-center justify-center bg-slate-900 text-white w-14 h-14 rounded-full -mt-6 shadow-lg border-4 border-white active:scale-95 transition-transform">
           <span className="text-xl">📸</span>
         </button>
         <Link href="/sales" className="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors">
@@ -540,11 +539,4 @@ export default function OwnerDashboard() {
     </main>
   );
 }
-                </button>
-              </div>
-            )}
-
-            {modalType === 'sales' && (
-              <div className="text-center py-4">
-                <p className="text-sm text-slate-500 mb-4">Detailed breakdown coming soon.</p>
-                <button onClick={() => 
+      
