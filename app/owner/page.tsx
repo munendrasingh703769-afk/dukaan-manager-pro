@@ -264,13 +264,13 @@ export default function OwnerDashboard() {
         <div className="flex items-center justify-between mt-6 mb-3 px-1">
           <h2 className="text-lg font-black text-slate-800 tracking-tight">Business Overview</h2>
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm">
-            <span className="text-[10px]">📅</span>
+            <span className="text-[10px]">🗓️</span>
             <span className="text-[11px] font-semibold text-slate-600">{todayDate}</span>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Link href="/sales" className="active:scale-95 transition-transform !bg-[#1e1e24] border-0 text-white shadow-md relative overflow-hidden rounded-2xl p-4 block">
+                    <Link href="/sales/today" className="active:scale-95 transition-transform !bg-[#1e1e24] border-0 text-white shadow-md relative overflow-hidden rounded-2xl p-4 block">
             <div className="flex justify-between items-start mb-2 relative z-10">
               <p className="text-[11px] font-semibold tracking-wider text-slate-300 uppercase">Today's Sales</p>
               <span className="text-sm bg-white/10 p-1.5 rounded-lg">📈</span>
