@@ -1,805 +1,350 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { getCurrentBusinessId, bizId } from '@/lib/business'
-import { getUserPermissions, hasPermission, Permissions } from '@/lib/permissions'
+import { getCurrentBusinessId } from '@/lib/business'
 
-type Supplier = {
-  id: string
-  name: string
-  phone: string | null
-  address: string | null
-}
-
-type Product = {
-  id: string
-  name: string
-  purchase_price: number
-  gst_percent: number
-  stock_qty: number
-}
-
-type PurchaseItem = {
-  product_id: string
-  product_name: string
-  unit: string
-  quantity: number
-  purchase_price: number
-  gst_percent: number
-}
-
-let BUSINESS_ID = ''
+type Supplier = { id: string; name: string; phone: string; address: string }
+type Product = { id: string; name: string; hsn_code: string; purchase_price: number; gst_percent: number; stock_qty: number; unit: string }
+type Item = { product_id: string; name: string; qty: number; purchase_price: number; gst_percent: number; unit: string }
 
 export default function PurchasesPage() {
   const router = useRouter()
-  if (typeof window !== 'undefined' && !BUSINESS_ID) {
-    BUSINESS_ID = getCurrentBusinessId() || 'fc98ba38-bf25-4268-98ba-aad43ecfa6d3'
-  }
   const supabase = createClient()
-  
+
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [items, setItems] = useState<Item[]>([])
 
   const [supplierId, setSupplierId] = useState('')
-  const [perms, setPerms] = useState<Permissions>({})
-  const [permChecked, setPermChecked] = useState(false)
-  const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [invoiceNo, setInvoiceNo] = useState('')
+  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0])
   const [discount, setDiscount] = useState('')
-  const [cashAmount, setCashAmount] = useState('')
-  const [onlineAmount, setOnlineAmount] = useState('')
+  const [discountType, setDiscountType] = useState<'flat' | 'percent'>('flat')
+  const [paidAmount, setPaidAmount] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('cash')
   const [notes, setNotes] = useState('')
 
-  const [items, setItems] = useState<PurchaseItem[]>([
-    { product_id: '', product_name: '', unit: 'PCS', quantity: 0, purchase_price: 0, gst_percent: 0 },
-  ])
-
-  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-
-  const [showSupplierForm, setShowSupplierForm] = useState(false)
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
-  const [supplierName, setSupplierName] = useState('')
-  const [supplierPhone, setSupplierPhone] = useState('')
-  const [supplierAddress, setSupplierAddress] = useState('')
-  const [supplierSaving, setSupplierSaving] = useState(false)
-  const [showSupplierPicker, setShowSupplierPicker] = useState(false)
-  const [supplierSearch, setSupplierSearch] = useState('')
-
-  async function loadPerms() {
-    const bid = bizId()
-    if (!bid) {
-      setPermChecked(true)
-      return
-    }
-    const p = await getUserPermissions(bid)
-    setPerms(p)
-    setPermChecked(true)
-  }
-
-  async function loadData() {
-    setMessage('')
-    const { data: supplierData, error: supplierError } = await supabase
-      .from('suppliers')
-      .select('id, name, phone, address')
-      .eq('business_id', bizId())
-      .order('name')
-
-    if (supplierError) {
-      setMessage('Supplier Error: ' + supplierError.message)
-      return
-    }
-
-    const { data: productData, error: productError } = await supabase
-      .from('products')
-      .select('id, name, purchase_price, gst_percent, stock_qty')
-      .eq('business_id', bizId())
-      .order('name')
-
-    if (productError) {
-      setMessage('Product Error: ' + productError.message)
-      return
-    }
-
-    setSuppliers(supplierData ?? [])
-    setProducts(productData ?? [])
-  }
+  const [showBill, setShowBill] = useState(false)
+  const [savedData, setSavedData] = useState<any>(null)
 
   useEffect(() => {
     loadData()
-    loadPerms()
   }, [])
 
-  function updateItem(index: number, field: keyof PurchaseItem, value: any) {
-    setItems((current) =>
-      current.map((item, i) => (i === index ? { ...item, [field]: value } : item))
-    )
+  async function loadData() {
+    const bid = getCurrentBusinessId()
+    if (!bid) {
+      setLoading(false)
+      return
+    }
+
+    const [supRes, prodRes] = await Promise.all([
+      supabase.from('suppliers').select('*').eq('business_id', bid).order('name'),
+      supabase.from('products').select('*').eq('business_id', bid).order('name')
+    ])
+
+    if (supRes.data) setSuppliers(supRes.data)
+    if (prodRes.data) setProducts(prodRes.data)
+    setLoading(false)
   }
 
   function addItem() {
-    setItems((current) => [
-      ...current,
-      { product_id: '', product_name: '', unit: 'PCS', quantity: 0, purchase_price: 0, gst_percent: 0 },
-    ])
+    setItems([...items, { product_id: '', name: '', qty: 1, purchase_price: 0, gst_percent: 0, unit: 'PCS' }])
+  }
+
+  function updateItem(index: number, field: keyof Item, value: any) {
+    const newItems = [...items]
+    newItems[index] = { ...newItems[index], [field]: value }
+
+    if (field === 'product_id') {
+      const prod = products.find(p => p.id === value)
+      if (prod) {
+        newItems[index].name = prod.name
+        newItems[index].purchase_price = prod.purchase_price || 0
+        newItems[index].gst_percent = prod.gst_percent || 0
+        newItems[index].unit = prod.unit || 'PCS'
+      }
+    }
+    setItems(newItems)
   }
 
   function removeItem(index: number) {
-    setItems((current) => {
-      if (current.length === 1) return current
-      return current.filter((_, i) => i !== index)
-    })
+    setItems(items.filter((_, i) => i !== index))
   }
 
-  const discountNum = Number(discount) || 0
-  const cashNum = Number(cashAmount) || 0
-  const onlineNum = Number(onlineAmount) || 0
-  const paidAmountNum = cashNum + onlineNum
-
-  const subtotal = useMemo(() => {
-    return items.reduce((sum, item) => sum + item.quantity * item.purchase_price, 0)
-  }, [items])
-
-  const gstAmount = useMemo(() => {
-    return items.reduce(
-      (sum, item) => sum + (item.quantity * item.purchase_price * item.gst_percent) / 100,
-      0
-    )
-  }, [items])
-
-  const grandTotal = useMemo(() => {
-    return Math.max(0, subtotal + gstAmount - discountNum)
-  }, [subtotal, gstAmount, discountNum])
-
-  const dueAmount = useMemo(() => {
-    return Math.max(0, grandTotal - paidAmountNum)
-  }, [grandTotal, paidAmountNum])
-
-  function getPaymentMethod() {
-    if (cashNum > 0 && onlineNum > 0) return 'split'
-    if (onlineNum > 0) return 'online'
-    return 'cash'
-  }
-
-  async function saveSupplier() {
-    if (!supplierName.trim()) {
-      alert('Supplier name required')
-      return
-    }
-    setSupplierSaving(true)
-    const payload = {
-      name: supplierName.trim(),
-      phone: supplierPhone.trim() || null,
-      address: supplierAddress.trim() || null,
-    }
-
-    if (editingSupplier) {
-      const { error } = await supabase
-        .from('suppliers')
-        .update(payload)
-        .eq('id', editingSupplier.id)
-      if (error) {
-        alert(error.message)
-        setSupplierSaving(false)
-        return
-      }
-    } else {
-      const { error } = await supabase
-        .from('suppliers')
-        .insert({ ...payload, business_id: bizId() })
-      if (error) {
-        alert(error.message)
-        setSupplierSaving(false)
-        return
-      }
-    }
-
-    setSupplierSaving(false)
-    setShowSupplierForm(false)
-    setEditingSupplier(null)
-    setSupplierName('')
-    setSupplierPhone('')
-    setSupplierAddress('')
-    await loadData()
-  }
-
-  async function deleteSupplier(id: string) {
-    if (!confirm('Delete this supplier?')) return
-    const { error } = await supabase.from('suppliers').delete().eq('id', id)
-    if (error) {
-      alert(error.message)
-      return
-    }
-    if (supplierId === id) setSupplierId('')
-    await loadData()
-  }
+  // --- CALCULATIONS ---
+  const subtotal = items.reduce((sum, item) => sum + (item.qty * item.purchase_price), 0)
+  const totalGst = items.reduce((sum, item) => sum + ((item.qty * item.purchase_price) * item.gst_percent) / 100, 0)
+  
+  const discountInput = Number(discount) || 0
+  const discountAmount = discountType === 'percent' ? ((subtotal + totalGst) * discountInput) / 100 : discountInput
+  
+  const grandTotal = Math.max(0, subtotal + totalGst - discountAmount)
+  const paidAmountNum = Number(paidAmount) || 0
+  const dueAmount = Math.max(0, grandTotal - paidAmountNum)
 
   async function savePurchase() {
-    if (items.length === 0) {
-      alert('Kam se kam 1 product add karo.')
-      return
-    }
+    if (!supplierId) return alert('Select supplier')
+    if (items.length === 0) return alert('Add items')
+    if (items.some(i => !i.product_id)) return alert('Select product for all items')
 
-    const subtotalVal = items.reduce(
-      (sum, item) => sum + item.quantity * item.purchase_price,
-      0
-    )
-    const taxableAmount = Math.max(0, subtotalVal - discountNum)
-    const gstRateAmount = items.reduce(
-      (sum, item) => sum + (item.quantity * item.purchase_price * item.gst_percent) / 100,
-      0
-    )
-    const totalAmount = Math.max(0, taxableAmount + gstRateAmount)
-    const dueAmountVal = Math.max(0, totalAmount - paidAmountNum)
+    setSaving(true)
+    const bid = getCurrentBusinessId()
 
-    const { data: purchase, error } = await supabase
-      .from('purchases')
-      .insert({
-        business_id: bizId(),
-        supplier_id: supplierId || null,
-        bill_no: invoiceNumber || null,
-        subtotal: subtotalVal,
-        discount: discountNum,
-        taxable_amount: taxableAmount,
-        cgst_amount: gstRateAmount / 2,
-        sgst_amount: gstRateAmount / 2,
-        igst_amount: 0,
-        total_gst: gstRateAmount,
-        total_amount: totalAmount,
+    try {
+      // 1. Insert Purchase
+      const { data: purchase, error: purErr } = await supabase.from('purchases').insert({
+        business_id: bid,
+        supplier_id: supplierId,
+        invoice_no: invoiceNo || `PUR-${Date.now().toString().slice(-6)}`,
+        purchase_date: purchaseDate,
+        subtotal: subtotal,
+        total_gst: totalGst,
+        discount: discountAmount,
+        total_amount: grandTotal,
         paid_amount: paidAmountNum,
-        cash_amount: cashNum,
-        online_amount: onlineNum,
-        due_amount: dueAmountVal,
-        payment_method: getPaymentMethod(),
-      })
-      .select('id')
-      .single()
+        due_amount: dueAmount,
+        payment_method: paymentMethod,
+        notes: notes
+      }).select().single()
 
-    if (error) {
-      alert(error.message)
-      return
-    }
+      if (purErr) throw purErr
 
-    for (const item of items) {
-      let pid = item.product_id
-      if (!pid && item.product_name.trim()) {
-        const existing = products.find(
-          (p) => p.name.toLowerCase() === item.product_name.trim().toLowerCase()
-        )
-        if (existing) {
-          pid = existing.id
-        } else {
-          const { data: newP, error: newPErr } = await supabase
-            .from('products')
-            .insert({
-              business_id: bizId(),
-              name: item.product_name.trim(),
-              purchase_price: item.purchase_price,
-              selling_price: 0,
-              stock_qty: 0,
-              gst_percent: item.gst_percent,
-              unit: item.unit,
-              low_stock_limit: 0,
-            })
-            .select('id')
-            .single()
-          if (newPErr) {
-            alert('Product create: ' + newPErr.message)
-            return
-          }
-          pid = newP.id
-        }
-      }
-
-      const lineTotal =
-        item.quantity * item.purchase_price * (1 + item.gst_percent / 100)
-
-      const { error: itemError } = await supabase.from('purchase_items').insert({
-        purchase_id: purchase.id,
-        product_id: pid || null,
-        product_name: item.product_name || '',
-        qty: item.quantity,
-        price: item.purchase_price,
-        discount: 0,
-        taxable_amount: item.quantity * item.purchase_price,
-        gst_percent: item.gst_percent,
-        cgst_amount: (item.quantity * item.purchase_price * item.gst_percent) / 200,
-        sgst_amount: (item.quantity * item.purchase_price * item.gst_percent) / 200,
-        igst_amount: 0,
-        line_total: lineTotal,
-      })
-
-      if (itemError) {
-        alert(itemError.message)
-        return
-      }
-
-      if (pid) {
-        const { error: stockError } = await supabase.rpc('add_stock_movement', {
-          p_product_id: pid,
-          p_movement_type: 'purchase_in',
-          p_quantity: item.quantity,
-          p_note: invoiceNumber || 'Purchase',
+      // 2. Insert Items & Update Stock
+      for (const item of items) {
+        await supabase.from('purchase_items').insert({
+          purchase_id: purchase.id,
+          product_id: item.product_id,
+          qty: item.qty,
+          purchase_price: item.purchase_price,
+          gst_percent: item.gst_percent,
+          total_amount: (item.qty * item.purchase_price) * (1 + item.gst_percent / 100)
         })
 
-        if (stockError) {
-          alert(stockError.message)
-          return
-        }
+        // Stock update via RPC
+        await supabase.rpc('add_stock_movement', {
+          p_business_id: bid,
+          p_product_id: item.product_id,
+          p_movement_type: 'purchase_in',
+          p_quantity: item.qty,
+          p_note: `Purchased via ${purchase.invoice_no}`
+        })
       }
+
+      // Set data for Bill
+      setSavedData({
+        ...purchase,
+        supplierName: suppliers.find(s => s.id === supplierId)?.name,
+        supplierPhone: suppliers.find(s => s.id === supplierId)?.phone,
+        supplierAddress: suppliers.find(s => s.id === supplierId)?.address,
+        items: items,
+        discountAmount,
+        discountType
+      })
+      setShowBill(true)
+
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setSaving(false)
     }
-
-    alert('Purchase saved successfully.')
-    router.push('/purchases/list')
-    router.refresh()
-    setItems([
-      { product_id: '', product_name: '', unit: 'PCS', quantity: 0, purchase_price: 0, gst_percent: 0 },
-    ])
-    setDiscount('')
-    setCashAmount('')
-    setOnlineAmount('')
-    setNotes('')
-    setInvoiceNumber('')
-    setSupplierId('')
-    await loadData()
   }
-
-  if (permChecked && !hasPermission(perms, 'purchase_view')) {
-    return (
-      <main className="p-4 flex items-center justify-center min-h-screen">
-        <div className="rounded-2xl bg-white border-2 border-red-300 p-6 max-w-md text-center shadow">
-          <div className="text-5xl">🚫</div>
-          <h1 className="mt-4 text-xl font-bold text-red-700">Access Denied</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Aapko Purchase ka access nahi hai. Owner se permission maangein.
-          </p>
-          <Link href="/" className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-white">
-            ← Dashboard
-          </Link>
-        </div>
-      </main>
-    )
-  }
+  if (loading) return <div className="p-10 text-center">Loading...</div>
 
   return (
-    <main className="p-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Purchase</h1>
-        <Link href="/purchases/list" className="text-blue-600 text-sm">
-          View List →
-        </Link>
+    <main className="p-4 max-w-md mx-auto pb-24">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-xl font-bold">New Purchase</h1>
+        <Link href="/owner" className="text-blue-600 text-sm">← Dashboard</Link>
       </div>
 
-      {message && (
-        <div className="mt-4 rounded border border-red-300 bg-red-50 p-3 text-red-700">
-          {message}
+      <div className="space-y-4 bg-white p-4 rounded-xl border shadow-sm">
+        {/* Supplier Select */}
+        <div>
+          <label className="text-xs font-bold text-slate-700">Supplier</label>
+          <select value={supplierId} onChange={e => setSupplierId(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm bg-slate-50">
+            <option value="">Select Supplier</option>
+            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
         </div>
-      )}
 
-      <div className="mt-6 rounded-lg border p-4">
-        <h2 className="text-lg font-semibold">Purchase Summary</h2>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {/* Invoice & Date */}
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <div className="flex justify-between items-center">
-              <label className="block text-sm font-medium">Supplier</label>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingSupplier(null)
-                  setSupplierName('')
-                  setSupplierPhone('')
-                  setSupplierAddress('')
-                  setShowSupplierForm(true)
-                }}
-                className="text-sm text-blue-600"
-              >
-                + New
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSupplierSearch('')
-                setShowSupplierPicker(true)
-              }}
-              className="mt-1 w-full rounded border p-2 text-left bg-white"
-            >
-              {supplierId
-                ? suppliers.find((x) => x.id === supplierId)?.name || 'Select Supplier'
-                : 'Select Supplier'}
-            </button>
-
-            {showSupplierPicker && (
-              <div className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 p-4 pt-16">
-                <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-bold">Supplier Chuno</h3>
-                    <button
-                      type="button"
-                      onClick={() => setShowSupplierPicker(false)}
-                      className="text-gray-600 text-xl"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <input
-                    type="text"
-                    value={supplierSearch}
-                    onChange={(e) => setSupplierSearch(e.target.value)}
-                    className="mb-3 w-full rounded border p-2"
-                    placeholder="Naam / phone / GST se dhundo..."
-                    autoFocus
-                  />
-
-                  <div className="max-h-80 overflow-y-auto space-y-1">
-                    {suppliers
-                      .filter((s) => {
-                        const q = supplierSearch.toLowerCase().trim()
-                        if (!q) return true
-                        const name = (s.name || '').toLowerCase()
-                        const phone = (s.phone || '').replace(/\D/g, '')
-                        const gst = ((s as any).gst_number || '').toLowerCase()
-                        const phoneQ = q.replace(/\D/g, '')
-                        return (
-                          name.includes(q) ||
-                          gst.includes(q) ||
-                          (phoneQ && phone.includes(phoneQ))
-                        )
-                      })
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => {
-                            setSupplierId(s.id)
-                            setShowSupplierPicker(false)
-                          }}
-                          className="w-full rounded border p-3 text-left hover:bg-gray-50"
-                        >
-                          <div className="font-medium">{s.name}</div>
-                          <div className="text-xs text-gray-500">
-                            {s.phone || 'no phone'}
-                          </div>
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {supplierId && (
-              <div className="mt-2 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const s = suppliers.find((x) => x.id === supplierId)
-                    if (s) {
-                      setEditingSupplier(s)
-                      setSupplierName(s.name)
-                      setSupplierPhone(s.phone || '')
-                      setSupplierAddress(s.address || '')
-                      setShowSupplierForm(true)
-                    }
-                  }}
-                  className="text-sm text-blue-600"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteSupplier(supplierId)}
-                  className="text-sm text-red-600"
-                >
-                  Delete
-                </button>
-              </div>
-            )}
-
-            {showSupplierForm && (
-              <div className="mt-3 rounded border p-3 bg-gray-50">
-                <input
-                  value={supplierName}
-                  onChange={(e) => setSupplierName(e.target.value)}
-                  className="mb-2 w-full rounded border p-2"
-                  placeholder="Supplier name"
-                />
-                <input
-                  value={supplierPhone}
-                  onChange={(e) => setSupplierPhone(e.target.value)}
-                  className="mb-2 w-full rounded border p-2"
-                  placeholder="Phone"
-                />
-                <input
-                  value={supplierAddress}
-                  onChange={(e) => setSupplierAddress(e.target.value)}
-                  className="mb-2 w-full rounded border p-2"
-                  placeholder="Address"
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={supplierSaving}
-                    onClick={saveSupplier}
-                    className="rounded bg-blue-600 px-4 py-2 text-white"
-                  >
-                    {supplierSaving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSupplierForm(false)
-                      setEditingSupplier(null)
-                      setSupplierName('')
-                      setSupplierPhone('')
-                      setSupplierAddress('')
-                    }}
-                    className="rounded bg-gray-300 px-4 py-2"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
+            <label className="text-xs font-bold text-slate-700">Invoice No.</label>
+            <input value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)} placeholder="Auto if empty" className="w-full mt-1 p-2 border rounded-lg text-sm" />
           </div>
-
           <div>
-            <label className="block text-sm font-medium">Invoice Number</label>
-            <input
-              value={invoiceNumber}
-              onChange={(e) => setInvoiceNumber(e.target.value)}
-              className="mt-1 w-full rounded border p-2"
-              placeholder="Invoice number"
-            />
+            <label className="text-xs font-bold text-slate-700">Date</label>
+            <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" />
           </div>
         </div>
-      </div>
 
-      <div className="mt-6 rounded-lg border p-4">
-        <h2 className="text-lg font-semibold">Purchase Items</h2>
-
-        <div className="mt-3 grid grid-cols-6 gap-2 text-sm font-semibold">
-          <div>Product</div>
-          <div>Unit</div>
-          <div>Qty</div>
-          <div>Price</div>
-          <div>GST%</div>
-          <div>Action</div>
-        </div>
-
-        <div className="mt-2 space-y-2">
-          {items.map((item, index) => (
-            <div key={index} className="grid grid-cols-6 gap-2">
-              <input
-                type="text"
-                value={item.product_name}
-                onChange={(e) => updateItem(index, 'product_name', e.target.value)}
-                className="rounded border p-2"
-                placeholder="Product name"
-                list={`products-${index}`}
-              />
-              <datalist id={`products-${index}`}>
-                {products.map((product) => (
-                  <option key={product.id} value={product.name} />
-                ))}
-              </datalist>
-
-              <input
-                type="text"
-                value={item.unit}
-                onChange={(e) => updateItem(index, 'unit', e.target.value.toUpperCase())}
-                className="rounded border p-2"
-                placeholder="Unit"
-                list={`unit-purchase-${index}`}
-              />
-              <datalist id={`unit-purchase-${index}`}>
-                <option value="PCS" />
-                <option value="KG" />
-                <option value="GM" />
-                <option value="LTR" />
-                <option value="ML" />
-                <option value="BOX" />
-                <option value="PKT" />
-                <option value="DOZEN" />
-                <option value="SQFT" />
-                <option value="SQM" />
-                <option value="MTR" />
-                <option value="CM" />
-                <option value="MM" />
-                <option value="FT" />
-                <option value="INCH" />
-                <option value="BAG" />
-                <option value="SET" />
-                <option value="PAIR" />
-                <option value="ROLL" />
-                <option value="BUNDLE" />
-                <option value="NOS" />
-                <option value="SERVICE" />
-              </datalist>
-
-              <input
-                type="number"
-                min="0"
-                value={item.quantity === 0 ? '' : item.quantity}
-                onChange={(e) =>
-                  updateItem(
-                    index,
-                    'quantity',
-                    e.target.value === '' ? 0 : Number(e.target.value)
-                  )
-                }
-                className="rounded border p-2"
-                placeholder="Qty"
-              />
-
-              <input
-                type="number"
-                min="0"
-                value={item.purchase_price === 0 ? '' : item.purchase_price}
-                onChange={(e) =>
-                  updateItem(
-                    index,
-                    'purchase_price',
-                    e.target.value === '' ? 0 : Number(e.target.value)
-                  )
-                }
-                className="rounded border p-2"
-                placeholder="Price"
-              />
-
-              <input
-                type="number"
-                min="0"
-                value={item.gst_percent === 0 ? '' : item.gst_percent}
-                onChange={(e) =>
-                  updateItem(
-                    index,
-                    'gst_percent',
-                    e.target.value === '' ? 0 : Number(e.target.value)
-                  )
-                }
-                className="rounded border p-2"
-                placeholder="GST%"
-              />
-
-              <button
-                type="button"
-                onClick={() => removeItem(index)}
-                className="rounded bg-red-600 px-2 py-2 text-white text-sm"
-              >
-                Remove
-              </button>
+        {/* Items */}
+        <div className="border-t pt-3">
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-sm font-bold text-slate-800">Items</label>
+            <button onClick={addItem} className="text-xs bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded-md">+ Add</button>
+          </div>
+          
+          {items.map((item, idx) => (
+            <div key={idx} className="bg-slate-50 p-2 rounded-lg mb-2 border border-slate-200 relative">
+              <button onClick={() => removeItem(idx)} className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold">×</button>
+              <select value={item.product_id} onChange={e => updateItem(idx, 'product_id', e.target.value)} className="w-full p-2 border rounded-md text-sm mb-2">
+                <option value="">Select Product</option>
+                {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <div className="grid grid-cols-3 gap-2">
+                <input type="number" value={item.qty} onChange={e => updateItem(idx, 'qty', Number(e.target.value))} className="p-2 border rounded-md text-sm" placeholder="Qty" />
+                <input type="number" value={item.purchase_price} onChange={e => updateItem(idx, 'purchase_price', Number(e.target.value))} className="p-2 border rounded-md text-sm" placeholder="Price" />
+                <input type="number" value={item.gst_percent} onChange={e => updateItem(idx, 'gst_percent', Number(e.target.value))} className="p-2 border rounded-md text-sm" placeholder="GST%" />
+              </div>
             </div>
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={addItem}
-          className="mt-4 rounded bg-blue-600 px-4 py-2 text-white"
-        >
-          + Add Item
+        {/* Discount with % Dropdown */}
+        <div className="border-t pt-3">
+          <label className="text-xs font-bold text-slate-700">Discount</label>
+          <div className="flex gap-2 mt-1">
+            <input type="number" value={discount} onChange={e => setDiscount(e.target.value)} className="w-full p-2 border rounded-lg text-sm" placeholder="0" />
+            <select value={discountType} onChange={e => setDiscountType(e.target.value as 'flat'|'percent')} className="p-2 border rounded-lg text-sm bg-slate-50 font-bold">
+              <option value="flat">₹</option>
+              <option value="percent">%</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Totals */}
+        <div className="bg-slate-100 p-3 rounded-lg text-sm space-y-1">
+          <div className="flex justify-between"><span>Subtotal:</span> <span>₹{subtotal.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span>GST:</span> <span>₹{totalGst.toFixed(2)}</span></div>
+          {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>Discount:</span> <span>- ₹{discountAmount.toFixed(2)}</span></div>}
+          <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Total:</span> <span>₹{grandTotal.toFixed(2)}</span></div>
+        </div>
+
+        {/* Payment */}
+        <div className="grid grid-cols-2 gap-3 border-t pt-3">
+          <div>
+            <label className="text-xs font-bold text-slate-700">Paid Amount</label>
+            <input type="number" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="0" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-700">Method</label>
+            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm bg-slate-50">
+              <option value="cash">Cash</option>
+              <option value="upi">UPI</option>
+              <option value="bank">Bank</option>
+              <option value="credit">Credit (Udhaar)</option>
+            </select>
+          </div>
+        </div>
+
+        <button onClick={savePurchase} disabled={saving} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl mt-4">
+          {saving ? 'Saving...' : 'Save Purchase'}
         </button>
       </div>
+      {/* BILL PRINT VIEW */}
+      {showBill && savedData && (
+        <div className="fixed inset-0 bg-white z-50 overflow-y-auto p-4">
+          <div className="flex justify-between mb-4 no-print">
+            <button onClick={() => { setShowBill(false); router.push('/owner') }} className="text-blue-600 font-bold">← Back</button>
+            <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">Print / Save PDF</button>
+          </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <div>
-          <label className="block text-sm font-medium">Discount</label>
-          <input
-            type="number"
-            min="0"
-            value={discount}
-            onChange={(e) => setDiscount(e.target.value)}
-            className="mt-1 w-full rounded border p-2"
-          />
-        </div>
+          <div className="border-2 border-black p-4 max-w-2xl mx-auto text-black">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-4">
+              <div>
+                <h1 className="text-3xl font-black text-blue-800">VyapaarSetu</h1>
+                <p className="text-sm">Purchase Invoice</p>
+              </div>
+              <div className="text-right">
+                <h2 className="text-xl font-bold border border-black px-2 py-1 inline-block">PURCHASE BILL</h2>
+                <p className="text-xs mt-1">Original for Recipient</p>
+              </div>
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium">Cash Amount</label>
-          <input
-            type="number"
-            min="0"
-            value={cashAmount}
-            onChange={(e) => setCashAmount(e.target.value)}
-            className="mt-1 w-full rounded border p-2"
-            placeholder="Cash"
-          />
-        </div>
+            {/* Supplier Details */}
+            <div className="grid grid-cols-2 gap-4 border-b-2 border-black pb-4 mb-4 text-sm">
+              <div>
+                <h3 className="font-bold underline mb-1">Supplier Detail</h3>
+                <p className="font-bold">{savedData.supplierName}</p>
+                <p>Phone: {savedData.supplierPhone || '-'}</p>
+                <p>Address: {savedData.supplierAddress || '-'}</p>
+              </div>
+              <div className="text-right">
+                <p><span className="font-bold">Invoice No:</span> {savedData.invoice_no}</p>
+                <p><span className="font-bold">Date:</span> {new Date(savedData.purchase_date).toLocaleDateString('en-IN')}</p>
+                <p><span className="font-bold">Payment:</span> {savedData.payment_method.toUpperCase()}</p>
+                <p><span className="font-bold">Due Amount:</span> ₹{savedData.due_amount.toFixed(2)}</p>
+              </div>
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium">Online Amount (UPI/Bank)</label>
-          <input
-            type="number"
-            min="0"
-            value={onlineAmount}
-            onChange={(e) => setOnlineAmount(e.target.value)}
-            className="mt-1 w-full rounded border p-2"
-            placeholder="UPI/Bank/Card"
-          />
-        </div>
-      </div>
+            {/* Items Table */}
+            <table className="w-full border-collapse border border-black text-sm mb-4">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-black p-2">Sr.</th>
+                  <th className="border border-black p-2 text-left">Product Name</th>
+                  <th className="border border-black p-2">Qty</th>
+                  <th className="border border-black p-2">Rate</th>
+                  <th className="border border-black p-2">GST%</th>
+                  <th className="border border-black p-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {savedData.items.map((item: any, i: number) => (
+                  <tr key={i}>
+                    <td className="border border-black p-2 text-center">{i + 1}</td>
+                    <td className="border border-black p-2">{item.name}</td>
+                    <td className="border border-black p-2 text-center">{item.qty} {item.unit}</td>
+                    <td className="border border-black p-2 text-right">₹{item.purchase_price.toFixed(2)}</td>
+                    <td className="border border-black p-2 text-center">{item.gst_percent}%</td>
+                    <td className="border border-black p-2 text-right">₹{(item.qty * item.purchase_price).toFixed(2)}</td>
+                  </tr>
+                ))}
+                
+                {/* Totals Section */}
+                <tr>
+                  <td colSpan={5} className="border border-black p-2 text-right font-bold">Subtotal</td>
+                  <td className="border border-black p-2 text-right font-bold">₹{savedData.subtotal.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={5} className="border border-black p-2 text-right font-bold">GST</td>
+                  <td className="border border-black p-2 text-right font-bold">₹{savedData.total_gst.toFixed(2)}</td>
+                </tr>
+                {savedData.discountAmount > 0 && (
+                  <tr>
+                    <td colSpan={5} className="border border-black p-2 text-right font-bold text-red-600">
+                      Discount {savedData.discountType === 'percent' ? `(${savedData.discount}%)` : ''}
+                    </td>
+                    <td className="border border-black p-2 text-right font-bold text-red-600">- ₹{savedData.discountAmount.toFixed(2)}</td>
+                  </tr>
+                )}
+                <tr className="bg-gray-100">
+                  <td colSpan={5} className="border border-black p-2 text-right font-black text-lg">Grand Total</td>
+                  <td className="border border-black p-2 text-right font-black text-lg">₹{savedData.total_amount.toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
 
-      <div className="mt-4">
-        <div className="mt-4 rounded-lg border-2 border-red-300 bg-red-50 p-4">
-        <div className="flex justify-between items-center">
-          <span className="text-base font-medium text-red-700">Due Amount (Baki)</span>
-          <input
-            type="number"
-            min="0"
-            value={dueAmount === 0 ? '' : dueAmount}
-            onChange={(e) => {
-              const newDue = e.target.value === '' ? 0 : Number(e.target.value)
-              const newPaid = Math.max(0, grandTotal - newDue)
-              const remaining = newPaid - onlineNum
-              if (remaining >= 0) {
-                setCashAmount(remaining === 0 ? '' : String(remaining))
-              } else {
-                setCashAmount('')
-                setOnlineAmount(newPaid === 0 ? '' : String(newPaid))
-              }
-            }}
-            className="w-32 rounded border-2 border-red-400 bg-white p-2 text-right text-xl font-bold text-red-700"
-            placeholder="0"
-          />
+            {/* Footer */}
+            <div className="text-sm">
+              <p><span className="font-bold">Total in words:</span> Rupees {Number(savedData.total_amount).toFixed(0)} Only</p>
+              <div className="mt-8 flex justify-between">
+                <p>Supplier Signature</p>
+                <p>Authorized Signatory</p>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-
-        <label className="block text-sm font-medium">Notes</label>
-        <input
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="mt-1 w-full rounded border p-2"
-          placeholder="Notes"
-        />
-      </div>
-
-      <div className="mt-6 rounded-lg bg-gray-50 p-4">
-        <div className="flex justify-between">
-          <span>Subtotal</span>
-          <span>₹{subtotal.toFixed(2)}</span>
-        </div>
-        <div className="mt-2 flex justify-between">
-          <span>GST</span>
-          <span>₹{gstAmount.toFixed(2)}</span>
-        </div>
-        <div className="mt-2 flex justify-between">
-          <span>Discount</span>
-          <span>₹{discountNum.toFixed(2)}</span>
-        </div>
-        <div className="mt-2 flex justify-between font-bold">
-          <span>Grand Total</span>
-          <span>₹{grandTotal.toFixed(2)}</span>
-        </div>
-        <div className="mt-2 flex justify-between text-green-700">
-          <span>Cash Paid</span>
-          <span>₹{cashNum.toFixed(2)}</span>
-        </div>
-        <div className="mt-1 flex justify-between text-blue-700">
-          <span>Online Paid</span>
-          <span>₹{onlineNum.toFixed(2)}</span>
-        </div>
-        <div className="mt-1 flex justify-between">
-          <span>Total Paid</span>
-          <span>₹{paidAmountNum.toFixed(2)}</span>
-        </div>
-        <div className="mt-2 flex justify-between font-bold">
-          <span>Due</span>
-          <span>₹{dueAmount.toFixed(2)}</span>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        disabled={saving}
-        onClick={savePurchase}
-        className="mt-6 w-full rounded bg-green-600 px-4 py-3 text-white"
-      >
-        {saving ? 'Saving...' : 'Save Purchase'}
-      </button>
+      )}
     </main>
   )
 }
