@@ -500,18 +500,14 @@ export default function ProductsPage() {
     return 'text-red-600'
   }
 
-  if (permChecked && !hasPermission(perms, 'products_view')) {
+    if (permChecked && !hasPermission(perms, 'products_view')) {
     return (
       <main className="p-4 flex items-center justify-center min-h-screen">
-        506 |         <div className="rounded-2xl bg-white border-2 border-red-300 p-6 max-w-md text-center shadow">
-507 |           <div className="text-5xl">{"🚫"}</div>
-508 |           <h1 className="mt-4 text-xl font-bold text-red-700">Access Denied</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Aapko Products & Stock ka access nahi hai. Owner se permission maangein.
-          </p>
-          <Link href="/" className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-white">
-             Dashboard
-          </Link>
+        <div className="rounded-2xl bg-white border-2 border-red-300 p-6 max-w-md text-center shadow">
+          <div className="text-5xl">🚫</div>
+          <h1 className="mt-4 text-xl font-bold text-red-700">Access Denied</h1>
+          <p className="mt-2 text-sm text-gray-600">Aapko Products & Stock ka access nahi hai. Owner se permission maangein.</p>
+          <Link href="/" className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-white">← Dashboard</Link>
         </div>
       </main>
     )
