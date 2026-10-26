@@ -19,11 +19,11 @@ export default function NewPurchasePage() {
   // --- DATA STATES ---
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [businessState, setBusinessState] = useState<string>("Maharashtra"); // Apna state yahan change karein
+  const [businessState, setBusinessState] = useState<string>("Maharashtra");
 
   // --- FORM STATES ---
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
-  const [isOutsideIndia, setIsOutsideIndia] = useState<boolean>(false); // 🆕 Outside India
+  const [isOutsideIndia, setIsOutsideIndia] = useState<boolean>(false);
   const [invoiceNo, setInvoiceNo] = useState<string>("");
   const [date, setDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [items, setItems] = useState<PurchaseItem[]>([]);
@@ -32,10 +32,10 @@ export default function NewPurchasePage() {
   const [discount, setDiscount] = useState<number>(0);
   const [discountType, setDiscountType] = useState<"flat" | "percent">("flat");
   const [transportCharge, setTransportCharge] = useState<number>(0);
-  const [otherCharges, setOtherCharges] = useState<number>(0); // 🆕 Other Charges
+  const [otherCharges, setOtherCharges] = useState<number>(0);
   const [cashPaid, setCashPaid] = useState<number>(0);
   const [onlinePaid, setOnlinePaid] = useState<number>(0);
-  const [notes, setNotes] = useState<string>(""); // 🆕 Notes
+  const [notes, setNotes] = useState<string>("");
 
   // --- MODAL STATES ---
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
@@ -48,10 +48,10 @@ export default function NewPurchasePage() {
 
   // --- NEW PRODUCT FORM STATE ---
   const [newProduct, setNewProduct] = useState({
-    name: "", category: "", sku: "", hsn_code: "", unit: "", purchase_price: 0, selling_price: 0, stock: 0, low_stock_limit: 0, tax_percentage: 0
+    name: "", category: "", sku: "", hsn_code: "", unit: "pcs", purchase_price: 0, selling_price: 0, stock: 0, low_stock_limit: 0, tax_percentage: 0
   });
 
-  // --- CALCULATIONS (Auto Tax & Total) ---
+  // --- CALCULATIONS ---
   const calculations = useMemo(() => {
     const subTotal = items.reduce((acc, item) => acc + item.total, 0);
     
@@ -71,11 +71,9 @@ export default function NewPurchasePage() {
   const fetchData = async () => {
     if (!activeId) return;
     
-    // Suppliers fetch
     const { data: supData } = await supabase.from('suppliers').select('*').eq('business_id', activeId);
     if (supData) setSuppliers(supData);
 
-    // Products fetch
     const { data: prodData } = await supabase.from('products').select('*').eq('business_id', activeId);
     if (prodData) setProducts(prodData);
   };
@@ -119,10 +117,19 @@ export default function NewPurchasePage() {
     if (!newSupplier.name) return alert("Business Name required");
     if (!activeId) return alert("Business ID not found");
     
-    const { data, error } = await supabase.from('suppliers').insert([{ 
-      ...newSupplier, 
-      business_id: activeId 
-    }]).select();
+    const supplierToSave = {
+      name: newSupplier.name,
+      owner_name: newSupplier.owner_name,
+      phone: newSupplier.phone,
+      email: newSupplier.email,
+      state: newSupplier.state,
+      address: newSupplier.address,
+      opening_balance: newSupplier.opening_balance,
+      business_id: activeId,
+      gstin: newSupplier.gstin 
+    };
+
+    const { data, error } = await supabase.from('suppliers').insert([supplierToSave]).select();
     
     if (!error && data) {
       setSuppliers([...suppliers, data[0]]);
@@ -134,7 +141,7 @@ export default function NewPurchasePage() {
     }
   };
 
-        // --- SAVE PRODUCT ---
+  // --- SAVE PRODUCT ---
   const handleSaveProduct = async () => {
     if (!newProduct.name) return alert("Product Name required");
     if (!activeId) return alert("Business ID not found");
@@ -149,7 +156,7 @@ export default function NewPurchasePage() {
       selling_price: newProduct.selling_price,
       low_stock_limit: newProduct.low_stock_limit,
       stock: newProduct.stock,
-      tax_percentage: newProduct.tax_percentage, // GST Column
+      tax_percentage: newProduct.tax_percentage,
       business_id: activeId,
     };
 
@@ -164,34 +171,11 @@ export default function NewPurchasePage() {
       alert("Error saving product: " + error?.message);
     }
   };
-      
-      // 🚨 YAHAN DHYAN DEIN 🚨
-      // Agar aapke Supabase database me column ka naam 'stock' hai:
-      stock: newProduct.stock 
-      
-      // Agar aapke Supabase database me column ka naam 'opening_stock' hai (toh upar wali line hata kar ye wali likhein):
-      // opening_stock: newProduct.stock 
-    };
 
-    const { data, error } = await supabase.from('products').insert([productToSave]).select();
-    
-    if (!error && data) {
-      setProducts([...products, data[0]]);
-      handleAddItem(data[0].id);
-      setIsProductModalOpen(false);
-      setNewProduct({ name: "", category: "", sku: "", hsn_code: "", unit: "pcs", purchase_price: 0, selling_price: 0, stock: 0, low_stock_limit: 0, tax_percentage: 0 });
-    } else {
-      alert("Error saving product: " + error?.message);
-    }
-  };
-
-  // --- SAVE PURCHASE (DB insert) ---
+  // --- SAVE PURCHASE ---
   const handleSavePurchase = async () => {
     if (!selectedSupplier) return alert("Please select a supplier");
     if (items.length === 0) return alert("Please add items");
-
-    // Note: Actual purchase save logic (DB me insert) aapke purane code me hoga,
-    // usme bas business_id: activeId add kar lena.
     alert("Purchase Saved Successfully! Due: ₹" + calculations.dueAmount);
   };
   return (
@@ -220,7 +204,6 @@ export default function NewPurchasePage() {
             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           
-          {/* 🆕 OUTSIDE INDIA CHECKBOX */}
           <label className="flex items-center gap-2 mt-2 cursor-pointer">
             <input type="checkbox" checked={isOutsideIndia} onChange={(e) => setIsOutsideIndia(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" />
             <span className="text-sm font-medium text-gray-700">Outside India (International Supplier)</span>
@@ -284,15 +267,15 @@ export default function NewPurchasePage() {
             <label className="text-sm font-semibold text-gray-600">Transport Charge</label>
             <input type="number" value={transportCharge || ""} onChange={(e) => setTransportCharge(Number(e.target.value))} className="w-full p-2 border rounded-lg mt-1" placeholder="₹" />
           </div>
-          {/* 🆕 OTHER CHARGES */}
           <div className="col-span-2">
             <label className="text-sm font-semibold text-gray-600">Other Charges (Packing, Loading, etc.)</label>
             <input type="number" value={otherCharges || ""} onChange={(e) => setOtherCharges(Number(e.target.value))} className="w-full p-2 border rounded-lg mt-1" placeholder="₹" />
           </div>
         </div>
+
         <hr className="border-gray-200" />
 
-        {/* PAYMENT DETAILS (SALE FORM STYLE) */}
+        {/* PAYMENT DETAILS */}
         <div className="space-y-4">
           <div>
             <label className="text-sm font-semibold text-gray-600">Cash Amount</label>
@@ -303,7 +286,6 @@ export default function NewPurchasePage() {
             <input type="number" value={onlinePaid || ""} onChange={(e) => setOnlinePaid(Number(e.target.value))} className="w-full p-3 border rounded-lg mt-1" placeholder="UPI/Bank/Card" />
           </div>
 
-          {/* RED DUE AMOUNT BOX */}
           <div className={`p-4 rounded-lg flex justify-between items-center border ${calculations.dueAmount > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
             <span className={`font-bold ${calculations.dueAmount > 0 ? 'text-red-700' : 'text-green-700'}`}>Due Amount (Baki)</span>
             <span className={`text-xl font-bold ${calculations.dueAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>₹{calculations.dueAmount.toFixed(2)}</span>
@@ -315,7 +297,7 @@ export default function NewPurchasePage() {
           </div>
         </div>
 
-        {/* SUMMARY CARD (SALE FORM STYLE) */}
+        {/* SUMMARY CARD */}
         <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm text-gray-700 mt-4">
           <div className="flex justify-between"><span>Subtotal</span><span>₹{calculations.subTotal.toFixed(2)}</span></div>
           <div className="flex justify-between"><span>GST {calculations.isInterState ? "(IGST)" : "(CGST+SGST)"}</span><span>₹{calculations.totalTax.toFixed(2)}</span></div>
@@ -353,7 +335,6 @@ export default function NewPurchasePage() {
               <option value="Maharashtra">Maharashtra</option>
               <option value="Delhi">Delhi</option>
               <option value="Gujarat">Gujarat</option>
-              {/* Apne hisaab se states add karein */}
             </select>
             <input type="text" placeholder="Address" value={newSupplier.address} onChange={e => setNewSupplier({...newSupplier, address: e.target.value})} className="w-full p-3 border rounded-lg" />
             <input type="number" placeholder="Opening Balance (Purana Udhaar)" value={newSupplier.opening_balance || ''} onChange={e => setNewSupplier({...newSupplier, opening_balance: Number(e.target.value)})} className="w-full p-3 border rounded-lg" />
