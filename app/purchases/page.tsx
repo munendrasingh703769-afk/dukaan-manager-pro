@@ -134,12 +134,11 @@ export default function NewPurchasePage() {
     }
   };
 
-    // --- SAVE PRODUCT (Fixed for Stock Column) ---
+      // --- SAVE PRODUCT (Fixed for Tax) ---
   const handleSaveProduct = async () => {
     if (!newProduct.name) return alert("Product Name required");
     if (!activeId) return alert("Business ID not found");
     
-    // Explicitly mapping fields to match your Supabase table
     const productToSave = {
       name: newProduct.name,
       category: newProduct.category,
@@ -149,8 +148,28 @@ export default function NewPurchasePage() {
       purchase_price: newProduct.purchase_price,
       selling_price: newProduct.selling_price,
       low_stock_limit: newProduct.low_stock_limit,
-      tax_percentage: newProduct.tax_percentage,
+      stock: newProduct.stock,
       business_id: activeId,
+      
+      // 🚨 YAHAN DHYAN DEIN 🚨
+      // Agar column ka naam 'tax_percentage' hai toh ye line rehne do:
+      tax_percentage: newProduct.tax_percentage 
+      
+      // Agar column ka naam 'gst_rate' ya 'gst_percentage' hai, toh upar wali line hata kar ye likho:
+      // gst_rate: newProduct.tax_percentage
+    };
+
+    const { data, error } = await supabase.from('products').insert([productToSave]).select();
+    
+    if (!error && data) {
+      setProducts([...products, data[0]]);
+      handleAddItem(data[0].id);
+      setIsProductModalOpen(false);
+      setNewProduct({ name: "", category: "", sku: "", hsn_code: "", unit: "pcs", purchase_price: 0, selling_price: 0, stock: 0, low_stock_limit: 0, tax_percentage: 0 });
+    } else {
+      alert("Error saving product: " + error?.message);
+    }
+  };
       
       // 🚨 YAHAN DHYAN DEIN 🚨
       // Agar aapke Supabase database me column ka naam 'stock' hai:
