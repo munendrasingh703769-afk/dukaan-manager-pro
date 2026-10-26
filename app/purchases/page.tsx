@@ -40,6 +40,8 @@ export default function PurchasesPage() {
   // New Supplier State
   const [newSupName, setNewSupName] = useState('')
   const [newSupPhone, setNewSupPhone] = useState('')
+  const [newSupGmail, setNewSupGmail] = useState('')
+  const [newSupPanNo, setNewSupPanNo] = useState('')
   const [newSupAddress, setNewSupAddress] = useState('')
   const [newSupGstin, setNewSupGstin] = useState('')
   
@@ -76,6 +78,8 @@ export default function PurchasesPage() {
       business_id: bid, 
       name: newSupName, 
       phone: newSupPhone,
+      gmail: newSupGmail
+      pan_no: newSupPanNo
       address: newSupAddress,
       gstin: newSupGstin
     }).select().single()
