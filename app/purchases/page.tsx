@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
 
-type Supplier = { id: string; name: string; phone: string; address: string; gstin: string }
+type Supplier = { id: string; name: string; phone: string; gmail: string; pan_no: string; address: string; gstin: string }
 type Product = { id: string; name: string; hsn_code: string; purchase_price: number; gst_percent: number; stock_qty: number; unit: string }
 type Item = { product_id: string; name: string; qty: number; purchase_price: number; gst_percent: number; unit: string }
 
@@ -78,10 +78,10 @@ export default function PurchasesPage() {
       business_id: bid, 
       name: newSupName, 
       phone: newSupPhone,
-      gmail: newSupGmail
-      pan_no: newSupPanNo
+      gmail: newSupGmail,
+      pan_no: newSupPanNo,
       address: newSupAddress,
-      gstin: newSupGstin
+      gstin: newSupGstin,
     }).select().single()
     
     if (!error && data) {
@@ -90,8 +90,8 @@ export default function PurchasesPage() {
       setShowSupplierModal(false)
       setNewSupName(''); setNewSupPhone('');
 setNewSupGmail('');
-setNewSupPanNo('')
-setNewSupAddress(''); setNewSupGstin('')
+setNewSupPanNo('');
+setNewSupAddress(''); setNewSupGstin('');
     } else { alert('Error adding supplier: ' + error?.message) }
   }
 
