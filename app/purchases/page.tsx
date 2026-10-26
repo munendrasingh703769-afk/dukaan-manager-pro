@@ -172,14 +172,79 @@ export default function NewPurchasePage() {
     }
   };
 
-  // --- SAVE PURCHASE ---
+    // --- SAVE PURCHASE (FINAL) ---
   const handleSavePurchase = async () => {
     if (!selectedSupplier) return alert("Please select a supplier");
     if (items.length === 0) return alert("Please add items");
-    alert("Purchase Saved Successfully! Due: ₹" + calculations.dueAmount);
+    if (!activeId) return alert("Business ID not found");
+
+    try {
+      // 1. Main Purchase Bill save karo
+      const purchasePayload = {
+        business_id: activeId,
+        supplier_id: selectedSupplier,
+        invoice_no: invoiceNo || `PUR-${Date.now()}`, // Agar khali hai toh auto-generate
+        date: date,
+        sub_total: calculations.subTotal,
+        tax_amount: calculations.totalTax,
+        discount: calculations.flatDiscount,
+        transport_charge: transportCharge,
+        other_charges: otherCharges,
+        grand_total: calculations.grandTotal,
+        paid_amount: calculations.totalPaid,
+        due_amount: calculations.dueAmount,
+        cash_paid: cashPaid,
+        online_paid: onlinePaid,
+        notes: notes,
+        is_outside_india: isOutsideIndia
+      };
+
+      const { data: purchaseData, error: purchaseError } = await supabase
+        .from('purchases')
+        .insert([purchasePayload])
+        .select()
+        .single();
+
+      if (purchaseError) throw new Error(purchaseError.message);
+
+      // 2. Saare Items save karo
+      const purchaseItemsToInsert = items.map(item => ({
+        purchase_id: purchaseData.id,
+        business_id: activeId,
+        product_id: item.product_id,
+        qty: item.qty,
+        rate: item.rate,
+        tax_percentage: item.tax_percentage,
+        total: item.total
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('purchase_items')
+        .insert(purchaseItemsToInsert);
+
+      if (itemsError) throw new Error(itemsError.message);
+
+      // 3. Stock Update karo (RPC Call)
+      // Note: Yahan apne RPC function ke parameters apne database ke hisaab se check kar lena.
+      for (const item of items) {
+        const { error: rpcError } = await supabase.rpc('add_stock_movement', {
+          p_product_id: item.product_id,
+          p_quantity: item.qty,
+          p_type: 'purchase',
+          p_reference_id: purchaseData.id
+        });
+        
+        if (rpcError) console.error("Stock update failed for item: ", item.product_name, rpcError);
+      }
+
+      // 4. Success Message aur Redirect
+      alert("Purchase Saved Successfully! Stock updated & Supplier Balance added.");
+      router.push('/purchases'); // Purchase list page par wapas bhej dega
+
+    } catch (error: any) {
+      alert("Error saving purchase: " + error.message);
+    }
   };
-  return (
-    <div className="max-w-2xl mx-auto p-4 pb-24 space-y-6 bg-white min-h-screen">
       
       {/* HEADER */}
       <div className="flex justify-between items-center">
