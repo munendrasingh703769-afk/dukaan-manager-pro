@@ -183,7 +183,7 @@ export default function NewPurchasePage() {
     } else {
       alert("Error saving product: " + error?.message);
     }
-  };
+  
 
   // --- SAVE PURCHASE (DB insert) ---
   const handleSavePurchase = async () => {
