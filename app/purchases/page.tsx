@@ -48,7 +48,7 @@ export default function NewPurchasePage() {
 
   // --- NEW PRODUCT FORM STATE ---
   const [newProduct, setNewProduct] = useState({
-    name: "", category: "", sku: "", hsn_code: "", unit: "pcs", purchase_price: 0, selling_price: 0, stock: 0, low_stock_limit: 0, tax_percentage: 0
+    name: "", category: "", sku: "", hsn_code: "", unit: "", purchase_price: 0, selling_price: 0, stock: 0, low_stock_limit: 0, tax_percentage: 0
   });
 
   // --- CALCULATIONS (Auto Tax & Total) ---
@@ -134,15 +134,33 @@ export default function NewPurchasePage() {
     }
   };
 
-  // --- SAVE PRODUCT ---
+    // --- SAVE PRODUCT (Fixed for Stock Column) ---
   const handleSaveProduct = async () => {
     if (!newProduct.name) return alert("Product Name required");
     if (!activeId) return alert("Business ID not found");
     
-    const { data, error } = await supabase.from('products').insert([{ 
-      ...newProduct,
-      business_id: activeId 
-    }]).select();
+    // Explicitly mapping fields to match your Supabase table
+    const productToSave = {
+      name: newProduct.name,
+      category: newProduct.category,
+      sku: newProduct.sku,
+      hsn_code: newProduct.hsn_code,
+      unit: newProduct.unit,
+      purchase_price: newProduct.purchase_price,
+      selling_price: newProduct.selling_price,
+      low_stock_limit: newProduct.low_stock_limit,
+      tax_percentage: newProduct.tax_percentage,
+      business_id: activeId,
+      
+      // 🚨 YAHAN DHYAN DEIN 🚨
+      // Agar aapke Supabase database me column ka naam 'stock' hai:
+      stock: newProduct.stock 
+      
+      // Agar aapke Supabase database me column ka naam 'opening_stock' hai (toh upar wali line hata kar ye wali likhein):
+      // opening_stock: newProduct.stock 
+    };
+
+    const { data, error } = await supabase.from('products').insert([productToSave]).select();
     
     if (!error && data) {
       setProducts([...products, data[0]]);
