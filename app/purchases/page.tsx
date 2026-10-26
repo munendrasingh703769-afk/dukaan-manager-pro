@@ -1,40 +1,25 @@
-"use client";
+'use client'
 
-import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase"; // Apne path ke hisaab se check kar lena
-import Link from "next/link";
+import { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { getCurrentBusinessId } from '@/lib/business'
 
 // --- TYPES ---
-type Supplier = {
-  id: string;
-  name: string;
-  state: string;
-};
-
-type Product = {
-  id: string;
-  name: string;
-  purchase_price: number;
-  tax_percentage: number;
-};
-
-type PurchaseItem = {
-  product_id: string;
-  product_name: string;
-  qty: number;
-  rate: number;
-  tax_percentage: number;
-  total: number;
-};
+type Supplier = { id: string; name: string; state: string; }
+type Product = { id: string; name: string; purchase_price: number; tax_percentage: number; }
+type PurchaseItem = { product_id: string; product_name: string; qty: number; rate: number; tax_percentage: number; total: number; }
 
 export default function NewPurchasePage() {
   const router = useRouter();
+  const supabase = createClient();
+  const activeId = getCurrentBusinessId();
 
   // --- DATA STATES ---
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [businessState, setBusinessState] = useState<string>("Maharashtra"); // Apna state daalein
+  const [businessState, setBusinessState] = useState<string>("Maharashtra"); // Apna state yahan change karein
 
   // --- FORM STATES ---
   const [selectedSupplier, setSelectedSupplier] = useState<string>("");
@@ -71,13 +56,10 @@ export default function NewPurchasePage() {
     const subTotal = items.reduce((acc, item) => acc + item.total, 0);
     
     const supplier = suppliers.find(s => s.id === selectedSupplier);
-    // Logic: Agar Outside India checked hai, ya supplier ka state alag hai
     const isInterState = isOutsideIndia || (supplier && supplier.state !== businessState);
     
     const totalTax = items.reduce((acc, item) => acc + (item.total * (item.tax_percentage / 100)), 0);
     const flatDiscount = discountType === "percent" ? (subTotal * (discount / 100)) : discount;
-    
-    // Grand Total = Subtotal + Tax + Transport + Other Charges - Discount
     const grandTotal = subTotal + totalTax + transportCharge + otherCharges - flatDiscount;
     
     const totalPaid = Number(cashPaid) + Number(onlinePaid);
@@ -87,16 +69,20 @@ export default function NewPurchasePage() {
   }, [items, discount, discountType, transportCharge, otherCharges, cashPaid, onlinePaid, selectedSupplier, suppliers, businessState, isOutsideIndia]);
   // --- FETCH DATA ---
   const fetchData = async () => {
-    const { data: supData } = await supabase.from('suppliers').select('*');
+    if (!activeId) return;
+    
+    // Suppliers fetch
+    const { data: supData } = await supabase.from('suppliers').select('*').eq('business_id', activeId);
     if (supData) setSuppliers(supData);
 
-    const { data: prodData } = await supabase.from('products').select('*');
+    // Products fetch
+    const { data: prodData } = await supabase.from('products').select('*').eq('business_id', activeId);
     if (prodData) setProducts(prodData);
   };
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [activeId]);
 
   // --- ITEM LOGIC ---
   const handleAddItem = (productId: string) => {
@@ -131,25 +117,41 @@ export default function NewPurchasePage() {
   // --- SAVE SUPPLIER ---
   const handleSaveSupplier = async () => {
     if (!newSupplier.name) return alert("Business Name required");
-    const { data, error } = await supabase.from('suppliers').insert([newSupplier]).select();
+    if (!activeId) return alert("Business ID not found");
+    
+    const { data, error } = await supabase.from('suppliers').insert([{ 
+      ...newSupplier, 
+      business_id: activeId 
+    }]).select();
+    
     if (!error && data) {
       setSuppliers([...suppliers, data[0]]);
       setSelectedSupplier(data[0].id);
       setIsSupplierModalOpen(false);
       setNewSupplier({ name: "", owner_name: "", phone: "", email: "", gstin: "", state: "", address: "", opening_balance: 0 });
-    } else alert("Error saving supplier");
+    } else {
+      alert("Error saving supplier: " + error?.message);
+    }
   };
 
   // --- SAVE PRODUCT ---
   const handleSaveProduct = async () => {
     if (!newProduct.name) return alert("Product Name required");
-    const { data, error } = await supabase.from('products').insert([newProduct]).select();
+    if (!activeId) return alert("Business ID not found");
+    
+    const { data, error } = await supabase.from('products').insert([{ 
+      ...newProduct,
+      business_id: activeId 
+    }]).select();
+    
     if (!error && data) {
       setProducts([...products, data[0]]);
       handleAddItem(data[0].id);
       setIsProductModalOpen(false);
       setNewProduct({ name: "", category: "", sku: "", hsn_code: "", unit: "pcs", purchase_price: 0, selling_price: 0, stock: 0, low_stock_limit: 0, tax_percentage: 0 });
-    } else alert("Error saving product");
+    } else {
+      alert("Error saving product: " + error?.message);
+    }
   };
 
   // --- SAVE PURCHASE (DB insert) ---
@@ -157,9 +159,9 @@ export default function NewPurchasePage() {
     if (!selectedSupplier) return alert("Please select a supplier");
     if (items.length === 0) return alert("Please add items");
 
-    // Yahan aap apna purchase save karne ka logic (RPC ya Insert) daalenge
+    // Note: Actual purchase save logic (DB me insert) aapke purane code me hoga,
+    // usme bas business_id: activeId add kar lena.
     alert("Purchase Saved Successfully! Due: ₹" + calculations.dueAmount);
-    // router.push('/purchases');
   };
   return (
     <div className="max-w-2xl mx-auto p-4 pb-24 space-y-6 bg-white min-h-screen">
