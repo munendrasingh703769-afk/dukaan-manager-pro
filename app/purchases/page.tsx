@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
 
-type Supplier = { id: string; name: string; phone: string; address: string }
+type Supplier = { id: string; name: string; phone: string; address: string; gstin: string }
 type Product = { id: string; name: string; hsn_code: string; purchase_price: number; gst_percent: number; stock_qty: number; unit: string }
 type Item = { product_id: string; name: string; qty: number; purchase_price: number; gst_percent: number; unit: string }
 
@@ -23,8 +23,10 @@ export default function PurchasesPage() {
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0])
   const [discount, setDiscount] = useState('')
   const [discountType, setDiscountType] = useState<'flat' | 'percent'>('flat')
-  const [paidAmount, setPaidAmount] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('cash')
+  
+  // Payment States
+  const [cashAmount, setCashAmount] = useState('')
+  const [onlineAmount, setOnlineAmount] = useState('')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -34,8 +36,14 @@ export default function PurchasesPage() {
   // Quick Add Modals
   const [showSupplierModal, setShowSupplierModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
+  
+  // New Supplier State
   const [newSupName, setNewSupName] = useState('')
   const [newSupPhone, setNewSupPhone] = useState('')
+  const [newSupAddress, setNewSupAddress] = useState('')
+  const [newSupGstin, setNewSupGstin] = useState('')
+  
+  // New Product State
   const [newProdName, setNewProdName] = useState('')
   const [newProdPrice, setNewProdPrice] = useState('')
   const [newProdGst, setNewProdGst] = useState('0')
@@ -61,19 +69,26 @@ export default function PurchasesPage() {
     setLoading(false)
   }
 
-  // --- QUICK ADD FUNCTIONS ---
   async function addQuickSupplier() {
     if (!newSupName) return alert('Name required')
     const bid = getCurrentBusinessId()
     const { data, error } = await supabase.from('suppliers').insert({
-      business_id: bid, name: newSupName, phone: newSupPhone
+      business_id: bid, 
+      name: newSupName, 
+      phone: newSupPhone,
+      address: newSupAddress,
+      gstin: newSupGstin
     }).select().single()
+    
     if (!error && data) {
       setSuppliers([...suppliers, data])
       setSupplierId(data.id)
       setShowSupplierModal(false)
-      setNewSupName(''); setNewSupPhone('')
-    } else { alert('Error adding supplier') }
+      setNewSupName(''); setNewSupPhone('');
+setNewSupGmail('');
+setNewSupPanNo('')
+setNewSupAddress(''); setNewSupGstin('')
+    } else { alert('Error adding supplier: ' + error?.message) }
   }
 
   async function addQuickProduct() {
@@ -120,8 +135,11 @@ export default function PurchasesPage() {
   const discountAmount = discountType === 'percent' ? ((subtotal + totalGst) * discountInput) / 100 : discountInput
   
   const grandTotal = Math.max(0, subtotal + totalGst - discountAmount)
-  const paidAmountNum = Number(paidAmount) || 0
-  const dueAmount = Math.max(0, grandTotal - paidAmountNum)
+  
+  const cashNum = Number(cashAmount) || 0
+  const onlineNum = Number(onlineAmount) || 0
+  const totalPaid = cashNum + onlineNum
+  const dueAmount = Math.max(0, grandTotal - totalPaid)
 
   async function savePurchase() {
     if (!supplierId) return alert('Select supplier')
@@ -141,9 +159,9 @@ export default function PurchasesPage() {
         total_gst: totalGst,
         discount: discountAmount,
         total_amount: grandTotal,
-        paid_amount: paidAmountNum,
+        paid_amount: totalPaid,
         due_amount: dueAmount,
-        payment_method: paymentMethod
+        payment_method: totalPaid === 0 ? 'credit' : (cashNum > 0 && onlineNum > 0 ? 'split' : (cashNum > 0 ? 'cash' : 'online'))
       }).select().single()
 
       if (purErr) throw purErr
@@ -158,7 +176,7 @@ export default function PurchasesPage() {
           total_amount: (item.qty * item.purchase_price) * (1 + item.gst_percent / 100)
         })
 
-        // Stock update via RPC
+        // Stock update
         await supabase.rpc('add_stock_movement', {
           p_business_id: bid,
           p_product_id: item.product_id,
@@ -173,6 +191,7 @@ export default function PurchasesPage() {
         supplierName: suppliers.find(s => s.id === supplierId)?.name,
         supplierPhone: suppliers.find(s => s.id === supplierId)?.phone,
         supplierAddress: suppliers.find(s => s.id === supplierId)?.address,
+        supplierGstin: suppliers.find(s => s.id === supplierId)?.gstin,
         items: items,
         discountAmount,
         discountType
@@ -213,11 +232,11 @@ export default function PurchasesPage() {
                 <p className="font-bold">{savedData.supplierName}</p>
                 <p>Phone: {savedData.supplierPhone || '-'}</p>
                 <p>Address: {savedData.supplierAddress || '-'}</p>
+                <p>GSTIN: {savedData.supplierGstin || '-'}</p>
               </div>
               <div className="text-right">
                 <p><span className="font-bold">Invoice No:</span> {savedData.invoice_no}</p>
                 <p><span className="font-bold">Date:</span> {new Date(savedData.purchase_date).toLocaleDateString('en-IN')}</p>
-                <p><span className="font-bold">Payment:</span> {savedData.payment_method.toUpperCase()}</p>
                 <p><span className="font-bold">Due Amount:</span> ₹{savedData.due_amount.toFixed(2)}</p>
               </div>
             </div>
@@ -304,7 +323,6 @@ export default function PurchasesPage() {
                     {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                   
-                  {/* LABELS YAHAN ADD KIYE HAIN */}
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <label className="text-[10px] font-bold text-slate-500">Qty</label>
@@ -335,29 +353,39 @@ export default function PurchasesPage() {
               </div>
             </div>
 
-            {/* Totals */}
-            <div className="bg-slate-100 p-3 rounded-lg text-sm space-y-1">
-              <div className="flex justify-between"><span>Subtotal:</span> <span>₹{subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>GST:</span> <span>₹{totalGst.toFixed(2)}</span></div>
-              {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>Discount:</span> <span>- ₹{discountAmount.toFixed(2)}</span></div>}
-              <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Total:</span> <span>₹{grandTotal.toFixed(2)}</span></div>
+            {/* Payment Inputs */}
+            <div className="border-t pt-3 grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700">Cash Amount</label>
+                <input type="number" value={cashAmount} onChange={e => setCashAmount(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="0" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700">Online Amount</label>
+                <input type="number" value={onlineAmount} onChange={e => setOnlineAmount(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="0" />
+              </div>
             </div>
 
-            {/* Payment */}
-            <div className="grid grid-cols-2 gap-3 border-t pt-3">
-              <div>
-                <label className="text-xs font-bold text-slate-700">Paid Amount</label>
-                <input type="number" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="0" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-700">Method</label>
-                <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm bg-slate-50">
-                  <option value="cash">Cash</option>
-                  <option value="upi">UPI</option>
-                  <option value="bank">Bank</option>
-                  <option value="credit">Credit (Udhaar)</option>
-                </select>
-              </div>
+            {/* CALCULATION BREAKDOWN (JAISA SALES ME HAI) */}
+            <div className="bg-slate-50 p-4 rounded-xl space-y-2 text-sm border border-slate-200 mt-2">
+              <div className="flex justify-between text-slate-600"><span>Subtotal:</span> <span className="font-medium text-slate-800">₹{subtotal.toFixed(2)}</span></div>
+              <div className="flex justify-between text-slate-600"><span>GST:</span> <span className="font-medium text-slate-800">₹{totalGst.toFixed(2)}</span></div>
+              {discountAmount > 0 && <div className="flex justify-between text-red-500"><span>Discount:</span> <span className="font-medium">- ₹{discountAmount.toFixed(2)}</span></div>}
+              
+              <div className="flex justify-between font-bold text-base text-slate-900 border-t pt-2 mt-2"><span>Grand Total:</span> <span>₹{grandTotal.toFixed(2)}</span></div>
+              
+              <div className="flex justify-between text-emerald-600"><span>Cash Paid:</span> <span className="font-medium">₹{cashNum.toFixed(2)}</span></div>
+              <div className="flex justify-between text-blue-600"><span>Online Paid:</span> <span className="font-medium">₹{onlineNum.toFixed(2)}</span></div>
+              <div className="flex justify-between font-medium text-slate-700"><span>Total Paid:</span> <span>₹{totalPaid.toFixed(2)}</span></div>
+              
+              {dueAmount > 0 ? (
+                <div className="flex justify-between font-bold text-red-600 border-t border-red-200 pt-2 mt-2 bg-red-50 p-2 rounded-lg">
+                  <span>Due Amount:</span> <span>₹{dueAmount.toFixed(2)}</span>
+                </div>
+              ) : (
+                <div className="flex justify-between font-bold text-emerald-600 border-t border-emerald-200 pt-2 mt-2 bg-emerald-50 p-2 rounded-lg">
+                  <span>Due Amount:</span> <span>₹0.00 (Paid)</span>
+                </div>
+              )}
             </div>
 
             <button onClick={savePurchase} disabled={saving} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl mt-4">
@@ -371,12 +399,28 @@ export default function PurchasesPage() {
       {showSupplierModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-5 rounded-2xl w-full max-w-sm">
-            <h3 className="font-bold mb-4">Add New Supplier</h3>
-            <input value={newSupName} onChange={e => setNewSupName(e.target.value)} placeholder="Supplier Name" className="w-full p-2 border rounded-lg mb-2 text-sm" />
-            <input value={newSupPhone} onChange={e => setNewSupPhone(e.target.value)} placeholder="Phone (optional)" className="w-full p-2 border rounded-lg mb-4 text-sm" />
-            <div className="flex gap-2">
-              <button onClick={() => setShowSupplierModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg font-bold text-sm">Cancel</button>
-              <button onClick={addQuickSupplier} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold text-sm">Save</button>
+            <h3 className="font-bold mb-4 text-lg">Add New Supplier</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700">Supplier Name *</label>
+                <input value={newSupName} onChange={e => setNewSupName(e.target.value)} placeholder="e.g. Sharma Traders" className="w-full p-2 border rounded-lg text-sm mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700">Phone</label>
+                <input value={newSupPhone} onChange={e => setNewSupPhone(e.target.value)} placeholder="9876543210" className="w-full p-2 border rounded-lg text-sm mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700">Address</label>
+                <input value={newSupAddress} onChange={e => setNewSupAddress(e.target.value)} placeholder="City / Area" className="w-full p-2 border rounded-lg text-sm mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700">GSTIN</label>
+                <input value={newSupGstin} onChange={e => setNewSupGstin(e.target.value)} placeholder="GST Number" className="w-full p-2 border rounded-lg text-sm mt-1" />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={() => setShowSupplierModal(false)} className="flex-1 bg-gray-100 py-2.5 rounded-lg font-bold text-sm">Cancel</button>
+              <button onClick={addQuickSupplier} className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-bold text-sm">Save</button>
             </div>
           </div>
         </div>
@@ -385,13 +429,24 @@ export default function PurchasesPage() {
       {showProductModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white p-5 rounded-2xl w-full max-w-sm">
-            <h3 className="font-bold mb-4">Add New Product</h3>
-            <input value={newProdName} onChange={e => setNewProdName(e.target.value)} placeholder="Product Name" className="w-full p-2 border rounded-lg mb-2 text-sm" />
-            <input type="number" value={newProdPrice} onChange={e => setNewProdPrice(e.target.value)} placeholder="Purchase Price" className="w-full p-2 border rounded-lg mb-2 text-sm" />
-            <input type="number" value={newProdGst} onChange={e => setNewProdGst(e.target.value)} placeholder="GST %" className="w-full p-2 border rounded-lg mb-4 text-sm" />
-            <div className="flex gap-2">
-              <button onClick={() => setShowProductModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg font-bold text-sm">Cancel</button>
-              <button onClick={addQuickProduct} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold text-sm">Save</button>
+            <h3 className="font-bold mb-4 text-lg">Add New Product</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700">Product Name *</label>
+                <input value={newProdName} onChange={e => setNewProdName(e.target.value)} placeholder="e.g. Router" className="w-full p-2 border rounded-lg text-sm mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700">Purchase Price *</label>
+                <input type="number" value={newProdPrice} onChange={e => setNewProdPrice(e.target.value)} placeholder="0" className="w-full p-2 border rounded-lg text-sm mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700">GST %</label>
+                <input type="number" value={newProdGst} onChange={e => setNewProdGst(e.target.value)} placeholder="0" className="w-full p-2 border rounded-lg text-sm mt-1" />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={() => setShowProductModal(false)} className="flex-1 bg-gray-100 py-2.5 rounded-lg font-bold text-sm">Cancel</button>
+              <button onClick={addQuickProduct} className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-bold text-sm">Save</button>
             </div>
           </div>
         </div>
