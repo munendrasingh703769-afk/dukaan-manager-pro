@@ -25,12 +25,20 @@ export default function PurchasesPage() {
   const [discountType, setDiscountType] = useState<'flat' | 'percent'>('flat')
   const [paidAmount, setPaidAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [notes, setNotes] = useState('')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showBill, setShowBill] = useState(false)
   const [savedData, setSavedData] = useState<any>(null)
+
+  // Quick Add Modals
+  const [showSupplierModal, setShowSupplierModal] = useState(false)
+  const [showProductModal, setShowProductModal] = useState(false)
+  const [newSupName, setNewSupName] = useState('')
+  const [newSupPhone, setNewSupPhone] = useState('')
+  const [newProdName, setNewProdName] = useState('')
+  const [newProdPrice, setNewProdPrice] = useState('')
+  const [newProdGst, setNewProdGst] = useState('0')
 
   useEffect(() => {
     loadData()
@@ -53,6 +61,33 @@ export default function PurchasesPage() {
     setLoading(false)
   }
 
+  // --- QUICK ADD FUNCTIONS ---
+  async function addQuickSupplier() {
+    if (!newSupName) return alert('Name required')
+    const bid = getCurrentBusinessId()
+    const { data, error } = await supabase.from('suppliers').insert({
+      business_id: bid, name: newSupName, phone: newSupPhone
+    }).select().single()
+    if (!error && data) {
+      setSuppliers([...suppliers, data])
+      setSupplierId(data.id)
+      setShowSupplierModal(false)
+      setNewSupName(''); setNewSupPhone('')
+    } else { alert('Error adding supplier') }
+  }
+
+  async function addQuickProduct() {
+    if (!newProdName || !newProdPrice) return alert('Name and Price required')
+    const bid = getCurrentBusinessId()
+    const { data, error } = await supabase.from('products').insert({
+      business_id: bid, name: newProdName, purchase_price: Number(newProdPrice), gst_percent: Number(newProdGst), unit: 'PCS'
+    }).select().single()
+    if (!error && data) {
+      setProducts([...products, data])
+      setShowProductModal(false)
+      setNewProdName(''); setNewProdPrice(''); setNewProdGst('0')
+    } else { alert('Error adding product') }
+  }
   function addItem() {
     setItems([...items, { product_id: '', name: '', qty: 1, purchase_price: 0, gst_percent: 0, unit: 'PCS' }])
   }
@@ -97,7 +132,6 @@ export default function PurchasesPage() {
     const bid = getCurrentBusinessId()
 
     try {
-      // 1. Insert Purchase
       const { data: purchase, error: purErr } = await supabase.from('purchases').insert({
         business_id: bid,
         supplier_id: supplierId,
@@ -109,13 +143,11 @@ export default function PurchasesPage() {
         total_amount: grandTotal,
         paid_amount: paidAmountNum,
         due_amount: dueAmount,
-        payment_method: paymentMethod,
-        notes: notes
+        payment_method: paymentMethod
       }).select().single()
 
       if (purErr) throw purErr
 
-      // 2. Insert Items & Update Stock
       for (const item of items) {
         await supabase.from('purchase_items').insert({
           purchase_id: purchase.id,
@@ -136,7 +168,6 @@ export default function PurchasesPage() {
         })
       }
 
-      // Set data for Bill
       setSavedData({
         ...purchase,
         supplierName: suppliers.find(s => s.id === supplierId)?.name,
@@ -154,124 +185,29 @@ export default function PurchasesPage() {
       setSaving(false)
     }
   }
-  if (loading) return <div className="p-10 text-center">Loading...</div>
 
+  if (loading) return <div className="p-10 text-center">Loading...</div>
   return (
     <main className="p-4 max-w-md mx-auto pb-24">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-bold">New Purchase</h1>
-        <Link href="/owner" className="text-blue-600 text-sm">← Dashboard</Link>
-      </div>
-
-      <div className="space-y-4 bg-white p-4 rounded-xl border shadow-sm">
-        {/* Supplier Select */}
-        <div>
-          <label className="text-xs font-bold text-slate-700">Supplier</label>
-          <select value={supplierId} onChange={e => setSupplierId(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm bg-slate-50">
-            <option value="">Select Supplier</option>
-            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </div>
-
-        {/* Invoice & Date */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-bold text-slate-700">Invoice No.</label>
-            <input value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)} placeholder="Auto if empty" className="w-full mt-1 p-2 border rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-slate-700">Date</label>
-            <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" />
-          </div>
-        </div>
-
-        {/* Items */}
-        <div className="border-t pt-3">
-          <div className="flex justify-between items-center mb-2">
-            <label className="text-sm font-bold text-slate-800">Items</label>
-            <button onClick={addItem} className="text-xs bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded-md">+ Add</button>
-          </div>
-          
-          {items.map((item, idx) => (
-            <div key={idx} className="bg-slate-50 p-2 rounded-lg mb-2 border border-slate-200 relative">
-              <button onClick={() => removeItem(idx)} className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold">×</button>
-              <select value={item.product_id} onChange={e => updateItem(idx, 'product_id', e.target.value)} className="w-full p-2 border rounded-md text-sm mb-2">
-                <option value="">Select Product</option>
-                {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <div className="grid grid-cols-3 gap-2">
-                <input type="number" value={item.qty} onChange={e => updateItem(idx, 'qty', Number(e.target.value))} className="p-2 border rounded-md text-sm" placeholder="Qty" />
-                <input type="number" value={item.purchase_price} onChange={e => updateItem(idx, 'purchase_price', Number(e.target.value))} className="p-2 border rounded-md text-sm" placeholder="Price" />
-                <input type="number" value={item.gst_percent} onChange={e => updateItem(idx, 'gst_percent', Number(e.target.value))} className="p-2 border rounded-md text-sm" placeholder="GST%" />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Discount with % Dropdown */}
-        <div className="border-t pt-3">
-          <label className="text-xs font-bold text-slate-700">Discount</label>
-          <div className="flex gap-2 mt-1">
-            <input type="number" value={discount} onChange={e => setDiscount(e.target.value)} className="w-full p-2 border rounded-lg text-sm" placeholder="0" />
-            <select value={discountType} onChange={e => setDiscountType(e.target.value as 'flat'|'percent')} className="p-2 border rounded-lg text-sm bg-slate-50 font-bold">
-              <option value="flat">₹</option>
-              <option value="percent">%</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Totals */}
-        <div className="bg-slate-100 p-3 rounded-lg text-sm space-y-1">
-          <div className="flex justify-between"><span>Subtotal:</span> <span>₹{subtotal.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span>GST:</span> <span>₹{totalGst.toFixed(2)}</span></div>
-          {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>Discount:</span> <span>- ₹{discountAmount.toFixed(2)}</span></div>}
-          <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Total:</span> <span>₹{grandTotal.toFixed(2)}</span></div>
-        </div>
-
-        {/* Payment */}
-        <div className="grid grid-cols-2 gap-3 border-t pt-3">
-          <div>
-            <label className="text-xs font-bold text-slate-700">Paid Amount</label>
-            <input type="number" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="0" />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-slate-700">Method</label>
-            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm bg-slate-50">
-              <option value="cash">Cash</option>
-              <option value="upi">UPI</option>
-              <option value="bank">Bank</option>
-              <option value="credit">Credit (Udhaar)</option>
-            </select>
-          </div>
-        </div>
-
-        <button onClick={savePurchase} disabled={saving} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl mt-4">
-          {saving ? 'Saving...' : 'Save Purchase'}
-        </button>
-      </div>
-      {/* BILL PRINT VIEW */}
-      {showBill && savedData && (
+      {/* PRINT BILL VIEW */}
+      {showBill && savedData ? (
         <div className="fixed inset-0 bg-white z-50 overflow-y-auto p-4">
           <div className="flex justify-between mb-4 no-print">
             <button onClick={() => { setShowBill(false); router.push('/owner') }} className="text-blue-600 font-bold">← Back</button>
             <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">Print / Save PDF</button>
           </div>
 
-          <div className="border-2 border-black p-4 max-w-2xl mx-auto text-black">
-            {/* Header */}
-            <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-4">
+          <div className="border-2 border-black p-4 max-w-2xl mx-auto text-black text-sm">
+            <div className="flex justify-between border-b-2 border-black pb-4 mb-4">
               <div>
-                <h1 className="text-3xl font-black text-blue-800">VyapaarSetu</h1>
-                <p className="text-sm">Purchase Invoice</p>
+                <h1 className="text-2xl font-black text-blue-800">Purchase Invoice</h1>
               </div>
               <div className="text-right">
-                <h2 className="text-xl font-bold border border-black px-2 py-1 inline-block">PURCHASE BILL</h2>
-                <p className="text-xs mt-1">Original for Recipient</p>
+                <h2 className="text-lg font-bold border border-black px-2 py-1 inline-block">PURCHASE BILL</h2>
               </div>
             </div>
 
-            {/* Supplier Details */}
-            <div className="grid grid-cols-2 gap-4 border-b-2 border-black pb-4 mb-4 text-sm">
+            <div className="grid grid-cols-2 gap-4 border-b-2 border-black pb-4 mb-4">
               <div>
                 <h3 className="font-bold underline mb-1">Supplier Detail</h3>
                 <p className="font-bold">{savedData.supplierName}</p>
@@ -286,61 +222,176 @@ export default function PurchasesPage() {
               </div>
             </div>
 
-            {/* Items Table */}
-            <table className="w-full border-collapse border border-black text-sm mb-4">
+            <table className="w-full border-collapse border border-black mb-4">
               <thead>
                 <tr className="bg-gray-100">
-                  <th className="border border-black p-2">Sr.</th>
-                  <th className="border border-black p-2 text-left">Product Name</th>
-                  <th className="border border-black p-2">Qty</th>
-                  <th className="border border-black p-2">Rate</th>
-                  <th className="border border-black p-2">GST%</th>
-                  <th className="border border-black p-2 text-right">Amount</th>
+                  <th className="border border-black p-1">Sr.</th>
+                  <th className="border border-black p-1 text-left">Product</th>
+                  <th className="border border-black p-1">Qty</th>
+                  <th className="border border-black p-1">Rate</th>
+                  <th className="border border-black p-1">GST%</th>
+                  <th className="border border-black p-1 text-right">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {savedData.items.map((item: any, i: number) => (
                   <tr key={i}>
-                    <td className="border border-black p-2 text-center">{i + 1}</td>
-                    <td className="border border-black p-2">{item.name}</td>
-                    <td className="border border-black p-2 text-center">{item.qty} {item.unit}</td>
-                    <td className="border border-black p-2 text-right">₹{item.purchase_price.toFixed(2)}</td>
-                    <td className="border border-black p-2 text-center">{item.gst_percent}%</td>
-                    <td className="border border-black p-2 text-right">₹{(item.qty * item.purchase_price).toFixed(2)}</td>
+                    <td className="border border-black p-1 text-center">{i + 1}</td>
+                    <td className="border border-black p-1">{item.name}</td>
+                    <td className="border border-black p-1 text-center">{item.qty} {item.unit}</td>
+                    <td className="border border-black p-1 text-right">₹{item.purchase_price.toFixed(2)}</td>
+                    <td className="border border-black p-1 text-center">{item.gst_percent}%</td>
+                    <td className="border border-black p-1 text-right">₹{(item.qty * item.purchase_price).toFixed(2)}</td>
                   </tr>
                 ))}
-                
-                {/* Totals Section */}
-                <tr>
-                  <td colSpan={5} className="border border-black p-2 text-right font-bold">Subtotal</td>
-                  <td className="border border-black p-2 text-right font-bold">₹{savedData.subtotal.toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td colSpan={5} className="border border-black p-2 text-right font-bold">GST</td>
-                  <td className="border border-black p-2 text-right font-bold">₹{savedData.total_gst.toFixed(2)}</td>
-                </tr>
+                <tr><td colSpan={5} className="border border-black p-1 text-right font-bold">Subtotal</td><td className="border border-black p-1 text-right font-bold">₹{savedData.subtotal.toFixed(2)}</td></tr>
+                <tr><td colSpan={5} className="border border-black p-1 text-right font-bold">GST</td><td className="border border-black p-1 text-right font-bold">₹{savedData.total_gst.toFixed(2)}</td></tr>
                 {savedData.discountAmount > 0 && (
-                  <tr>
-                    <td colSpan={5} className="border border-black p-2 text-right font-bold text-red-600">
-                      Discount {savedData.discountType === 'percent' ? `(${savedData.discount}%)` : ''}
-                    </td>
-                    <td className="border border-black p-2 text-right font-bold text-red-600">- ₹{savedData.discountAmount.toFixed(2)}</td>
-                  </tr>
+                  <tr><td colSpan={5} className="border border-black p-1 text-right font-bold text-red-600">Discount {savedData.discountType === 'percent' ? `(${savedData.discount}%)` : ''}</td><td className="border border-black p-1 text-right font-bold text-red-600">- ₹{savedData.discountAmount.toFixed(2)}</td></tr>
                 )}
-                <tr className="bg-gray-100">
-                  <td colSpan={5} className="border border-black p-2 text-right font-black text-lg">Grand Total</td>
-                  <td className="border border-black p-2 text-right font-black text-lg">₹{savedData.total_amount.toFixed(2)}</td>
-                </tr>
+                <tr className="bg-gray-100"><td colSpan={5} className="border border-black p-1 text-right font-black">Grand Total</td><td className="border border-black p-1 text-right font-black">₹{savedData.total_amount.toFixed(2)}</td></tr>
               </tbody>
             </table>
+            <div className="mt-8 flex justify-between"><p>Supplier Signature</p><p>Authorized Signatory</p></div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-xl font-bold">New Purchase</h1>
+            <Link href="/owner" className="text-blue-600 text-sm">← Dashboard</Link>
+          </div>
 
-            {/* Footer */}
-            <div className="text-sm">
-              <p><span className="font-bold">Total in words:</span> Rupees {Number(savedData.total_amount).toFixed(0)} Only</p>
-              <div className="mt-8 flex justify-between">
-                <p>Supplier Signature</p>
-                <p>Authorized Signatory</p>
+          <div className="space-y-4 bg-white p-4 rounded-xl border shadow-sm">
+            {/* Supplier */}
+            <div>
+              <div className="flex justify-between">
+                <label className="text-xs font-bold text-slate-700">Supplier</label>
+                <button onClick={() => setShowSupplierModal(true)} className="text-xs text-blue-600 font-bold">+ New</button>
               </div>
+              <select value={supplierId} onChange={e => setSupplierId(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm bg-slate-50">
+                <option value="">Select Supplier</option>
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+
+            {/* Invoice & Date */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700">Invoice No.</label>
+                <input value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)} placeholder="Auto if empty" className="w-full mt-1 p-2 border rounded-lg text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700">Date</label>
+                <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" />
+              </div>
+            </div>
+            {/* Items List */}
+            <div className="border-t pt-3">
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-sm font-bold text-slate-800">Items</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowProductModal(true)} className="text-xs bg-gray-100 text-gray-700 font-bold px-2 py-1 rounded-md">+ New Prod</button>
+                  <button onClick={addItem} className="text-xs bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded-md">+ Add Item</button>
+                </div>
+              </div>
+              
+              {items.map((item, idx) => (
+                <div key={idx} className="bg-slate-50 p-3 rounded-lg mb-3 border border-slate-200 relative">
+                  <button onClick={() => removeItem(idx)} className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold">×</button>
+                  <select value={item.product_id} onChange={e => updateItem(idx, 'product_id', e.target.value)} className="w-full p-2 border rounded-md text-sm mb-2">
+                    <option value="">Select Product</option>
+                    {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  
+                  {/* LABELS YAHAN ADD KIYE HAIN */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500">Qty</label>
+                      <input type="number" value={item.qty} onChange={e => updateItem(idx, 'qty', Number(e.target.value))} className="w-full p-2 border rounded-md text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500">Rate (₹)</label>
+                      <input type="number" value={item.purchase_price} onChange={e => updateItem(idx, 'purchase_price', Number(e.target.value))} className="w-full p-2 border rounded-md text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500">GST (%)</label>
+                      <input type="number" value={item.gst_percent} onChange={e => updateItem(idx, 'gst_percent', Number(e.target.value))} className="w-full p-2 border rounded-md text-sm" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Discount */}
+            <div className="border-t pt-3">
+              <label className="text-xs font-bold text-slate-700">Discount</label>
+              <div className="flex gap-2 mt-1">
+                <input type="number" value={discount} onChange={e => setDiscount(e.target.value)} className="w-full p-2 border rounded-lg text-sm" placeholder="0" />
+                <select value={discountType} onChange={e => setDiscountType(e.target.value as 'flat'|'percent')} className="p-2 border rounded-lg text-sm bg-slate-50 font-bold w-20">
+                  <option value="flat">₹</option>
+                  <option value="percent">%</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Totals */}
+            <div className="bg-slate-100 p-3 rounded-lg text-sm space-y-1">
+              <div className="flex justify-between"><span>Subtotal:</span> <span>₹{subtotal.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>GST:</span> <span>₹{totalGst.toFixed(2)}</span></div>
+              {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>Discount:</span> <span>- ₹{discountAmount.toFixed(2)}</span></div>}
+              <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Total:</span> <span>₹{grandTotal.toFixed(2)}</span></div>
+            </div>
+
+            {/* Payment */}
+            <div className="grid grid-cols-2 gap-3 border-t pt-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700">Paid Amount</label>
+                <input type="number" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="0" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700">Method</label>
+                <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm bg-slate-50">
+                  <option value="cash">Cash</option>
+                  <option value="upi">UPI</option>
+                  <option value="bank">Bank</option>
+                  <option value="credit">Credit (Udhaar)</option>
+                </select>
+              </div>
+            </div>
+
+            <button onClick={savePurchase} disabled={saving} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl mt-4">
+              {saving ? 'Saving...' : 'Save Purchase'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* MODALS FOR QUICK ADD */}
+      {showSupplierModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-5 rounded-2xl w-full max-w-sm">
+            <h3 className="font-bold mb-4">Add New Supplier</h3>
+            <input value={newSupName} onChange={e => setNewSupName(e.target.value)} placeholder="Supplier Name" className="w-full p-2 border rounded-lg mb-2 text-sm" />
+            <input value={newSupPhone} onChange={e => setNewSupPhone(e.target.value)} placeholder="Phone (optional)" className="w-full p-2 border rounded-lg mb-4 text-sm" />
+            <div className="flex gap-2">
+              <button onClick={() => setShowSupplierModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg font-bold text-sm">Cancel</button>
+              <button onClick={addQuickSupplier} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold text-sm">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showProductModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-5 rounded-2xl w-full max-w-sm">
+            <h3 className="font-bold mb-4">Add New Product</h3>
+            <input value={newProdName} onChange={e => setNewProdName(e.target.value)} placeholder="Product Name" className="w-full p-2 border rounded-lg mb-2 text-sm" />
+            <input type="number" value={newProdPrice} onChange={e => setNewProdPrice(e.target.value)} placeholder="Purchase Price" className="w-full p-2 border rounded-lg mb-2 text-sm" />
+            <input type="number" value={newProdGst} onChange={e => setNewProdGst(e.target.value)} placeholder="GST %" className="w-full p-2 border rounded-lg mb-4 text-sm" />
+            <div className="flex gap-2">
+              <button onClick={() => setShowProductModal(false)} className="flex-1 bg-gray-100 py-2 rounded-lg font-bold text-sm">Cancel</button>
+              <button onClick={addQuickProduct} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold text-sm">Save</button>
             </div>
           </div>
         </div>
