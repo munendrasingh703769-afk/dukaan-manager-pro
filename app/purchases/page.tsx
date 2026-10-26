@@ -134,7 +134,7 @@ export default function NewPurchasePage() {
     }
   };
 
-      // --- SAVE PRODUCT (Fixed for Tax) ---
+        // --- SAVE PRODUCT ---
   const handleSaveProduct = async () => {
     if (!newProduct.name) return alert("Product Name required");
     if (!activeId) return alert("Business ID not found");
@@ -149,14 +149,8 @@ export default function NewPurchasePage() {
       selling_price: newProduct.selling_price,
       low_stock_limit: newProduct.low_stock_limit,
       stock: newProduct.stock,
+      tax_percentage: newProduct.tax_percentage, // GST Column
       business_id: activeId,
-      
-      // 🚨 YAHAN DHYAN DEIN 🚨
-      // Agar column ka naam 'tax_percentage' hai toh ye line rehne do:
-      tax_percentage: newProduct.tax_percentage 
-      
-      // Agar column ka naam 'gst_rate' ya 'gst_percentage' hai, toh upar wali line hata kar ye likho:
-      // gst_rate: newProduct.tax_percentage
     };
 
     const { data, error } = await supabase.from('products').insert([productToSave]).select();
