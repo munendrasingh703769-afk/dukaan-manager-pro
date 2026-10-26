@@ -118,15 +118,9 @@ export default function NewPurchasePage() {
     if (!activeId) return alert("Business ID not found");
     
     const supplierToSave = {
-      name: newSupplier.name,
-      owner_name: newSupplier.owner_name,
-      phone: newSupplier.phone,
-      email: newSupplier.email,
-      state: newSupplier.state,
-      address: newSupplier.address,
-      opening_balance: newSupplier.opening_balance,
-      business_id: activeId,
-      gstin: newSupplier.gstin 
+      name: newSupplier.name, owner_name: newSupplier.owner_name, phone: newSupplier.phone,
+      email: newSupplier.email, state: newSupplier.state, address: newSupplier.address,
+      opening_balance: newSupplier.opening_balance, business_id: activeId, gstin: newSupplier.gstin 
     };
 
     const { data, error } = await supabase.from('suppliers').insert([supplierToSave]).select();
@@ -147,17 +141,10 @@ export default function NewPurchasePage() {
     if (!activeId) return alert("Business ID not found");
     
     const productToSave = {
-      name: newProduct.name,
-      category: newProduct.category,
-      sku: newProduct.sku,
-      hsn_code: newProduct.hsn_code,
-      unit: newProduct.unit,
-      purchase_price: newProduct.purchase_price,
-      selling_price: newProduct.selling_price,
-      low_stock_limit: newProduct.low_stock_limit,
-      stock: newProduct.stock,
-      tax_percentage: newProduct.tax_percentage,
-      business_id: activeId,
+      name: newProduct.name, category: newProduct.category, sku: newProduct.sku,
+      hsn_code: newProduct.hsn_code, unit: newProduct.unit, purchase_price: newProduct.purchase_price,
+      selling_price: newProduct.selling_price, low_stock_limit: newProduct.low_stock_limit,
+      stock: newProduct.stock, tax_percentage: newProduct.tax_percentage, business_id: activeId,
     };
 
     const { data, error } = await supabase.from('products').insert([productToSave]).select();
@@ -172,18 +159,17 @@ export default function NewPurchasePage() {
     }
   };
 
-    // --- SAVE PURCHASE (FINAL) ---
+  // --- SAVE PURCHASE (FINAL DB LOGIC) ---
   const handleSavePurchase = async () => {
     if (!selectedSupplier) return alert("Please select a supplier");
     if (items.length === 0) return alert("Please add items");
     if (!activeId) return alert("Business ID not found");
 
     try {
-      // 1. Main Purchase Bill save karo
       const purchasePayload = {
         business_id: activeId,
         supplier_id: selectedSupplier,
-        invoice_no: invoiceNo || `PUR-${Date.now()}`, // Agar khali hai toh auto-generate
+        invoice_no: invoiceNo || `PUR-${Date.now()}`,
         date: date,
         sub_total: calculations.subTotal,
         tax_amount: calculations.totalTax,
@@ -207,7 +193,6 @@ export default function NewPurchasePage() {
 
       if (purchaseError) throw new Error(purchaseError.message);
 
-      // 2. Saare Items save karo
       const purchaseItemsToInsert = items.map(item => ({
         purchase_id: purchaseData.id,
         business_id: activeId,
@@ -218,14 +203,9 @@ export default function NewPurchasePage() {
         total: item.total
       }));
 
-      const { error: itemsError } = await supabase
-        .from('purchase_items')
-        .insert(purchaseItemsToInsert);
-
+      const { error: itemsError } = await supabase.from('purchase_items').insert(purchaseItemsToInsert);
       if (itemsError) throw new Error(itemsError.message);
 
-      // 3. Stock Update karo (RPC Call)
-      // Note: Yahan apne RPC function ke parameters apne database ke hisaab se check kar lena.
       for (const item of items) {
         const { error: rpcError } = await supabase.rpc('add_stock_movement', {
           p_product_id: item.product_id,
@@ -233,19 +213,18 @@ export default function NewPurchasePage() {
           p_type: 'purchase',
           p_reference_id: purchaseData.id
         });
-        
-        if (rpcError) console.error("Stock update failed for item: ", item.product_name, rpcError);
+        if (rpcError) console.error("Stock update failed for: ", item.product_name, rpcError);
       }
 
-      // 4. Success Message aur Redirect
       alert("Purchase Saved Successfully! Stock updated & Supplier Balance added.");
-      router.push('/purchases'); // Purchase list page par wapas bhej dega
+      router.push('/purchases');
 
     } catch (error: any) {
       alert("Error saving purchase: " + error.message);
     }
   };
-      
+  return (
+    <div className="max-w-2xl mx-auto p-4 pb-24 space-y-6 bg-white min-h-screen">
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">New Purchase</h1>
@@ -253,18 +232,13 @@ export default function NewPurchasePage() {
       </div>
 
       <div className="border rounded-xl p-4 space-y-4 shadow-sm">
-        
         {/* SUPPLIER & OUTSIDE INDIA */}
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <label className="text-sm font-semibold text-gray-600">Supplier</label>
             <button onClick={() => setIsSupplierModalOpen(true)} className="text-blue-600 text-sm font-semibold">+ New</button>
           </div>
-          <select 
-            value={selectedSupplier} 
-            onChange={(e) => setSelectedSupplier(e.target.value)}
-            className="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none"
-          >
+          <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full p-3 border rounded-lg bg-gray-50 outline-none">
             <option value="">Select Supplier</option>
             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
@@ -316,7 +290,7 @@ export default function NewPurchasePage() {
 
         <hr className="border-gray-200" />
 
-        {/* DISCOUNT, TRANSPORT & OTHER CHARGES */}
+        {/* CHARGES */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-semibold text-gray-600">Discount</label>
@@ -333,7 +307,7 @@ export default function NewPurchasePage() {
             <input type="number" value={transportCharge || ""} onChange={(e) => setTransportCharge(Number(e.target.value))} className="w-full p-2 border rounded-lg mt-1" placeholder="₹" />
           </div>
           <div className="col-span-2">
-            <label className="text-sm font-semibold text-gray-600">Other Charges (Packing, Loading, etc.)</label>
+            <label className="text-sm font-semibold text-gray-600">Other Charges</label>
             <input type="number" value={otherCharges || ""} onChange={(e) => setOtherCharges(Number(e.target.value))} className="w-full p-2 border rounded-lg mt-1" placeholder="₹" />
           </div>
         </div>
@@ -375,14 +349,11 @@ export default function NewPurchasePage() {
         </div>
       </div>
 
-      {/* SAVE BUTTON */}
       <button onClick={handleSavePurchase} className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700 transition">
         Save Purchase
       </button>
 
-      {/* ================= MODALS ================= */}
-      
-      {/* SUPPLIER MODAL */}
+      {/* MODALS */}
       {isSupplierModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto space-y-3">
@@ -391,10 +362,7 @@ export default function NewPurchasePage() {
             <input type="text" placeholder="Owner Name" value={newSupplier.owner_name} onChange={e => setNewSupplier({...newSupplier, owner_name: e.target.value})} className="w-full p-3 border rounded-lg" />
             <input type="text" placeholder="Phone" value={newSupplier.phone} onChange={e => setNewSupplier({...newSupplier, phone: e.target.value})} className="w-full p-3 border rounded-lg" />
             <input type="email" placeholder="Gmail (Optional)" value={newSupplier.email} onChange={e => setNewSupplier({...newSupplier, email: e.target.value})} className="w-full p-3 border rounded-lg" />
-            <select value={newSupplier.gstin} onChange={e => setNewSupplier({...newSupplier, gstin: e.target.value})} className="w-full p-3 border rounded-lg bg-gray-50">
-              <option value="">Unregistered (None)</option>
-              <option value="registered">Registered GSTIN</option>
-            </select>
+            <input type="text" placeholder="GSTIN (Optional)" value={newSupplier.gstin} onChange={e => setNewSupplier({...newSupplier, gstin: e.target.value})} className="w-full p-3 border rounded-lg" />
             <select value={newSupplier.state} onChange={e => setNewSupplier({...newSupplier, state: e.target.value})} className="w-full p-3 border rounded-lg bg-gray-50">
               <option value="">Select State</option>
               <option value="Maharashtra">Maharashtra</option>
@@ -412,7 +380,6 @@ export default function NewPurchasePage() {
         </div>
       )}
 
-      {/* PRODUCT MODAL */}
       {isProductModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto space-y-3 relative">
@@ -433,7 +400,6 @@ export default function NewPurchasePage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
