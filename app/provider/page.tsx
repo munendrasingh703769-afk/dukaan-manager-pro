@@ -22,7 +22,8 @@ type Booking = {
   booking_time: string;
   status: string;
   notes: string;
-  service_id: string; // Join hata kar service_id use kar rahe hain
+  service_id: string;
+  provider_business_id: string;
 };
 
 export default function ServiceProviderDashboard() {
@@ -47,6 +48,8 @@ export default function ServiceProviderDashboard() {
     }
     setLoading(true);
 
+    console.log("Current Provider Active ID:", activeId); // 🚨 Debugging ke liye
+
     // 1. Fetch Provider's Services
     const { data: servData } = await supabase
       .from('services')
@@ -55,14 +58,21 @@ export default function ServiceProviderDashboard() {
     
     if (servData) setServices(servData);
 
-    // 2. Fetch Bookings for this provider (Simple Select, No Join)
-    const { data: bookData } = await supabase
+    // 2. Fetch Bookings for this provider
+    const { data: bookData, error } = await supabase
       .from('service_bookings')
       .select('*')
       .eq('provider_business_id', activeId)
       .order('created_at', { ascending: false });
       
-    if (bookData) setBookings(bookData as any);
+    if (error) {
+      console.error("Error fetching bookings:", error); // 🚨 Debugging ke liye
+    }
+      
+    if (bookData) {
+      console.log("Fetched Bookings from DB:", bookData); // 🚨 Debugging ke liye
+      setBookings(bookData as any);
+    }
 
     setLoading(false);
   };
@@ -106,7 +116,7 @@ export default function ServiceProviderDashboard() {
     }
   };
 
-  // --- HELPER: Get Service Details for a Booking ---
+  // --- HELPER: Get Service Details ---
   const getServiceDetails = (serviceId: string) => {
     const service = services.find(s => s.id === serviceId);
     return service ? { name: service.name, price: service.price } : { name: 'Unknown Service', price: 0 };
@@ -256,7 +266,7 @@ export default function ServiceProviderDashboard() {
             
             <div>
               <label className="text-sm font-semibold text-gray-600">Description</label>
-              <textarea placeholder="Details about the service..." value={newService.description} onChange={e => setNewService({...newService, description: e.target.value})} className="w-full p-3 border rounded-lg mt-1 outline-none focus:ring-2 focus:ring-purple-500" rows={3}></textarea>
+              <textarea placeholder="Details about the service..." value={newService.description} onChange={e => setNewService({...newService, description: e.target.value})} className="w-full p-3 rounded-lg mt-1 outline-none focus:ring-2 focus:ring-purple-500" rows={3}></textarea>
             </div>
 
             <div className="flex gap-3 pt-2">
