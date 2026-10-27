@@ -120,14 +120,14 @@ export default function ServiceProviderDashboard() {
   return (
     <div className="max-w-4xl mx-auto p-4 pb-24 min-h-screen bg-gray-50">
       
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            {/* HEADER */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Service Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Service Dashboard</h1>
           <p className="text-sm text-gray-500">Manage your services & bookings</p>
         </div>
-        <Link href="/owner" className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-900 transition">
-          Main Panel
+        <Link href="/owner" className="w-full sm:w-auto text-center bg-gray-800 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-gray-900 transition">
+          ← Main Panel
         </Link>
       </div>
 
