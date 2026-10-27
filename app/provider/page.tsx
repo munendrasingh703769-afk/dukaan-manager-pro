@@ -30,10 +30,11 @@ export default function ServiceProviderDashboard() {
   const activeId = getCurrentBusinessId();
 
   // --- STATES ---
-  const [activeTab, setActiveTab] = useState<'bookings' | 'services'>('bookings');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'bookings' | 'services'>('dashboard');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // --- ADD SERVICE MODAL STATES ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,21 +48,10 @@ export default function ServiceProviderDashboard() {
     }
     setLoading(true);
 
-    // 1. Fetch Services
-    const { data: servData } = await supabase
-      .from('services')
-      .select('*')
-      .eq('business_id', activeId);
-    
+    const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId);
     if (servData) setServices(servData);
 
-    // 2. Fetch Bookings
-    const { data: bookData } = await supabase
-      .from('service_bookings')
-      .select('*')
-      .eq('provider_business_id', activeId)
-      .order('created_at', { ascending: false });
-      
+    const { data: bookData } = await supabase.from('service_bookings').select('*').eq('provider_business_id', activeId).order('created_at', { ascending: false });
     if (bookData) setBookings(bookData as any);
 
     setLoading(false);
@@ -93,19 +83,12 @@ export default function ServiceProviderDashboard() {
 
   // --- UPDATE BOOKING STATUS ---
   const handleUpdateBooking = async (bookingId: string, newStatus: string) => {
-    const { error } = await supabase
-      .from('service_bookings')
-      .update({ status: newStatus })
-      .eq('id', bookingId);
-
+    const { error } = await supabase.from('service_bookings').update({ status: newStatus }).eq('id', bookingId);
     if (!error) {
       setBookings(bookings.map(b => b.id === bookingId ? { ...b, status: newStatus } : b));
-    } else {
-      alert("Failed to update status: " + error.message);
     }
   };
 
-  // --- HELPER: Get Service Details ---
   const getServiceDetails = (serviceId: string) => {
     const service = services.find(s => s.id === serviceId);
     return service ? { name: service.name, price: service.price } : { name: 'Unknown Service', price: 0 };
@@ -113,206 +96,225 @@ export default function ServiceProviderDashboard() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F8F9FB]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
-          <p className="text-sm font-semibold text-gray-500">Loading Dashboard...</p>
-        </div>
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <p className="text-lg font-semibold text-blue-600">Loading Dashboard...</p>
       </div>
     );
   }
 
+  // Calculated Stats
+  const totalBookings = bookings.length;
+  const pendingBookings = bookings.filter(b => b.status === 'pending').length;
+  const completedBookings = bookings.filter(b => b.status === 'completed').length;
+  const totalEarnings = bookings.filter(b => b.status === 'completed').reduce((acc, curr) => acc + getServiceDetails(curr.service_id).price, 0);
+
   return (
-    <div className="max-w-4xl mx-auto p-4 pb-24 min-h-screen bg-[#F8F9FB] font-sans">
+    <div className="flex h-screen bg-[#F8F9FB] font-sans overflow-hidden">
       
-      {/* 🟣 PREMIUM HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center text-2xl shadow-inner">
-            🛠️
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">Service Dashboard</h1>
-            <p className="text-xs text-gray-500 font-medium mt-0.5">Manage your daily bookings & services</p>
-          </div>
+      {/* ================= SIDEBAR (Desktop) ================= */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#0B192C] text-white transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 flex flex-col`}>
+        <div className="p-6 flex items-center gap-3 border-b border-white/10">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold">V</div>
+          <span className="text-xl font-bold tracking-wide">VyapaarSetu</span>
         </div>
-        <Link href="/owner" className="w-full sm:w-auto text-center bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-black transition active:scale-95">
-          ← Main Panel
-        </Link>
-      </div>
-
-      {/* 🔘 TABS */}
-      <div className="flex space-x-1 bg-gray-200/60 p-1.5 rounded-2xl mb-6">
-        <button 
-          onClick={() => setActiveTab('bookings')}
-          className={`flex-1 py-3 text-center text-sm font-bold rounded-xl transition-all duration-200 ${activeTab === 'bookings' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
-        >
-          Bookings 
-          {bookings.filter(b => b.status === 'pending').length > 0 && (
-            <span className="ml-2 bg-red-500 text-white px-2 py-0.5 rounded-full text-xs">
-              {bookings.filter(b => b.status === 'pending').length} New
-            </span>
-          )}
-        </button>
-        <button 
-          onClick={() => setActiveTab('services')}
-          className={`flex-1 py-3 text-center text-sm font-bold rounded-xl transition-all duration-200 ${activeTab === 'services' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
-        >
-          My Services
-        </button>
-      </div>
-
-      {/* ================= BOOKINGS TAB ================= */}
-      {activeTab === 'bookings' && (
-        <div className="space-y-4">
-          {bookings.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
-              <div className="text-5xl mb-4">📭</div>
-              <p className="text-gray-800 font-bold text-lg">Abhi tak koi booking nahi aayi.</p>
-              <p className="text-gray-500 text-sm mt-1">Jab koi customer book karega, wo yahan dikhega.</p>
-              <button onClick={fetchData} className="mt-4 text-purple-600 font-semibold text-sm hover:underline">
-                Refresh Karo 🔄
+        
+        <nav className="flex-1 overflow-y-auto py-4">
+          <ul className="space-y-1">
+            <li>
+              <button onClick={() => {setActiveTab('dashboard'); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-6 py-3 text-sm font-medium transition ${activeTab === 'dashboard' ? 'bg-blue-600 text-white border-r-4 border-white' : 'text-gray-300 hover:bg-white/5'}`}>
+                <span>🏠</span> Dashboard
               </button>
+            </li>
+            <li>
+              <button onClick={() => {setActiveTab('bookings'); setIsMobileMenuOpen(false);}} className={`w-full flex items-center justify-between px-6 py-3 text-sm font-medium transition ${activeTab === 'bookings' ? 'bg-blue-600 text-white border-r-4 border-white' : 'text-gray-300 hover:bg-white/5'}`}>
+                <div className="flex items-center gap-3"><span>📅</span> Bookings</div>
+                {pendingBookings > 0 && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{pendingBookings}</span>}
+              </button>
+            </li>
+            <li>
+              <button onClick={() => {setActiveTab('services'); setIsMobileMenuOpen(false);}} className={`w-full flex items-center gap-3 px-6 py-3 text-sm font-medium transition ${activeTab === 'services' ? 'bg-blue-600 text-white border-r-4 border-white' : 'text-gray-300 hover:bg-white/5'}`}>
+                <span>🛠️</span> My Services
+              </button>
+            </li>
+            <li className="px-6 py-4 mt-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Coming Soon</li>
+            <li><button className="w-full flex items-center gap-3 px-6 py-3 text-sm text-gray-500 cursor-not-allowed"><span>💰</span> Earnings</button></li>
+            <li><button className="w-full flex items-center gap-3 px-6 py-3 text-sm text-gray-500 cursor-not-allowed"><span>👥</span> Team</button></li>
+          </ul>
+        </nav>
+
+        <div className="p-4 border-t border-white/10">
+          <Link href="/owner" className="block w-full text-center bg-white/10 hover:bg-white/20 py-2 rounded-lg text-sm font-semibold transition">← Main Panel</Link>
+        </div>
+      </aside>
+
+      {/* Overlay for Mobile Menu */}
+      {isMobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>}
+
+      {/* ================= MAIN CONTENT ================= */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        
+        {/* HEADER */}
+        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-10">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600 text-2xl">☰</button>
+            <h1 className="text-lg font-bold text-gray-800 hidden md:block">Service Provider Dashboard</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-full">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              <span className="text-xs font-bold text-gray-700">Online</span>
             </div>
-          ) : (
-            bookings.map((booking) => {
-              const serviceDetails = getServiceDetails(booking.service_id);
+            <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold">RS</div>
+          </div>
+        </header>
 
-              return (
-                <div key={booking.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 relative overflow-hidden">
-                  {/* Status Ribbon */}
-                  <div className={`absolute top-0 left-0 w-1.5 h-full ${
-                      booking.status === 'pending' ? 'bg-yellow-400' : 
-                      booking.status === 'accepted' ? 'bg-green-500' : 
-                      'bg-red-500'
-                    }`}></div>
+        {/* SCROLLABLE CONTENT AREA */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="max-w-7xl mx-auto space-y-6">
+            
+            {/* ================= DASHBOARD TAB ================= */}
+            {activeTab === 'dashboard' && (
+              <>
+                {/* Welcome Banner */}
+                <div className="bg-gradient-to-r from-blue-900 to-indigo-800 rounded-2xl p-6 md:p-8 text-white flex flex-col md:flex-row justify-between items-center shadow-lg relative overflow-hidden">
+                  <div className="relative z-10 mb-6 md:mb-0">
+                    <h2 className="text-2xl md:text-3xl font-bold mb-2">Welcome Back, Provider! 👋</h2>
+                    <p className="text-blue-200 mb-4 max-w-md">Apka kaam, hamari zimmedari. Zyada bookings, zyada business – VyapaarSetu ke saath.</p>
+                    <div className="flex gap-3">
+                      <button onClick={() => setActiveTab('bookings')} className="bg-blue-500 hover:bg-blue-600 px-5 py-2.5 rounded-lg font-bold text-sm transition">View Bookings</button>
+                      <button onClick={() => setActiveTab('services')} className="bg-white/10 hover:bg-white/20 border border-white/20 px-5 py-2.5 rounded-lg font-bold text-sm transition">Manage Services</button>
+                    </div>
+                  </div>
+                  <div className="text-6xl relative z-10 hidden md:block">🛠️</div>
+                </div>
 
-                  <div className="flex justify-between items-start pl-2">
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl">📦</div>
+                    </div>
                     <div>
-                      <h3 className="font-bold text-lg text-gray-800">{serviceDetails.name}</h3>
-                      <p className="text-sm text-purple-600 font-bold bg-purple-50 inline-block px-2 py-0.5 rounded mt-1">
-                        Charges: ₹{serviceDetails.price}
-                      </p>
+                      <p className="text-sm text-gray-500 font-semibold mb-1">Total Bookings</p>
+                      <h3 className="text-2xl font-bold text-gray-800">{totalBookings}</h3>
                     </div>
-                    <span className={`px-3 py-1 text-xs font-bold rounded-full border ${
-                      booking.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 
-                      booking.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' : 
-                      'bg-red-50 text-red-700 border-red-200'
-                    }`}>
-                      {booking.status.toUpperCase()}
-                    </span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 bg-gray-50 p-4 rounded-xl ml-2">
-                    <p className="flex flex-col">
-                      <span className="text-xs text-gray-400 font-semibold uppercase">Customer</span> 
-                      <span className="font-medium">{booking.customer_name}</span>
-                    </p>
-                    <p className="flex flex-col">
-                      <span className="text-xs text-gray-400 font-semibold uppercase">Phone</span> 
-                      <span className="font-medium text-blue-600">{booking.customer_phone}</span>
-                    </p>
-                    <p className="flex flex-col">
-                      <span className="text-xs text-gray-400 font-semibold uppercase">Date</span> 
-                      <span className="font-medium">{booking.booking_date}</span>
-                    </p>
-                    <p className="flex flex-col">
-                      <span className="text-xs text-gray-400 font-semibold uppercase">Time</span> 
-                      <span className="font-medium">{booking.booking_time || 'Any time'}</span>
-                    </p>
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="w-10 h-10 bg-yellow-50 text-yellow-600 rounded-xl flex items-center justify-center text-xl">⏳</div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 font-semibold mb-1">Pending</p>
+                      <h3 className="text-2xl font-bold text-gray-800">{pendingBookings}</h3>
+                    </div>
                   </div>
-                  
-                  {booking.notes && (
-                    <div className="ml-2 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                      <p className="text-xs font-semibold text-blue-800 mb-1">Customer Note:</p>
-                      <p className="text-sm text-blue-700 italic">{booking.notes}</p>
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-xl">✅</div>
                     </div>
-                  )}
-
-                  {/* ACTION BUTTONS */}
-                  {booking.status === 'pending' && (
-                    <div className="flex space-x-3 pt-2 pl-2">
-                      <button onClick={() => handleUpdateBooking(booking.id, 'rejected')} className="flex-1 bg-white text-red-600 border border-red-200 py-2.5 rounded-xl font-bold hover:bg-red-50 transition active:scale-95">Reject</button>
-                      <button onClick={() => handleUpdateBooking(booking.id, 'accepted')} className="flex-1 bg-green-600 text-white py-2.5 rounded-xl font-bold hover:bg-green-700 shadow-md transition active:scale-95">Accept Order</button>
+                    <div>
+                      <p className="text-sm text-gray-500 font-semibold mb-1">Completed</p>
+                      <h3 className="text-2xl font-bold text-gray-800">{completedBookings}</h3>
                     </div>
-                  )}
-                  {booking.status === 'accepted' && (
-                     <button onClick={() => handleUpdateBooking(booking.id, 'completed')} className="w-[calc(100%-8px)] ml-2 bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-md transition active:scale-95 mt-2">Mark as Completed</button>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
-
-      {/* ================= SERVICES TAB ================= */}
-      {activeTab === 'services' && (
-        <div className="space-y-5">
-          <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-            <div>
-              <h2 className="text-lg font-bold text-gray-800">Your Services</h2>
-              <p className="text-xs text-gray-500">Services customers can book</p>
-            </div>
-            <button onClick={() => setIsModalOpen(true)} className="bg-purple-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-purple-700 transition active:scale-95">
-              + Add New
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {services.length === 0 ? (
-              <div className="col-span-2 text-center py-12 bg-white rounded-2xl border border-dashed border-gray-300">
-                <div className="text-4xl mb-3">🧰</div>
-                <p className="text-gray-800 font-bold">Aapne abhi tak koi service add nahi ki hai.</p>
-                <p className="text-gray-500 text-sm mt-1">Add New button dabakar shuru karein.</p>
-              </div>
-            ) : (
-              services.map((service) => (
-                <div key={service.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition">
-                  <div>
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-lg text-gray-800">{service.name}</h3>
-                      <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded-lg border border-green-100">Active</span>
+                  </div>
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-xl">💰</div>
                     </div>
-                    <p className="text-2xl font-black text-purple-600 mt-2">₹{service.price}</p>
-                    <p className="text-sm text-gray-500 mt-2 line-clamp-2">{service.description || 'No description provided.'}</p>
+                    <div>
+                      <p className="text-sm text-gray-500 font-semibold mb-1">Earnings</p>
+                      <h3 className="text-2xl font-bold text-gray-800">₹{totalEarnings}</h3>
+                    </div>
                   </div>
                 </div>
-              ))
+
+                {/* Placeholder for Recent Orders (Future Phase) */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  <h3 className="font-bold text-gray-800 mb-4 text-lg">Recent Orders</h3>
+                  <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                    <p className="text-gray-500">Charts & Detailed Tables coming in the next update.</p>
+                  </div>
+                </div>
+              </>
             )}
+
+            {/* ================= BOOKINGS TAB (Old Logic Integrated) ================= */}
+            {activeTab === 'bookings' && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">All Bookings</h2>
+                {bookings.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                    <p className="text-gray-500 text-lg">Abhi tak koi booking nahi aayi.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {bookings.map((booking) => {
+                      const serviceDetails = getServiceDetails(booking.service_id);
+                      return (
+                        <div key={booking.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-bold text-lg text-gray-800">{serviceDetails.name}</h3>
+                              <p className="text-sm text-purple-600 font-bold">₹{serviceDetails.price}</p>
+                            </div>
+                            <span className={`px-2 py-1 text-[10px] font-bold rounded uppercase ${
+                              booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
+                              booking.status === 'accepted' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            }`}>{booking.status}</span>
+                          </div>
+                          <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                            <p><b>Name:</b> {booking.customer_name}</p>
+                            <p><b>Phone:</b> {booking.customer_phone}</p>
+                            <p><b>Date:</b> {booking.booking_date} | {booking.booking_time}</p>
+                          </div>
+                          {booking.status === 'pending' && (
+                            <div className="flex gap-2 pt-2">
+                              <button onClick={() => handleUpdateBooking(booking.id, 'rejected')} className="flex-1 bg-red-50 text-red-600 py-2 rounded-lg font-semibold text-sm">Reject</button>
+                              <button onClick={() => handleUpdateBooking(booking.id, 'accepted')} className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold text-sm">Accept</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ================= SERVICES TAB (Old Logic Integrated) ================= */}
+            {activeTab === 'services' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold text-gray-800">My Services</h2>
+                  <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md">+ Add Service</button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {services.map((service) => (
+                    <div key={service.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                      <h3 className="font-bold text-lg text-gray-800">{service.name}</h3>
+                      <p className="text-xl font-black text-purple-600 mt-1">₹{service.price}</p>
+                      <p className="text-sm text-gray-500 mt-2">{service.description || 'No description'}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
-        </div>
-      )}
+        </main>
+      </div>
 
       {/* ================= ADD SERVICE MODAL ================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl">
-            <div className="text-center">
-              <h2 className="text-xl font-bold text-gray-800">Add New Service</h2>
-              <p className="text-xs text-gray-500 mt-1">Jo service aap dena chahte hain, uski details bharein.</p>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-bold text-gray-700">Service Name *</label>
-                <input type="text" placeholder="e.g. AC Repair, Plumber" value={newService.name} onChange={e => setNewService({...newService, name: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition" />
-              </div>
-              
-              <div>
-                <label className="text-sm font-bold text-gray-700">Charges (₹) *</label>
-                <input type="number" placeholder="e.g. 500" value={newService.price} onChange={e => setNewService({...newService, price: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition" />
-              </div>
-              
-              <div>
-                <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
-                <textarea placeholder="Service ke baare me thoda likhein..." value={newService.description} onChange={e => setNewService({...newService, description: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition" rows={3}></textarea>
-              </div>
-            </div>
-
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <h2 className="text-xl font-bold text-gray-800">Add New Service</h2>
+            <input type="text" placeholder="Service Name" value={newService.name} onChange={e => setNewService({...newService, name: e.target.value})} className="w-full p-3 border rounded-xl" />
+            <input type="number" placeholder="Price (₹)" value={newService.price} onChange={e => setNewService({...newService, price: e.target.value})} className="w-full p-3 border rounded-xl" />
+            <textarea placeholder="Description" value={newService.description} onChange={e => setNewService({...newService, description: e.target.value})} className="w-full p-3 border rounded-xl" rows={3}></textarea>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setIsModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700 hover:bg-gray-200 transition">Cancel</button>
-              <button onClick={handleSaveService} className="flex-1 bg-purple-600 py-3 rounded-xl font-bold text-white hover:bg-purple-700 shadow-md transition">Save Service</button>
+              <button onClick={() => setIsModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700">Cancel</button>
+              <button onClick={handleSaveService} className="flex-1 bg-blue-600 py-3 rounded-xl font-bold text-white">Save</button>
             </div>
           </div>
         </div>
