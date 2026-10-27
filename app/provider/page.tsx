@@ -42,13 +42,14 @@ export default function ServiceProviderDashboard() {
 
   // --- FETCH DATA ---
   const fetchData = async () => {
+    console.log("🚀 ~ fetchData ~ activeId (Provider Business ID):", activeId);
+
     if (!activeId) {
+      console.error("❌ Error: activeId nahi mili! getCurrentBusinessId() check karo.");
       setLoading(false);
       return;
     }
     setLoading(true);
-
-    console.log("Current Provider Active ID:", activeId); // 🚨 Debugging ke liye
 
     // 1. Fetch Provider's Services
     const { data: servData } = await supabase
@@ -59,6 +60,7 @@ export default function ServiceProviderDashboard() {
     if (servData) setServices(servData);
 
     // 2. Fetch Bookings for this provider
+    // Debugging ke liye hum query ko alag nikaal rahe hain
     const { data: bookData, error } = await supabase
       .from('service_bookings')
       .select('*')
@@ -66,11 +68,12 @@ export default function ServiceProviderDashboard() {
       .order('created_at', { ascending: false });
       
     if (error) {
-      console.error("Error fetching bookings:", error); // 🚨 Debugging ke liye
+      console.error("❌ ~ Error fetching bookings:", error); 
     }
       
+    console.log("✅ ~ Fetched Bookings from DB:", bookData); 
+    
     if (bookData) {
-      console.log("Fetched Bookings from DB:", bookData); // 🚨 Debugging ke liye
       setBookings(bookData as any);
     }
 
@@ -138,6 +141,8 @@ export default function ServiceProviderDashboard() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Service Dashboard</h1>
           <p className="text-sm text-gray-500">Manage your services & bookings</p>
+          {/* Debugging ke liye activeId screen par dikha rahe hain */}
+          <p className="text-[10px] text-gray-400 mt-1">ID: {activeId || 'No ID Found'}</p>
         </div>
         <Link href="/owner" className="w-full sm:w-auto text-center bg-gray-800 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-gray-900 transition">
           ← Main Panel
@@ -166,6 +171,7 @@ export default function ServiceProviderDashboard() {
           {bookings.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
               <p className="text-gray-500 text-lg">Abhi tak koi booking nahi aayi.</p>
+              <p className="text-xs text-gray-400 mt-2">Check your Active ID and Database `provider_business_id` match.</p>
             </div>
           ) : (
             bookings.map((booking) => {
