@@ -22,8 +22,7 @@ type Booking = {
   booking_time: string;
   status: string;
   notes: string;
-  service_id: string; // Join ki jagah service_id
-  service_name?: string; 
+  service_id: string; // Join hata kar service_id use kar rahe hain
 };
 
 export default function ServiceProviderDashboard() {
@@ -40,30 +39,34 @@ export default function ServiceProviderDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newService, setNewService] = useState({ name: '', price: '', description: '' });
 
-    const fetchData = async () => {
+  // --- FETCH DATA ---
+  const fetchData = async () => {
     if (!activeId) {
       setLoading(false);
       return;
     }
     setLoading(true);
 
-    const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId);
+    // 1. Fetch Provider's Services
+    const { data: servData } = await supabase
+      .from('services')
+      .select('*')
+      .eq('business_id', activeId);
+    
     if (servData) setServices(servData);
 
-    // Yahan humne JOIN hata diya hai aur direct * select kiya hai
+    // 2. Fetch Bookings for this provider (Simple Select, No Join)
     const { data: bookData } = await supabase
       .from('service_bookings')
-      .select('*') 
+      .select('*')
       .eq('provider_business_id', activeId)
       .order('created_at', { ascending: false });
       
-    if (bookData) {
-      console.log("Bookings fetched:", bookData); // Browser console me check karne ke liye
-      setBookings(bookData as any);
-    }
+    if (bookData) setBookings(bookData as any);
 
     setLoading(false);
   };
+
   useEffect(() => {
     fetchData();
   }, [activeId]);
@@ -103,6 +106,12 @@ export default function ServiceProviderDashboard() {
     }
   };
 
+  // --- HELPER: Get Service Details for a Booking ---
+  const getServiceDetails = (serviceId: string) => {
+    const service = services.find(s => s.id === serviceId);
+    return service ? { name: service.name, price: service.price } : { name: 'Unknown Service', price: 0 };
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
@@ -114,7 +123,7 @@ export default function ServiceProviderDashboard() {
   return (
     <div className="max-w-4xl mx-auto p-4 pb-24 min-h-screen bg-gray-50">
       
-            {/* HEADER */}
+      {/* HEADER */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Service Dashboard</h1>
@@ -149,45 +158,49 @@ export default function ServiceProviderDashboard() {
               <p className="text-gray-500 text-lg">Abhi tak koi booking nahi aayi.</p>
             </div>
           ) : (
-            bookings.map((booking) => (
-              <div key={booking.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-bold text-lg text-gray-800">{booking.services?.name || 'Unknown Service'}</h3>
-                    <p className="text-sm text-gray-500 font-medium">₹{booking.services?.price || 0}</p>
-                  </div>
-                  <span className={`px-3 py-1 text-xs font-bold rounded-full ${
-                    booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
-                    booking.status === 'accepted' ? 'bg-green-100 text-green-700' : 
-                    'bg-red-100 text-red-700'
-                  }`}>
-                    {booking.status.toUpperCase()}
-                  </span>
-                </div>
+            bookings.map((booking) => {
+              const serviceDetails = getServiceDetails(booking.service_id);
 
-                <div className="grid grid-cols-2 gap-2 text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
-                  <p><span className="font-semibold text-gray-500">Customer:</span> {booking.customer_name}</p>
-                  <p><span className="font-semibold text-gray-500">Phone:</span> {booking.customer_phone}</p>
-                  <p><span className="font-semibold text-gray-500">Date:</span> {booking.booking_date}</p>
-                  <p><span className="font-semibold text-gray-500">Time:</span> {booking.booking_time || 'Any time'}</p>
-                </div>
-                
-                {booking.notes && (
-                  <p className="text-sm text-gray-600 italic">Note: {booking.notes}</p>
-                )}
-
-                {/* ACTION BUTTONS */}
-                {booking.status === 'pending' && (
-                  <div className="flex space-x-3 pt-2">
-                    <button onClick={() => handleUpdateBooking(booking.id, 'rejected')} className="flex-1 bg-red-50 text-red-600 py-2 rounded-lg font-semibold border border-red-100 hover:bg-red-100">Reject</button>
-                    <button onClick={() => handleUpdateBooking(booking.id, 'accepted')} className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 shadow-sm">Accept Order</button>
+              return (
+                <div key={booking.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-bold text-lg text-gray-800">{serviceDetails.name}</h3>
+                      <p className="text-sm text-purple-600 font-bold">Charges: ₹{serviceDetails.price}</p>
+                    </div>
+                    <span className={`px-3 py-1 text-xs font-bold rounded-full ${
+                      booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
+                      booking.status === 'accepted' ? 'bg-green-100 text-green-700' : 
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {booking.status.toUpperCase()}
+                    </span>
                   </div>
-                )}
-                {booking.status === 'accepted' && (
-                   <button onClick={() => handleUpdateBooking(booking.id, 'completed')} className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">Mark as Completed</button>
-                )}
-              </div>
-            ))
+
+                  <div className="grid grid-cols-2 gap-2 text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                    <p><span className="font-semibold text-gray-500">Customer:</span> {booking.customer_name}</p>
+                    <p><span className="font-semibold text-gray-500">Phone:</span> {booking.customer_phone}</p>
+                    <p><span className="font-semibold text-gray-500">Date:</span> {booking.booking_date}</p>
+                    <p><span className="font-semibold text-gray-500">Time:</span> {booking.booking_time || 'Any time'}</p>
+                  </div>
+                  
+                  {booking.notes && (
+                    <p className="text-sm text-gray-600 italic">Note: {booking.notes}</p>
+                  )}
+
+                  {/* ACTION BUTTONS */}
+                  {booking.status === 'pending' && (
+                    <div className="flex space-x-3 pt-2">
+                      <button onClick={() => handleUpdateBooking(booking.id, 'rejected')} className="flex-1 bg-red-50 text-red-600 py-2 rounded-lg font-semibold border border-red-100 hover:bg-red-100">Reject</button>
+                      <button onClick={() => handleUpdateBooking(booking.id, 'accepted')} className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 shadow-sm">Accept Order</button>
+                    </div>
+                  )}
+                  {booking.status === 'accepted' && (
+                     <button onClick={() => handleUpdateBooking(booking.id, 'completed')} className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">Mark as Completed</button>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}
@@ -237,7 +250,7 @@ export default function ServiceProviderDashboard() {
             </div>
             
             <div>
-              <label className="text-sm font-semibold text-gray-600">Price (₹) *</label>
+              <label className="text-sm font-semibold text-gray-600">Charges (₹) *</label>
               <input type="number" placeholder="e.g. 500" value={newService.price} onChange={e => setNewService({...newService, price: e.target.value})} className="w-full p-3 border rounded-lg mt-1 outline-none focus:ring-2 focus:ring-purple-500" />
             </div>
             
