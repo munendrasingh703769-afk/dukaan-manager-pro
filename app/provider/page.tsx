@@ -22,7 +22,7 @@ type Booking = {
   booking_time: string;
   status: string;
   notes: string;
-  services: { name: string; price: number }; // Join se aayega
+  services: { name: string; price: number }; 
 };
 
 export default function ServiceProviderDashboard() {
@@ -103,12 +103,12 @@ export default function ServiceProviderDashboard() {
       .eq('id', bookingId);
 
     if (!error) {
-      // Update UI without full reload
       setBookings(bookings.map(b => b.id === bookingId ? { ...b, status: newStatus } : b));
     } else {
       alert("Failed to update status: " + error.message);
     }
   };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
