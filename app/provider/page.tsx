@@ -37,13 +37,14 @@ export default function ServiceProviderDashboard() {
 
   // --- ADD SERVICE MODAL STATES ---
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newService, setNewService] = useState({
-    name: '', price: '', description: ''
-  });
+  const [newService, setNewService] = useState({ name: '', price: '', description: '' });
 
   // --- FETCH DATA ---
   const fetchData = async () => {
-    if (!activeId) return;
+    if (!activeId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     // 1. Fetch Provider's Services
@@ -51,6 +52,7 @@ export default function ServiceProviderDashboard() {
       .from('services')
       .select('*')
       .eq('business_id', activeId);
+    
     if (servData) setServices(servData);
 
     // 2. Fetch Bookings for this provider
@@ -62,6 +64,7 @@ export default function ServiceProviderDashboard() {
       `)
       .eq('provider_business_id', activeId)
       .order('created_at', { ascending: false });
+      
     if (bookData) setBookings(bookData as any);
 
     setLoading(false);
@@ -74,6 +77,7 @@ export default function ServiceProviderDashboard() {
   // --- SAVE NEW SERVICE ---
   const handleSaveService = async () => {
     if (!newService.name || !newService.price) return alert("Name & Price required");
+    if (!activeId) return alert("Business ID not found");
     
     const { error } = await supabase.from('services').insert([{
       business_id: activeId,
@@ -87,7 +91,7 @@ export default function ServiceProviderDashboard() {
       setNewService({ name: '', price: '', description: '' });
       fetchData(); // Refresh list
     } else {
-      alert("Error: " + error.message);
+      alert("Error adding service: " + error.message);
     }
   };
 
@@ -102,7 +106,7 @@ export default function ServiceProviderDashboard() {
       // Update UI without full reload
       setBookings(bookings.map(b => b.id === bookingId ? { ...b, status: newStatus } : b));
     } else {
-      alert("Failed to update status");
+      alert("Failed to update status: " + error.message);
     }
   };
   if (loading) {
@@ -155,8 +159,8 @@ export default function ServiceProviderDashboard() {
               <div key={booking.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-bold text-lg text-gray-800">{booking.services?.name}</h3>
-                    <p className="text-sm text-gray-500 font-medium">₹{booking.services?.price}</p>
+                    <h3 className="font-bold text-lg text-gray-800">{booking.services?.name || 'Unknown Service'}</h3>
+                    <p className="text-sm text-gray-500 font-medium">₹{booking.services?.price || 0}</p>
                   </div>
                   <span className={`px-3 py-1 text-xs font-bold rounded-full ${
                     booking.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
