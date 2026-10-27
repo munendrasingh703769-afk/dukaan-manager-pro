@@ -22,7 +22,8 @@ type Booking = {
   booking_time: string;
   status: string;
   notes: string;
-  services: { name: string; price: number }; 
+  service_id: string; // Join ki jagah service_id
+  service_name?: string; 
 };
 
 export default function ServiceProviderDashboard() {
@@ -39,37 +40,30 @@ export default function ServiceProviderDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newService, setNewService] = useState({ name: '', price: '', description: '' });
 
-  // --- FETCH DATA ---
-  const fetchData = async () => {
+    const fetchData = async () => {
     if (!activeId) {
       setLoading(false);
       return;
     }
     setLoading(true);
 
-    // 1. Fetch Provider's Services
-    const { data: servData } = await supabase
-      .from('services')
-      .select('*')
-      .eq('business_id', activeId);
-    
+    const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId);
     if (servData) setServices(servData);
 
-    // 2. Fetch Bookings for this provider
+    // Yahan humne JOIN hata diya hai aur direct * select kiya hai
     const { data: bookData } = await supabase
       .from('service_bookings')
-      .select(`
-        *,
-        services:service_id (name, price)
-      `)
+      .select('*') 
       .eq('provider_business_id', activeId)
       .order('created_at', { ascending: false });
       
-    if (bookData) setBookings(bookData as any);
+    if (bookData) {
+      console.log("Bookings fetched:", bookData); // Browser console me check karne ke liye
+      setBookings(bookData as any);
+    }
 
     setLoading(false);
   };
-
   useEffect(() => {
     fetchData();
   }, [activeId]);
