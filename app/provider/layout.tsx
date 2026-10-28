@@ -51,6 +51,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
 { name: 'Expenses', path: '/provider/expenses', icon: '💸' },
 { name: 'Purchases', path: '/provider/purchases', icon: '🛒' },
     { name: 'Earnings', path: '/provider/earnings', icon: '💰' },
+{ name: 'Reports', path: '/provider/reports', icon: '📊' },
     { name: 'Reviews', path: '/provider/reviews', icon: '⭐' }, // 👈 Ye nayi line add ki hai
 { name: 'Settings', path: '/provider/settings', icon: '⚙️' },
     { name: 'Plans & Upgrade', path: '/provider/plans', icon: '🚀' },
