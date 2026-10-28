@@ -1,0 +1,186 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+
+export default function WorkerDashboard() {
+  const supabase = createClient();
+
+  const [workers, setWorkers] = useState<any[]>([]);
+  const [selectedWorker, setSelectedWorker] = useState<any>(null);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 1. Fetch all workers (For demo login)
+  const fetchWorkers = async () => {
+    const { data } = await supabase.from('provider_workers').select('*').eq('status', 'active');
+    if (data) setWorkers(data);
+    setLoading(false);
+  };
+
+  // 2. Fetch jobs assigned to the selected worker
+  const fetchJobs = async (workerId: string) => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('service_bookings')
+      .select(`
+        *,
+        services:service_id (name, price)
+      `)
+      .eq('assigned_worker_id', workerId)
+      .order('created_at', { ascending: false });
+      
+    if (data) setJobs(data);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchWorkers(); }, []);
+
+  const handleLogin = (worker: any) => {
+    setSelectedWorker(worker);
+    fetchJobs(worker.id);
+  };
+
+  // 3. Update Job Status
+  const updateJobStatus = async (jobId: string, newStatus: string) => {
+    const { error } = await supabase.from('service_bookings').update({ status: newStatus }).eq('id', jobId);
+    if (!error) {
+      setJobs(jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
+    } else {
+      alert("Error updating: " + error.message);
+    }
+  };
+
+  // --- LOGIN SCREEN ---
+  if (!selectedWorker) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center">
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">👷‍♂️</div>
+          <h1 className="text-xl font-bold text-gray-800 mb-2">Worker Login</h1>
+          <p className="text-sm text-gray-500 mb-6">Select your name to see your assigned jobs</p>
+          
+          {loading ? (
+            <p className="text-sm text-blue-600 font-bold">Loading workers...</p>
+          ) : workers.length === 0 ? (
+            <p className="text-sm text-red-500 font-bold">No active workers found. Ask owner to add you.</p>
+          ) : (
+            <div className="space-y-2">
+              {workers.map(w => (
+                <button 
+                  key={w.id} 
+                  onClick={() => handleLogin(w)}
+                  className="w-full bg-gray-50 hover:bg-blue-50 border border-gray-200 text-gray-700 font-bold py-3 rounded-xl transition flex items-center justify-between px-4"
+                >
+                  <span>{w.name}</span>
+                  <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">{w.role}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // --- WORKER DASHBOARD SCREEN ---
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      
+      {/* HEADER */}
+      <header className="bg-blue-900 text-white p-4 sticky top-0 z-10 shadow-md">
+        <div className="flex justify-between items-center max-w-2xl mx-auto">
+          <div>
+            <p className="text-xs text-blue-200 uppercase tracking-wider font-bold">Worker App</p>
+            <h1 className="text-lg font-bold">{selectedWorker.name} ({selectedWorker.role})</h1>
+          </div>
+          <button onClick={() => setSelectedWorker(null)} className="bg-white/20 px-3 py-1.5 rounded-lg text-xs font-bold">Logout</button>
+        </div>
+      </header>
+
+      <div className="max-w-2xl mx-auto p-4 space-y-4 mt-2">
+        
+        <div className="flex justify-between items-center">
+          <h2 className="font-bold text-gray-800 text-lg">My Assigned Jobs</h2>
+          <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full">{jobs.length} Total</span>
+        </div>
+
+        {loading ? (
+          <p className="text-center text-gray-500 font-bold py-10">Loading Jobs...</p>
+        ) : jobs.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+            <div className="text-4xl mb-3">☕</div>
+            <p className="text-gray-800 font-bold">Aaj koi kaam nahi hai.</p>
+            <p className="text-sm text-gray-500 mt-1">Owner jab assign karega, wo yahan dikhega.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {jobs.map(job => (
+              <div key={job.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                
+                {/* Job Header */}
+                <div className="p-4 border-b border-gray-100 flex justify-between items-start bg-gray-50">
+                  <div>
+                    <h3 className="font-bold text-gray-800 text-lg">{job.services?.name || 'Service'}</h3>
+                    <p className="text-sm text-green-700 font-bold bg-green-50 inline-block px-2 py-0.5 rounded mt-1">₹{job.services?.price || 0}</p>
+                  </div>
+                  <span className={`px-3 py-1 text-[10px] font-bold rounded-full uppercase ${
+                    job.status === 'accepted' ? 'bg-blue-100 text-blue-700' : 
+                    job.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' : 
+                    job.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    {job.status.replace('_', ' ')}
+                  </span>
+                </div>
+
+                {/* Customer & Timing Info */}
+                <div className="p-4 space-y-3">
+                  <div className="flex gap-3 text-sm text-gray-700">
+                    <span className="text-lg">👤</span>
+                    <div>
+                      <p className="font-bold">{job.customer_name}</p>
+                      <a href={`tel:${job.customer_phone}`} className="text-blue-600 font-semibold text-xs">📞 {job.customer_phone}</a>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3 text-sm text-gray-700">
+                    <span className="text-lg">📅</span>
+                    <div>
+                      <p className="font-medium">Date: {job.booking_date}</p>
+                      <p className="font-medium">Time: {job.booking_time || 'Any time'}</p>
+                    </div>
+                  </div>
+
+                  {job.notes && (
+                    <div className="bg-orange-50 p-3 rounded-lg border border-orange-100 text-sm text-orange-800">
+                      <b>Note:</b> {job.notes}
+                    </div>
+                  )}
+
+                  {/* WORK ACTION BUTTONS */}
+                  <div className="pt-2">
+                    {job.status === 'accepted' && (
+                      <button onClick={() => updateJobStatus(job.id, 'in_progress')} className="w-full bg-yellow-500 text-white py-3 rounded-xl font-bold shadow-md hover:bg-yellow-600 transition">
+                        Start Job (On the Way)
+                      </button>
+                    )}
+                    {job.status === 'in_progress' && (
+                      <button onClick={() => updateJobStatus(job.id, 'completed')} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-green-700 transition">
+                        Mark as Completed
+                      </button>
+                    )}
+                    {job.status === 'completed' && (
+                      <div className="text-center p-2 bg-green-50 rounded-xl border border-green-200">
+                        <p className="text-green-700 font-bold text-sm">✓ Job Completed</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
