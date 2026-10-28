@@ -5,7 +5,12 @@ import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
 
 type Service = { id: string; name: string; price: number; }
-type Booking = { id: string; customer_name: string; customer_phone: string; booking_date: string; booking_time: string; status: string; notes: string; service_id: string; }
+type Worker = { id: string; name: string; role: string; }
+type Booking = { 
+  id: string; customer_name: string; customer_phone: string; 
+  booking_date: string; booking_time: string; status: string; 
+  notes: string; service_id: string; assigned_worker_id: string | null; 
+}
 
 export default function ProviderBookingsPage() {
   const supabase = createClient();
@@ -13,15 +18,22 @@ export default function ProviderBookingsPage() {
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]); // Naya State
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     if (!activeId) return;
     setLoading(true);
 
+    // 1. Fetch Services
     const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId);
     if (servData) setServices(servData);
 
+    // 2. Fetch Workers
+    const { data: workerData } = await supabase.from('provider_workers').select('*').eq('business_id', activeId).eq('status', 'active');
+    if (workerData) setWorkers(workerData);
+
+    // 3. Fetch Bookings
     const { data: bookData } = await supabase
       .from('service_bookings')
       .select('*')
@@ -34,10 +46,21 @@ export default function ProviderBookingsPage() {
 
   useEffect(() => { fetchData(); }, [activeId]);
 
-  const handleUpdateBooking = async (bookingId: string, newStatus: string) => {
+  // --- UPDATE STATUS ---
+  const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
     const { error } = await supabase.from('service_bookings').update({ status: newStatus }).eq('id', bookingId);
     if (!error) {
       setBookings(bookings.map(b => b.id === bookingId ? { ...b, status: newStatus } : b));
+    }
+  };
+
+  // --- ASSIGN WORKER ---
+  const handleAssignWorker = async (bookingId: string, workerId: string) => {
+    const { error } = await supabase.from('service_bookings').update({ assigned_worker_id: workerId || null }).eq('id', bookingId);
+    if (!error) {
+      setBookings(bookings.map(b => b.id === bookingId ? { ...b, assigned_worker_id: workerId || null } : b));
+    } else {
+      alert("Failed to assign worker: " + error.message);
     }
   };
 
@@ -50,10 +73,12 @@ export default function ProviderBookingsPage() {
 
   return (
     <div className="space-y-6">
+      
+      {/* HEADER */}
       <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-xl font-bold text-gray-800">All Bookings</h1>
-          <p className="text-sm text-gray-500">Manage your customer service requests</p>
+          <p className="text-sm text-gray-500">Manage jobs & assign to workers</p>
         </div>
         <button onClick={fetchData} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-gray-200 transition">
           🔄 Refresh
@@ -64,18 +89,20 @@ export default function ProviderBookingsPage() {
         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
           <div className="text-5xl mb-4">📭</div>
           <p className="text-gray-800 font-bold text-lg">Abhi tak koi booking nahi aayi.</p>
-          <p className="text-gray-500 text-sm mt-1">Jab koi customer book karega, wo yahan dikhega.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {bookings.map((booking) => {
             const serviceDetails = getServiceDetails(booking.service_id);
+            const assignedWorker = workers.find(w => w.id === booking.assigned_worker_id);
+
             return (
-              <div key={booking.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 relative overflow-hidden">
+              <div key={booking.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 relative overflow-hidden flex flex-col">
+                {/* Status Indicator Bar */}
                 <div className={`absolute top-0 left-0 w-1.5 h-full ${
                     booking.status === 'pending' ? 'bg-yellow-400' : 
-                    booking.status === 'accepted' ? 'bg-green-500' : 
-                    'bg-red-500'
+                    booking.status === 'accepted' ? 'bg-blue-500' : 
+                    booking.status === 'completed' ? 'bg-green-500' : 'bg-red-500'
                   }`}></div>
 
                 <div className="flex justify-between items-start pl-2">
@@ -87,7 +114,8 @@ export default function ProviderBookingsPage() {
                   </div>
                   <span className={`px-3 py-1 text-xs font-bold rounded-full border ${
                     booking.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 
-                    booking.status === 'accepted' ? 'bg-green-50 text-green-700 border-green-200' : 
+                    booking.status === 'accepted' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
+                    booking.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : 
                     'bg-red-50 text-red-700 border-red-200'
                   }`}>
                     {booking.status.toUpperCase()}
@@ -108,15 +136,41 @@ export default function ProviderBookingsPage() {
                   </div>
                 )}
 
-                {booking.status === 'pending' && (
-                  <div className="flex space-x-3 pt-2 pl-2">
-                    <button onClick={() => handleUpdateBooking(booking.id, 'rejected')} className="flex-1 bg-white text-red-600 border border-red-200 py-2.5 rounded-xl font-bold hover:bg-red-50 transition active:scale-95">Reject</button>
-                    <button onClick={() => handleUpdateBooking(booking.id, 'accepted')} className="flex-1 bg-green-600 text-white py-2.5 rounded-xl font-bold hover:bg-green-700 shadow-md transition active:scale-95">Accept Order</button>
+                {/* --- WORKER ASSIGNMENT SECTION --- */}
+                {(booking.status === 'accepted' || booking.status === 'completed') && (
+                  <div className="ml-2 p-3 bg-gray-50 rounded-xl border border-gray-200 mt-auto">
+                    <label className="text-xs font-bold text-gray-700 block mb-2">Assign to Worker:</label>
+                    <select 
+                      value={booking.assigned_worker_id || ''} 
+                      onChange={(e) => handleAssignWorker(booking.id, e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Unassigned --</option>
+                      {workers.map(w => (
+                        <option key={w.id} value={w.id}>{w.name} ({w.role})</option>
+                      ))}
+                    </select>
+                    {assignedWorker && (
+                      <p className="text-xs text-green-600 font-bold mt-2 flex items-center gap-1">
+                        ✓ Assigned to: {assignedWorker.name}
+                      </p>
+                    )}
                   </div>
                 )}
-                {booking.status === 'accepted' && (
-                   <button onClick={() => handleUpdateBooking(booking.id, 'completed')} className="w-[calc(100%-8px)] ml-2 bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-md transition active:scale-95 mt-2">Mark as Completed</button>
-                )}
+
+                {/* ACTION BUTTONS */}
+                <div className="pt-2 pl-2">
+                  {booking.status === 'pending' && (
+                    <div className="flex space-x-3">
+                      <button onClick={() => handleUpdateStatus(booking.id, 'rejected')} className="flex-1 bg-white text-red-600 border border-red-200 py-2.5 rounded-xl font-bold hover:bg-red-50 transition active:scale-95">Reject</button>
+                      <button onClick={() => handleUpdateStatus(booking.id, 'accepted')} className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-md transition active:scale-95">Accept Order</button>
+                    </div>
+                  )}
+                  {booking.status === 'accepted' && (
+                     <button onClick={() => handleUpdateStatus(booking.id, 'completed')} className="w-full bg-green-600 text-white py-2.5 rounded-xl font-bold hover:bg-green-700 shadow-md transition active:scale-95">Mark as Completed</button>
+                  )}
+                </div>
+
               </div>
             );
           })}
