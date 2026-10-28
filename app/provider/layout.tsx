@@ -47,6 +47,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     { name: 'Quotations', path: '/provider/quotations', icon: '📄' },
     { name: 'Team / Workers', path: '/provider/team', icon: '👥' },
     { name: 'Inventory', path: '/provider/inventory', icon: '📦' },
+{ name: 'Sales', path: '/provider/sales', icon: '🧾' },
 { name: 'Purchases', path: '/provider/purchases', icon: '🛒' },
     { name: 'Earnings', path: '/provider/earnings', icon: '💰' },
     { name: 'Reviews', path: '/provider/reviews', icon: '⭐' }, // 👈 Ye nayi line add ki hai
