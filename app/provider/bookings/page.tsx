@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
-import ChatModal from '../../components/ChatModal'
 
 type Service = { id: string; name: string; price: number; }
 type Worker = { id: string; name: string; role: string; }
