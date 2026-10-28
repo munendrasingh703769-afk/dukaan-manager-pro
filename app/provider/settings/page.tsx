@@ -149,7 +149,28 @@ export default function ProviderSettingsPage() {
       <button onClick={handleSave} disabled={saving} className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-md hover:bg-blue-700 transition disabled:opacity-50">
         {saving ? 'Saving...' : 'Save All Settings'}
       </button>
-
+      {/* PUBLIC STORE LINK */}
+      <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200 space-y-4 mt-6">
+        <h2 className="text-lg font-bold text-blue-900 border-b border-blue-200 pb-2">Your Public Store Link</h2>
+        <p className="text-sm text-blue-700">Share this link with your customers on WhatsApp so they can see your services and reviews.</p>
+        <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-blue-200">
+          <input 
+            type="text" 
+            readOnly 
+            value={`${typeof window !== 'undefined' ? window.location.origin : ''}/store/${activeId}`} 
+            className="flex-1 bg-transparent outline-none text-sm text-gray-600 px-2" 
+          />
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/store/${activeId}`);
+              alert("Link Copied!");
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm"
+          >
+            Copy
+          </button>
+        </div>
+      </div>
       {/* DANGER ZONE / ACCOUNT */}
       <div className="bg-red-50 p-6 rounded-2xl border border-red-100 space-y-4 mt-8">
         <h2 className="text-lg font-bold text-red-800 border-b border-red-200 pb-2">Account Security</h2>
