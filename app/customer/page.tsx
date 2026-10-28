@@ -17,22 +17,21 @@ export default function CustomerHome() {
   const router = useRouter();
   const supabase = createClient();
 
-  // --- DATA STATES ---
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- SERVICE BOOKING MODAL STATES ---
+  // Booking Modal States
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [bookingForm, setBookingForm] = useState({
     name: '', phone: '', date: new Date().toISOString().split("T")[0], time: '10:00', notes: ''
   });
 
-  // --- QUOTATION MODAL STATES ---
-  const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
-  const [quotationForm, setQuotationForm] = useState({ requirement: '', details: '', phone: '' });
+  // Quotation Modal States
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [quoteForm, setQuoteForm] = useState({ requirement: '', details: '', phone: '', name: '' });
 
-  // --- FETCH SERVICES ---
+  // Fetch Services
   const fetchServices = async () => {
     setLoading(true);
     const { data } = await supabase.from('services').select('*').eq('is_active', true);
@@ -44,15 +43,18 @@ export default function CustomerHome() {
     fetchServices();
   }, []);
 
-  const handleLogout = () => {
-    supabase.auth.signOut();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     router.push('/login');
   };
 
-  // --- SUBMIT BOOKING ---
+  // --- SUBMIT BOOKING (With Customer ID) ---
   const handleBookService = async () => {
     if (!bookingForm.name || !bookingForm.phone) return alert("Name and Phone required");
     if (!selectedService) return;
+
+    // Current User ki ID nikalna
+    const { data: { user } } = await supabase.auth.getUser();
 
     const payload = {
       service_id: selectedService.id,
@@ -62,36 +64,41 @@ export default function CustomerHome() {
       booking_date: bookingForm.date,
       booking_time: bookingForm.time,
       notes: bookingForm.notes,
-      status: 'pending'
+      status: 'pending',
+      customer_id: user?.id || null // 👈 Customer ID save ho rahi hai
     };
 
     const { error } = await supabase.from('service_bookings').insert([payload]);
     if (!error) {
       alert("Booking Successful! Provider will contact you.");
       setIsBookingModalOpen(false);
+      setBookingForm({ name: '', phone: '', date: new Date().toISOString().split("T")[0], time: '10:00', notes: '' });
     } else {
       alert("Error: " + error.message);
     }
   };
 
-  // --- SUBMIT QUOTATION REQUEST ---
+  // --- SUBMIT QUOTATION REQUEST (With Customer ID) ---
   const handleRequestQuotation = async () => {
-    if (!quotationForm.requirement || !quotationForm.phone) return alert("Please fill requirement and phone number");
+    if (!quoteForm.requirement || !quoteForm.phone) return alert("Please fill requirement and phone number");
 
-    // Note: Aapko Supabase me 'quotations' table banani hogi (SQL neeche diya hai)
+    // Current User ki ID nikalna
+    const { data: { user } } = await supabase.auth.getUser();
+
     const payload = {
-      customer_name: "Customer", // Abhi ke liye generic
-      customer_phone: quotationForm.phone,
-      requirement: quotationForm.requirement,
-      details: quotationForm.details,
-      status: 'pending'
+      customer_name: quoteForm.name || "Customer",
+      customer_phone: quoteForm.phone,
+      requirement: quoteForm.requirement,
+      details: quoteForm.details,
+      status: 'pending',
+      customer_id: user?.id || null // 👈 Customer ID save ho rahi hai
     };
 
     const { error } = await supabase.from('quotations').insert([payload]);
     if (!error) {
-      alert("Quotation Request Sent! Shops will send you estimates.");
-      setIsQuotationModalOpen(false);
-      setQuotationForm({ requirement: '', details: '', phone: '' });
+      alert("Quotation Request Sent! Shops will send you estimates soon.");
+      setIsQuoteModalOpen(false);
+      setQuoteForm({ requirement: '', details: '', phone: '', name: '' });
     } else {
       alert("Error sending request: " + error.message);
     }
@@ -131,46 +138,31 @@ export default function CustomerHome() {
         </div>
 
         {/* 📝 My Estimate Requests (Quotation) */}
-        <div onClick={() => setIsQuotationModalOpen(true)} className="bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-4 shadow-lg flex items-center justify-between relative overflow-hidden cursor-pointer active:scale-95 transition">
-          <div className="absolute right-0 top-0 text-7xl opacity-20">📄</div>
-          <div className="flex items-center gap-3 relative z-10">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-2xl border border-white/30">📝</div>
-            <div>
-              <p className="text-white font-bold text-sm">My Estimate Requests</p>
-              <p className="text-orange-50 text-[11px] mt-0.5">Request quotes & approve prices</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div onClick={() => setIsQuoteModalOpen(true)} className="bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-4 shadow-lg flex flex-col justify-center relative overflow-hidden cursor-pointer active:scale-95 transition">
+            <div className="absolute right-0 top-0 text-6xl opacity-20">📄</div>
+            <div className="relative z-10">
+              <p className="text-white font-bold text-sm">Need an Estimate?</p>
+              <p className="text-orange-50 text-[10px] mt-1">Request quotes from providers</p>
             </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">→</div>
-        </div>
 
-        {/* 📦 Categories */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-800">Explore Categories</h2>
-          </div>
-          <div className="grid grid-cols-4 gap-3">
-            <div className="bg-white p-3 rounded-2xl text-center shadow-sm border border-gray-100">
-              <div className="w-12 h-12 mx-auto bg-green-50 rounded-full flex items-center justify-center text-2xl mb-2">🛒</div>
-              <p className="text-[10px] font-bold text-gray-700">Grocery</p>
+          <Link href="/customer/requests" className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-4 shadow-lg flex flex-col justify-center relative overflow-hidden active:scale-95 transition">
+             <div className="absolute right-0 top-0 text-6xl opacity-20">📋</div>
+            <div className="relative z-10">
+              <p className="text-white font-bold text-sm">View Quotes</p>
+              <p className="text-blue-100 text-[10px] mt-1">See estimates received</p>
             </div>
-            <div className="bg-white p-3 rounded-2xl text-center shadow-sm border border-gray-100">
-              <div className="w-12 h-12 mx-auto bg-red-50 rounded-full flex items-center justify-center text-2xl mb-2">💊</div>
-              <p className="text-[10px] font-bold text-gray-700">Medical</p>
-            </div>
-            <div className="bg-white p-3 rounded-2xl text-center shadow-sm border border-gray-100">
-              <div className="w-12 h-12 mx-auto bg-yellow-50 rounded-full flex items-center justify-center text-2xl mb-2">🍔</div>
-              <p className="text-[10px] font-bold text-gray-700">Food</p>
-            </div>
-            <div className="bg-white p-3 rounded-2xl text-center shadow-sm border border-gray-100">
-              <div className="w-12 h-12 mx-auto bg-blue-50 rounded-full flex items-center justify-center text-2xl mb-2">🛠️</div>
-              <p className="text-[10px] font-bold text-gray-700">Services</p>
-            </div>
-          </div>
-        </section>
+          </Link>
+        </div>
 
         {/* 🛠️ Available Services */}
         <section>
-          <h2 className="text-lg font-bold text-gray-800 mb-3">Services Near You</h2>
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-lg font-bold text-gray-800">Services Near You</h2>
+            <Link href="/customer/bookings" className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">My Bookings</Link>
+          </div>
+          
           {loading ? (
             <p className="text-sm text-gray-500 text-center py-4">Loading services...</p>
           ) : services.length === 0 ? (
@@ -183,7 +175,7 @@ export default function CustomerHome() {
                 <div key={service.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
                   <div>
                     <h4 className="font-bold text-gray-800">{service.name}</h4>
-                    <p className="text-xs text-gray-500">{service.description || 'No description'}</p>
+                    <p className="text-xs text-gray-500 line-clamp-1">{service.description || 'No description'}</p>
                     <p className="text-blue-600 font-bold mt-1 text-sm">₹{service.price}</p>
                   </div>
                   <button onClick={() => { setSelectedService(service); setIsBookingModalOpen(true); }} className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg font-bold text-xs active:scale-95 transition">
@@ -206,26 +198,6 @@ export default function CustomerHome() {
           </div>
         </section>
       </div>
-
-      {/* 📱 Bottom Navigation */}
-      <nav className="fixed bottom-0 w-full bg-white/90 backdrop-blur-lg border-t border-gray-200 flex justify-around items-center pt-2 pb-6 px-2 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-        <Link href="/customer" className="flex flex-col items-center gap-1 text-indigo-600">
-          <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center">🏠</div>
-          <span className="text-[10px] font-bold">Home</span>
-        </Link>
-        <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-gray-400">
-          <span className="text-xl">🧭</span>
-          <span className="text-[10px] font-medium">Explore</span>
-        </Link>
-        <Link href="/customer/orders" className="flex flex-col items-center gap-1 text-gray-400">
-          <span className="text-xl">📦</span>
-          <span className="text-[10px] font-medium">Orders</span>
-        </Link>
-        <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-gray-400">
-          <span className="text-xl">👤</span>
-          <span className="text-[10px] font-medium">Profile</span>
-        </Link>
-      </nav>
 
       {/* ================= BOOKING MODAL ================= */}
       {isBookingModalOpen && selectedService && (
@@ -253,18 +225,19 @@ export default function CustomerHome() {
       )}
 
       {/* ================= QUOTATION MODAL ================= */}
-      {isQuotationModalOpen && (
+      {isQuoteModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
-            <h2 className="text-xl font-bold text-gray-800">Request Quotation (Estimate)</h2>
-            <p className="text-xs text-gray-500">Bataiye aapko kya chahiye, dukaandaar aapko price bhejenge.</p>
+            <h2 className="text-xl font-bold text-gray-800">Request Quotation</h2>
+            <p className="text-xs text-gray-500 mb-2">Bataiye aapko kya kaam karwana hai, providers aapko estimate bhejenge.</p>
             
-            <input type="text" placeholder="Kya chahiye? (e.g. 10kg Sugar, AC Repair) *" value={quotationForm.requirement} onChange={e => setQuotationForm({...quotationForm, requirement: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 focus:ring-orange-500" />
-            <textarea placeholder="Details / Brand preference (Optional)" value={quotationForm.details} onChange={e => setQuotationForm({...quotationForm, details: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" rows={3}></textarea>
-            <input type="tel" placeholder="Phone Number *" value={quotationForm.phone} onChange={e => setQuotationForm({...quotationForm, phone: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 focus:ring-orange-500" />
+            <input type="text" placeholder="Kya chahiye? (e.g. AC Repair, 10kg Sugar) *" value={quoteForm.requirement} onChange={e => setQuoteForm({...quoteForm, requirement: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 focus:ring-orange-500" />
+            <textarea placeholder="Details (Optional)" value={quoteForm.details} onChange={e => setQuoteForm({...quoteForm, details: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" rows={2}></textarea>
+            <input type="text" placeholder="Your Name" value={quoteForm.name} onChange={e => setQuoteForm({...quoteForm, name: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
+            <input type="tel" placeholder="Phone Number *" value={quoteForm.phone} onChange={e => setQuoteForm({...quoteForm, phone: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 focus:ring-orange-500" />
 
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setIsQuotationModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700">Cancel</button>
+              <button onClick={() => setIsQuoteModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700">Cancel</button>
               <button onClick={handleRequestQuotation} className="flex-1 bg-orange-500 py-3 rounded-xl font-bold text-white">Send Request</button>
             </div>
           </div>
