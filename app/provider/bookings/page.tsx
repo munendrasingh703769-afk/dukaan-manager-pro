@@ -181,7 +181,15 @@ export default function ProviderBookingsPage() {
                     )}
                   </div>
                 )}
-
+                {/* CHAT BUTTON */}
+                <div className="ml-2 mb-2">
+                  <button onClick={() => setChatBookingId(booking.id)} className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-2 rounded-xl font-bold text-sm hover:bg-indigo-100 transition">
+                    💬 Chat with Customer
+                  </button>
+                </div>
+      {chatBookingId && (
+        <ChatModal bookingId={chatBookingId} role="customer" onClose={() => setChatBookingId(null)} />
+      )}
                 {/* ACTION BUTTONS */}
                 <div className="pt-2 pl-2">
                   {booking.status === 'pending' && (
