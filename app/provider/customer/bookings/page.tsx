@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-
+import ChatModal from '@/components/ui/ChatModal'
 type Booking = {
   id: string; customer_name: string; booking_date: string; 
   booking_time: string; status: string; notes: string;
