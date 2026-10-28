@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
+import ChatModal from '@/app/components/ChatModal'
 
 type Service = { id: string; name: string; price: number; }
 type Worker = { id: string; name: string; role: string; }
@@ -21,7 +22,7 @@ export default function ProviderBookingsPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [chatBookingId, setChatBookingId] = useState<string | null>(null);
   const fetchData = async () => {
     if (!activeId) return;
     setLoading(true);
