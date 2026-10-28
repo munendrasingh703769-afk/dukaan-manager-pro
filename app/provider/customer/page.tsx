@@ -31,7 +31,6 @@ export default function CustomerHome() {
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteForm, setQuoteForm] = useState({ requirement: '', details: '', phone: '', name: '' });
 
-  // Fetch Services (Active only)
   const fetchServices = async () => {
     setLoading(true);
     const { data } = await supabase.from('services').select('*').eq('is_active', true);
@@ -48,10 +47,12 @@ export default function CustomerHome() {
     router.push('/login');
   };
 
-  // --- SUBMIT BOOKING ---
+  // --- SUBMIT BOOKING (With Notification) ---
   const handleBookService = async () => {
     if (!bookingForm.name || !bookingForm.phone) return alert("Name and Phone required");
     if (!selectedService) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
 
     const payload = {
       service_id: selectedService.id,
@@ -61,11 +62,21 @@ export default function CustomerHome() {
       booking_date: bookingForm.date,
       booking_time: bookingForm.time,
       notes: bookingForm.notes,
-      status: 'pending'
+      status: 'pending',
+      customer_id: user?.id || null
     };
 
     const { error } = await supabase.from('service_bookings').insert([payload]);
+    
     if (!error) {
+      // 👇 Notification Bhejna Provider ko
+      await supabase.from('notifications').insert([{
+        business_id: selectedService.business_id,
+        title: 'New Booking Received! 🎉',
+        message: `${bookingForm.name} booked ${selectedService.name} for ₹${selectedService.price}.`,
+        type: 'booking'
+      }]);
+
       alert("Booking Successful! Provider will contact you.");
       setIsBookingModalOpen(false);
       setBookingForm({ name: '', phone: '', date: new Date().toISOString().split("T")[0], time: '10:00', notes: '' });
@@ -78,16 +89,22 @@ export default function CustomerHome() {
   const handleRequestQuotation = async () => {
     if (!quoteForm.requirement || !quoteForm.phone) return alert("Please fill requirement and phone number");
 
+    const { data: { user } } = await supabase.auth.getUser();
+
     const payload = {
       customer_name: quoteForm.name || "Customer",
       customer_phone: quoteForm.phone,
       requirement: quoteForm.requirement,
       details: quoteForm.details,
-      status: 'pending'
+      status: 'pending',
+      customer_id: user?.id || null
     };
 
     const { error } = await supabase.from('quotations').insert([payload]);
+    
     if (!error) {
+      // Quotation me direct provider select nahi hota, isliye hum skip kar rahe hain
+      // Agar aap chahein toh sabhi providers ko notify karne ka logic bana sakte hain
       alert("Quotation Request Sent! Shops will send you estimates soon.");
       setIsQuoteModalOpen(false);
       setQuoteForm({ requirement: '', details: '', phone: '', name: '' });
@@ -98,7 +115,6 @@ export default function CustomerHome() {
 
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
-      {/* 🟣 Premium Header 🟣 */}
       <header className="bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 rounded-b-[2.5rem] px-6 pt-12 pb-8 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 flex items-center justify-between mb-6">
@@ -122,27 +138,29 @@ export default function CustomerHome() {
       </header>
 
       <div className="px-5 mt-6 space-y-6 max-w-2xl mx-auto">
-        
-        {/* 🔍 Search Bar */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 flex items-center p-2">
           <span className="text-gray-400 pl-3">🔍</span>
           <input type="text" placeholder="Search shops, products, services..." className="w-full bg-transparent outline-none text-sm p-3 text-gray-700 font-medium" />
         </div>
 
-        {/* 📝 My Estimate Requests (Quotation) */}
-        <div onClick={() => setIsQuoteModalOpen(true)} className="bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-4 shadow-lg flex items-center justify-between relative overflow-hidden cursor-pointer active:scale-95 transition">
-          <div className="absolute right-0 top-0 text-7xl opacity-20">📄</div>
-          <div className="flex items-center gap-3 relative z-10">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-2xl border border-white/30">📝</div>
-            <div>
+        <div className="grid grid-cols-2 gap-3">
+          <div onClick={() => setIsQuoteModalOpen(true)} className="bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-4 shadow-lg flex flex-col justify-center relative overflow-hidden cursor-pointer active:scale-95 transition">
+            <div className="absolute right-0 top-0 text-6xl opacity-20">📄</div>
+            <div className="relative z-10">
               <p className="text-white font-bold text-sm">Need an Estimate?</p>
-              <p className="text-orange-50 text-[11px] mt-0.5">Request quotes from local providers</p>
+              <p className="text-orange-50 text-[10px] mt-1">Request quotes from providers</p>
             </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">→</div>
+
+          <Link href="/customer/requests" className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-4 shadow-lg flex flex-col justify-center relative overflow-hidden active:scale-95 transition">
+             <div className="absolute right-0 top-0 text-6xl opacity-20">📋</div>
+            <div className="relative z-10">
+              <p className="text-white font-bold text-sm">View Quotes</p>
+              <p className="text-blue-100 text-[10px] mt-1">See estimates received</p>
+            </div>
+          </Link>
         </div>
 
-        {/* 🛠️ Available Services */}
         <section>
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-bold text-gray-800">Services Near You</h2>
@@ -172,20 +190,9 @@ export default function CustomerHome() {
             </div>
           )}
         </section>
-
-        {/* 🚀 Featured Banner */}
-        <section className="mt-6">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center text-3xl">🏪</div>
-            <div>
-              <h3 className="font-bold text-gray-900 text-sm">Local Shops Coming Soon!</h3>
-              <p className="text-[11px] text-gray-500 mt-1">Aap apne aas-paas ki dukaan se direct saman mangwa sakte hain.</p>
-            </div>
-          </div>
-        </section>
       </div>
 
-      {/* ================= BOOKING MODAL ================= */}
+      {/* BOOKING MODAL */}
       {isBookingModalOpen && selectedService && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
@@ -210,7 +217,7 @@ export default function CustomerHome() {
         </div>
       )}
 
-      {/* ================= QUOTATION MODAL ================= */}
+      {/* QUOTATION MODAL */}
       {isQuoteModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
@@ -229,7 +236,6 @@ export default function CustomerHome() {
           </div>
         </div>
       )}
-
     </main>
   );
 }
