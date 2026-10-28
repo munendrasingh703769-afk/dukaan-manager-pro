@@ -11,13 +11,15 @@ export default function ProviderSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Settings State
   const [settings, setSettings] = useState({
     gst_number: '',
     invoice_prefix: 'INV-',
     terms: 'Service warranty of 1 month on repairs.',
     website: '',
-    upi_id: ''
+    upi_id: '',
+    opening_time: '09:00',
+    closing_time: '19:00',
+    service_radius_km: 5
   });
 
   const fetchSettings = async () => {
@@ -31,7 +33,10 @@ export default function ProviderSettingsPage() {
         invoice_prefix: data.invoice_prefix || 'INV-',
         terms: data.terms || '',
         website: data.website || '',
-        upi_id: data.upi_id || ''
+        upi_id: data.upi_id || '',
+        opening_time: data.opening_time || '09:00',
+        closing_time: data.closing_time || '19:00',
+        service_radius_km: data.service_radius_km || 5
       });
     }
     setLoading(false);
@@ -39,7 +44,6 @@ export default function ProviderSettingsPage() {
 
   useEffect(() => { fetchSettings(); }, [activeId]);
 
-  // --- SAVE SETTINGS ---
   const handleSave = async () => {
     if (!activeId) return;
     setSaving(true);
@@ -49,7 +53,10 @@ export default function ProviderSettingsPage() {
       invoice_prefix: settings.invoice_prefix,
       terms: settings.terms,
       website: settings.website,
-      upi_id: settings.upi_id
+      upi_id: settings.upi_id,
+      opening_time: settings.opening_time,
+      closing_time: settings.closing_time,
+      service_radius_km: settings.service_radius_km
     }).eq('id', activeId);
 
     if (!error) {
@@ -60,7 +67,6 @@ export default function ProviderSettingsPage() {
     setSaving(false);
   };
 
-  // --- LOGOUT ---
   const handleLogout = async () => {
     if (confirm("Are you sure you want to logout?")) {
       await supabase.auth.signOut();
@@ -73,105 +79,72 @@ export default function ProviderSettingsPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       
-      {/* HEADER */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <h1 className="text-xl font-bold text-gray-800">Business Settings</h1>
         <p className="text-sm text-gray-500">Manage your billing, invoices, and account</p>
       </div>
 
-      {/* BILLING & GST SETTINGS */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
         <h2 className="text-lg font-bold text-gray-800 border-b pb-2">Tax & Invoice Settings</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-bold text-gray-700">GST Number</label>
-            <input 
-              type="text" 
-              placeholder="e.g. 22AAAAA0000A1Z5" 
-              value={settings.gst_number} 
-              onChange={e => setSettings({...settings, gst_number: e.target.value})} 
-              className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500 uppercase" 
-            />
+            <input type="text" placeholder="e.g. 22AAAAA0000A1Z5" value={settings.gst_number} onChange={e => setSettings({...settings, gst_number: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500 uppercase" />
           </div>
           <div>
             <label className="text-sm font-bold text-gray-700">Invoice Prefix</label>
-            <input 
-              type="text" 
-              placeholder="e.g. INV-" 
-              value={settings.invoice_prefix} 
-              onChange={e => setSettings({...settings, invoice_prefix: e.target.value})} 
-              className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" 
-            />
+            <input type="text" placeholder="e.g. INV-" value={settings.invoice_prefix} onChange={e => setSettings({...settings, invoice_prefix: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
 
         <div>
-          <label className="text-sm font-bold text-gray-700">Default Terms & Conditions (Shows on Invoice)</label>
-          <textarea 
-            rows={3} 
-            value={settings.terms} 
-            onChange={e => setSettings({...settings, terms: e.target.value})} 
-            className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500"
-          ></textarea>
+          <label className="text-sm font-bold text-gray-700">Default Terms & Conditions</label>
+          <textarea rows={3} value={settings.terms} onChange={e => setSettings({...settings, terms: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500"></textarea>
         </div>
       </div>
 
-      {/* PAYMENT & WEB SETTINGS */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
         <h2 className="text-lg font-bold text-gray-800 border-b pb-2">Payment & Web</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-bold text-gray-700">UPI ID (For receiving payments)</label>
-            <input 
-              type="text" 
-              placeholder="e.g. shop@upi" 
-              value={settings.upi_id} 
-              onChange={e => setSettings({...settings, upi_id: e.target.value})} 
-              className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" 
-            />
+            <label className="text-sm font-bold text-gray-700">UPI ID (For payments)</label>
+            <input type="text" placeholder="e.g. shop@upi" value={settings.upi_id} onChange={e => setSettings({...settings, upi_id: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label className="text-sm font-bold text-gray-700">Website Link (Optional)</label>
-            <input 
-              type="text" 
-              placeholder="e.g. www.myshop.com" 
-              value={settings.website} 
-              onChange={e => setSettings({...settings, website: e.target.value})} 
-              className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" 
-            />
+            <input type="text" placeholder="e.g. www.myshop.com" value={settings.website} onChange={e => setSettings({...settings, website: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
       </div>
 
-      {/* SAVE BUTTON */}
+      {/* 👇 NAYA SECTION: Working Hours & Service Area */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+        <h2 className="text-lg font-bold text-gray-800 border-b pb-2">Working Hours & Service Area</h2>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-bold text-gray-700">Opening Time</label>
+            <input type="time" value={settings.opening_time} onChange={e => setSettings({...settings, opening_time: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-700">Closing Time</label>
+            <input type="time" value={settings.closing_time} onChange={e => setSettings({...settings, closing_time: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-bold text-gray-700">Service Radius (KM)</label>
+          <input type="number" value={settings.service_radius_km} onChange={e => setSettings({...settings, service_radius_km: Number(e.target.value)})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
+          <p className="text-xs text-gray-500 mt-1">Aap kitne kilometer tak service provide karte hain?</p>
+        </div>
+      </div>
+
       <button onClick={handleSave} disabled={saving} className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-md hover:bg-blue-700 transition disabled:opacity-50">
         {saving ? 'Saving...' : 'Save All Settings'}
       </button>
-      {/* PUBLIC STORE LINK */}
-      <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200 space-y-4 mt-6">
-        <h2 className="text-lg font-bold text-blue-900 border-b border-blue-200 pb-2">Your Public Store Link</h2>
-        <p className="text-sm text-blue-700">Share this link with your customers on WhatsApp so they can see your services and reviews.</p>
-        <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-blue-200">
-          <input 
-            type="text" 
-            readOnly 
-            value={`${typeof window !== 'undefined' ? window.location.origin : ''}/store/${activeId}`} 
-            className="flex-1 bg-transparent outline-none text-sm text-gray-600 px-2" 
-          />
-          <button 
-            onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/store/${activeId}`);
-              alert("Link Copied!");
-            }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm"
-          >
-            Copy
-          </button>
-        </div>
-      </div>
-      {/* DANGER ZONE / ACCOUNT */}
+
       <div className="bg-red-50 p-6 rounded-2xl border border-red-100 space-y-4 mt-8">
         <h2 className="text-lg font-bold text-red-800 border-b border-red-200 pb-2">Account Security</h2>
         <p className="text-sm text-red-600">Logging out will end your current session on this device.</p>
