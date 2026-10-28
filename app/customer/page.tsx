@@ -20,18 +20,15 @@ export default function CustomerHome() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Booking Modal States
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [bookingForm, setBookingForm] = useState({
     name: '', phone: '', date: new Date().toISOString().split("T")[0], time: '10:00', notes: ''
   });
 
-  // Quotation Modal States
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteForm, setQuoteForm] = useState({ requirement: '', details: '', phone: '', name: '' });
 
-  // Fetch Services
   const fetchServices = async () => {
     setLoading(true);
     const { data } = await supabase.from('services').select('*').eq('is_active', true);
@@ -48,12 +45,29 @@ export default function CustomerHome() {
     router.push('/login');
   };
 
-  // --- SUBMIT BOOKING (With Customer ID) ---
+  // --- SUBMIT BOOKING (With Working Hours Check) ---
   const handleBookService = async () => {
     if (!bookingForm.name || !bookingForm.phone) return alert("Name and Phone required");
     if (!selectedService) return;
 
-    // Current User ki ID nikalna
+    // 👇 Check Provider Availability
+    const { data: biz } = await supabase.from('businesses').select('opening_time, closing_time, is_online').eq('id', selectedService.business_id).single();
+    
+    if (biz) {
+      if (!biz.is_online) return alert("Ye provider abhi offline hai. Kripya baad me try karein.");
+      
+      const now = new Date();
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+      const [openH, openM] = biz.opening_time.split(':').map(Number);
+      const [closeH, closeM] = biz.closing_time.split(':').map(Number);
+      const openTime = openH * 60 + openM;
+      const closeTime = closeH * 60 + closeM;
+
+      if (currentTime < openTime || currentTime > closeTime) {
+        return alert(`Ye shop abhi band hai. Shop timings: ${biz.opening_time} to ${biz.closing_time}`);
+      }
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
 
     const payload = {
@@ -65,11 +79,19 @@ export default function CustomerHome() {
       booking_time: bookingForm.time,
       notes: bookingForm.notes,
       status: 'pending',
-      customer_id: user?.id || null // 👈 Customer ID save ho rahi hai
+      customer_id: user?.id || null
     };
 
     const { error } = await supabase.from('service_bookings').insert([payload]);
+    
     if (!error) {
+      await supabase.from('notifications').insert([{
+        business_id: selectedService.business_id,
+        title: 'New Booking Received! 🎉',
+        message: `${bookingForm.name} booked ${selectedService.name} for ₹${selectedService.price}.`,
+        type: 'booking'
+      }]);
+
       alert("Booking Successful! Provider will contact you.");
       setIsBookingModalOpen(false);
       setBookingForm({ name: '', phone: '', date: new Date().toISOString().split("T")[0], time: '10:00', notes: '' });
@@ -78,11 +100,9 @@ export default function CustomerHome() {
     }
   };
 
-  // --- SUBMIT QUOTATION REQUEST (With Customer ID) ---
   const handleRequestQuotation = async () => {
     if (!quoteForm.requirement || !quoteForm.phone) return alert("Please fill requirement and phone number");
 
-    // Current User ki ID nikalna
     const { data: { user } } = await supabase.auth.getUser();
 
     const payload = {
@@ -91,10 +111,11 @@ export default function CustomerHome() {
       requirement: quoteForm.requirement,
       details: quoteForm.details,
       status: 'pending',
-      customer_id: user?.id || null // 👈 Customer ID save ho rahi hai
+      customer_id: user?.id || null
     };
 
     const { error } = await supabase.from('quotations').insert([payload]);
+    
     if (!error) {
       alert("Quotation Request Sent! Shops will send you estimates soon.");
       setIsQuoteModalOpen(false);
@@ -106,7 +127,6 @@ export default function CustomerHome() {
 
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
-      {/* 🟣 Premium Header 🟣 */}
       <header className="bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 rounded-b-[2.5rem] px-6 pt-12 pb-8 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 flex items-center justify-between mb-6">
@@ -130,14 +150,11 @@ export default function CustomerHome() {
       </header>
 
       <div className="px-5 mt-6 space-y-6 max-w-2xl mx-auto">
-        
-        {/* 🔍 Search Bar */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 flex items-center p-2">
           <span className="text-gray-400 pl-3">🔍</span>
           <input type="text" placeholder="Search shops, products, services..." className="w-full bg-transparent outline-none text-sm p-3 text-gray-700 font-medium" />
         </div>
 
-        {/* 📝 My Estimate Requests (Quotation) */}
         <div className="grid grid-cols-2 gap-3">
           <div onClick={() => setIsQuoteModalOpen(true)} className="bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-4 shadow-lg flex flex-col justify-center relative overflow-hidden cursor-pointer active:scale-95 transition">
             <div className="absolute right-0 top-0 text-6xl opacity-20">📄</div>
@@ -156,7 +173,6 @@ export default function CustomerHome() {
           </Link>
         </div>
 
-        {/* 🛠️ Available Services */}
         <section>
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-lg font-bold text-gray-800">Services Near You</h2>
@@ -186,20 +202,9 @@ export default function CustomerHome() {
             </div>
           )}
         </section>
-
-        {/* 🚀 Featured Banner */}
-        <section className="mt-6">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center text-3xl">🏪</div>
-            <div>
-              <h3 className="font-bold text-gray-900 text-sm">Local Shops Coming Soon!</h3>
-              <p className="text-[11px] text-gray-500 mt-1">Aap apne aas-paas ki dukaan se direct saman mangwa sakte hain.</p>
-            </div>
-          </div>
-        </section>
       </div>
 
-      {/* ================= BOOKING MODAL ================= */}
+      {/* BOOKING MODAL */}
       {isBookingModalOpen && selectedService && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
@@ -224,7 +229,7 @@ export default function CustomerHome() {
         </div>
       )}
 
-      {/* ================= QUOTATION MODAL ================= */}
+      {/* QUOTATION MODAL */}
       {isQuoteModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
@@ -243,7 +248,6 @@ export default function CustomerHome() {
           </div>
         </div>
       )}
-
     </main>
   );
 }
