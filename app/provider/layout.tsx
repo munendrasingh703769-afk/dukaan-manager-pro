@@ -15,7 +15,34 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [profile, setProfile] = useState({ name: 'Provider', photo: '' });
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
+  // Notifications Fetch karna (Har 10 second me)
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!activeId) return;
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('business_id', activeId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (data) setNotifications(data);
+    };
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10000);
+    return () => clearInterval(interval);
+  }, [activeId, supabase]);
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const markAsRead = async () => {
+    if (unreadCount === 0) return;
+    await supabase.from('notifications').update({ is_read: true }).eq('business_id', activeId).eq('is_read', false);
+    setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+  };
   useEffect(() => {
     // Fetch online status and profile basic info
     const fetchStatus = async () => {
