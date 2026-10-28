@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
-import ChatModal from '@/components/ui/ChatModal' // Path check kar lena
+import ChatModal from '@/components/ui/ChatModal'
 
 type Service = { id: string; name: string; price: number; }
 type Worker = { id: string; name: string; role: string; }
@@ -12,6 +12,7 @@ type Booking = {
   booking_date: string; booking_time: string; status: string; 
   notes: string; service_id: string; assigned_worker_id: string | null;
   payment_status: string; utr_number: string | null;
+  completion_otp: string | null; // 👈 Naya field
 }
 
 export default function ProviderBookingsPage() {
@@ -23,22 +24,18 @@ export default function ProviderBookingsPage() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Chat State
   const [chatBookingId, setChatBookingId] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!activeId) return;
     setLoading(true);
 
-    // 1. Fetch Services
     const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId);
     if (servData) setServices(servData);
 
-    // 2. Fetch Active Workers
     const { data: workerData } = await supabase.from('provider_workers').select('*').eq('business_id', activeId).eq('status', 'active');
     if (workerData) setWorkers(workerData);
 
-    // 3. Fetch Bookings
     const { data: bookData } = await supabase
       .from('service_bookings')
       .select('*')
@@ -51,11 +48,23 @@ export default function ProviderBookingsPage() {
 
   useEffect(() => { fetchData(); }, [activeId]);
 
-  // --- UPDATE STATUS (Accept/Reject/Complete) ---
+  // --- UPDATE STATUS (With OTP Generation) ---
   const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
-    const { error } = await supabase.from('service_bookings').update({ status: newStatus }).eq('id', bookingId);
+    let updateData: any = { status: newStatus };
+
+    // Agar Accept kiya hai, toh 4-digit OTP generate karo
+    if (newStatus === 'accepted') {
+      updateData.completion_otp = Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
+    const { error } = await supabase.from('service_bookings').update(updateData).eq('id', bookingId);
+    
     if (!error) {
-      setBookings(bookings.map(b => b.id === bookingId ? { ...b, status: newStatus } : b));
+      setBookings(bookings.map(b => 
+        b.id === bookingId 
+          ? { ...b, status: newStatus, completion_otp: updateData.completion_otp || b.completion_otp } 
+          : b
+      ));
     }
   };
 
@@ -85,8 +94,6 @@ export default function ProviderBookingsPage() {
 
   return (
     <div className="space-y-6">
-      
-      {/* HEADER */}
       <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-xl font-bold text-gray-800">All Bookings</h1>
@@ -111,7 +118,6 @@ export default function ProviderBookingsPage() {
             return (
               <div key={booking.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 relative overflow-hidden flex flex-col">
                 
-                {/* Status Indicator Bar */}
                 <div className={`absolute top-0 left-0 w-1.5 h-full ${
                     booking.status === 'pending' ? 'bg-yellow-400' : 
                     booking.status === 'accepted' ? 'bg-blue-500' : 
@@ -142,7 +148,15 @@ export default function ProviderBookingsPage() {
                   <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Time</span> <span className="font-medium">{booking.booking_time || 'Any time'}</span></p>
                 </div>
 
-                {/* PAYMENT STATUS BOX */}
+                {/* OTP DISPLAY (Provider ko bhi dikhega) */}
+                {booking.completion_otp && booking.status !== 'completed' && (
+                  <div className="ml-2 bg-orange-50 border border-orange-200 p-2 rounded-xl text-center">
+                    <p className="text-[10px] text-orange-800 font-bold uppercase">Customer OTP</p>
+                    <p className="text-xl font-black text-orange-600 tracking-widest">{booking.completion_otp}</p>
+                  </div>
+                )}
+
+                {/* PAYMENT STATUS */}
                 <div className="ml-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
                   <div className="flex justify-between items-center">
                     <p className="text-xs font-bold text-indigo-800">Payment Status:</p>
@@ -160,10 +174,7 @@ export default function ProviderBookingsPage() {
                   )}
 
                   {booking.payment_status === 'pending_verification' && (
-                    <button 
-                      onClick={() => handleVerifyPayment(booking.id)}
-                      className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold text-xs shadow-sm mt-2 hover:bg-indigo-700 transition"
-                    >
+                    <button onClick={() => handleVerifyPayment(booking.id)} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold text-xs shadow-sm mt-2">
                       Verify & Mark as Paid
                     </button>
                   )}
@@ -176,7 +187,7 @@ export default function ProviderBookingsPage() {
                     <select 
                       value={booking.assigned_worker_id || ''} 
                       onChange={(e) => handleAssignWorker(booking.id, e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white outline-none"
                     >
                       <option value="">-- Unassigned --</option>
                       {workers.map(w => (
@@ -191,10 +202,7 @@ export default function ProviderBookingsPage() {
 
                 {/* CHAT BUTTON */}
                 <div className="ml-2">
-                  <button 
-                    onClick={() => setChatBookingId(booking.id)} 
-                    className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-2 rounded-xl font-bold text-sm hover:bg-indigo-100 transition"
-                  >
+                  <button onClick={() => setChatBookingId(booking.id)} className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-2 rounded-xl font-bold text-sm">
                     💬 Chat with Customer
                   </button>
                 </div>
@@ -208,7 +216,9 @@ export default function ProviderBookingsPage() {
                     </div>
                   )}
                   {booking.status === 'accepted' && (
-                     <button onClick={() => handleUpdateStatus(booking.id, 'completed')} className="w-full bg-green-600 text-white py-2.5 rounded-xl font-bold hover:bg-green-700 shadow-md">Mark as Completed</button>
+                     <div className="text-center p-2 bg-blue-50 rounded-xl border border-blue-200">
+                       <p className="text-blue-700 font-bold text-xs">Worker will complete the job.</p>
+                     </div>
                   )}
                 </div>
 
@@ -218,15 +228,9 @@ export default function ProviderBookingsPage() {
         </div>
       )}
 
-      {/* CHAT MODAL (Yahan rakha hai taaki poore page par ek hi baar load ho) */}
       {chatBookingId && (
-        <ChatModal 
-          bookingId={chatBookingId} 
-          role="provider" 
-          onClose={() => setChatBookingId(null)} 
-        />
+        <ChatModal bookingId={chatBookingId} role="provider" onClose={() => setChatBookingId(null)} />
       )}
-
     </div>
   );
 }
