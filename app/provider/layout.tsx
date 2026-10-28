@@ -40,7 +40,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     router.push('/login');
   };
 
-  // Navigation Links Menu
+    // Navigation Links Menu
   const menuItems = [
     { name: 'Dashboard', path: '/provider', icon: '🏠' },
     { name: 'Bookings', path: '/provider/bookings', icon: '📅' },
@@ -48,6 +48,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     { name: 'Team / Workers', path: '/provider/team', icon: '👥' },
     { name: 'Inventory', path: '/provider/inventory', icon: '📦' },
     { name: 'Earnings', path: '/provider/earnings', icon: '💰' },
+    { name: 'Reviews', path: '/provider/reviews', icon: '⭐' }, // 👈 Ye nayi line add ki hai
     { name: 'Plans & Upgrade', path: '/provider/plans', icon: '🚀' },
     { name: 'My Profile', path: '/provider/profile', icon: '👤' },
   ];
