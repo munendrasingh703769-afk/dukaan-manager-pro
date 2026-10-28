@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
-import ChatModal from '@/components/ui/ChatModal'
+import ChatModal from '@/components/ui/ChatModal' // Path check kar lena
 
 type Service = { id: string; name: string; price: number; }
 type Worker = { id: string; name: string; role: string; }
@@ -11,7 +11,7 @@ type Booking = {
   id: string; customer_name: string; customer_phone: string; 
   booking_date: string; booking_time: string; status: string; 
   notes: string; service_id: string; assigned_worker_id: string | null;
-  payment_status: string; utr_number: string | null; // Naye columns type me add kiye
+  payment_status: string; utr_number: string | null;
 }
 
 export default function ProviderBookingsPage() {
@@ -22,17 +22,23 @@ export default function ProviderBookingsPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Chat State
   const [chatBookingId, setChatBookingId] = useState<string | null>(null);
+
   const fetchData = async () => {
     if (!activeId) return;
     setLoading(true);
 
+    // 1. Fetch Services
     const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId);
     if (servData) setServices(servData);
 
+    // 2. Fetch Active Workers
     const { data: workerData } = await supabase.from('provider_workers').select('*').eq('business_id', activeId).eq('status', 'active');
     if (workerData) setWorkers(workerData);
 
+    // 3. Fetch Bookings
     const { data: bookData } = await supabase
       .from('service_bookings')
       .select('*')
@@ -45,7 +51,7 @@ export default function ProviderBookingsPage() {
 
   useEffect(() => { fetchData(); }, [activeId]);
 
-  // --- UPDATE STATUS ---
+  // --- UPDATE STATUS (Accept/Reject/Complete) ---
   const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
     const { error } = await supabase.from('service_bookings').update({ status: newStatus }).eq('id', bookingId);
     if (!error) {
@@ -79,6 +85,8 @@ export default function ProviderBookingsPage() {
 
   return (
     <div className="space-y-6">
+      
+      {/* HEADER */}
       <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-xl font-bold text-gray-800">All Bookings</h1>
@@ -103,7 +111,7 @@ export default function ProviderBookingsPage() {
             return (
               <div key={booking.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 relative overflow-hidden flex flex-col">
                 
-                {/* Status Bar */}
+                {/* Status Indicator Bar */}
                 <div className={`absolute top-0 left-0 w-1.5 h-full ${
                     booking.status === 'pending' ? 'bg-yellow-400' : 
                     booking.status === 'accepted' ? 'bg-blue-500' : 
@@ -134,7 +142,7 @@ export default function ProviderBookingsPage() {
                   <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Time</span> <span className="font-medium">{booking.booking_time || 'Any time'}</span></p>
                 </div>
 
-                {/* PAYMENT STATUS (Naya Box) */}
+                {/* PAYMENT STATUS BOX */}
                 <div className="ml-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
                   <div className="flex justify-between items-center">
                     <p className="text-xs font-bold text-indigo-800">Payment Status:</p>
@@ -151,7 +159,6 @@ export default function ProviderBookingsPage() {
                     <p className="text-xs text-indigo-700 mt-2">UTR: <span className="select-all font-mono font-bold">{booking.utr_number}</span></p>
                   )}
 
-                  {/* VERIFY BUTTON (Sirf tab dikhega jab UTR aaya ho) */}
                   {booking.payment_status === 'pending_verification' && (
                     <button 
                       onClick={() => handleVerifyPayment(booking.id)}
@@ -181,15 +188,17 @@ export default function ProviderBookingsPage() {
                     )}
                   </div>
                 )}
+
                 {/* CHAT BUTTON */}
-                <div className="ml-2 mb-2">
-                  <button onClick={() => setChatBookingId(booking.id)} className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-2 rounded-xl font-bold text-sm hover:bg-indigo-100 transition">
+                <div className="ml-2">
+                  <button 
+                    onClick={() => setChatBookingId(booking.id)} 
+                    className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-2 rounded-xl font-bold text-sm hover:bg-indigo-100 transition"
+                  >
                     💬 Chat with Customer
                   </button>
                 </div>
-      {chatBookingId && (
-        <ChatModal bookingId={chatBookingId} role="customer" onClose={() => setChatBookingId(null)} />
-      )}
+
                 {/* ACTION BUTTONS */}
                 <div className="pt-2 pl-2">
                   {booking.status === 'pending' && (
@@ -208,6 +217,16 @@ export default function ProviderBookingsPage() {
           })}
         </div>
       )}
+
+      {/* CHAT MODAL (Yahan rakha hai taaki poore page par ek hi baar load ho) */}
+      {chatBookingId && (
+        <ChatModal 
+          bookingId={chatBookingId} 
+          role="provider" 
+          onClose={() => setChatBookingId(null)} 
+        />
+      )}
+
     </div>
   );
 }
