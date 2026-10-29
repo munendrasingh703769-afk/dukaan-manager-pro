@@ -9,7 +9,6 @@ export default function CustomerSuperAppHome() {
   const router = useRouter();
   const supabase = createClient();
   const [categories, setCategories] = useState<any[]>([]);
-
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteForm, setQuoteForm] = useState({ requirement: '', details: '', phone: '', name: '' });
 
@@ -69,36 +68,40 @@ export default function CustomerSuperAppHome() {
 
       <div className="px-5 space-y-6 max-w-2xl mx-auto -mt-8 relative z-20">
         
-        {/* 🔍 Search Bar (Redirects to Explore) */}
+        {/* 🔍 Search Bar */}
         <Link href="/customer/explore" className="bg-white rounded-2xl shadow-lg border border-gray-100 flex items-center p-2 w-full">
           <span className="text-gray-400 pl-3">🔍</span>
-          <input type="text" placeholder="Search shops, products, services, rides..." className="w-full bg-transparent outline-none text-sm p-3 text-gray-700 font-medium pointer-events-none" />
+          <input type="text" placeholder="Search shops, products, services..." className="w-full bg-transparent outline-none text-sm p-3 text-gray-700 font-medium pointer-events-none" />
           <button className="bg-indigo-50 text-indigo-600 font-bold px-4 py-2 rounded-xl text-sm">Search</button>
         </Link>
 
-        {/* ⚡ Quick Actions (Super App Features) */}
+        {/* ⚡ Quick Actions (Horizontal Scroll) */}
         <section>
-          <div className="grid grid-cols-4 gap-2">
-            <Link href="/customer/shop" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
-              <span className="text-2xl">🛒</span><span className="text-[10px] font-bold text-gray-700 text-center">Shop Now</span>
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            <Link href="/customer/shop" className="min-w-[80px] bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 active:scale-95 transition">
+              <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-2xl">🛒</div>
+              <span className="text-[11px] font-bold text-gray-700 text-center whitespace-nowrap">Shop Now</span>
             </Link>
-            <Link href="/customer/explore" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
-              <span className="text-2xl">🛠️</span><span className="text-[10px] font-bold text-gray-700 text-center">Services</span>
+            <Link href="/customer/explore" className="min-w-[80px] bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 active:scale-95 transition">
+              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-2xl">🛠️</div>
+              <span className="text-[11px] font-bold text-gray-700 text-center whitespace-nowrap">Services</span>
             </Link>
-            <Link href="/customer/rides" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
-              <span className="text-2xl">🏍️</span><span className="text-[10px] font-bold text-gray-700 text-center">Book Ride</span>
+            <Link href="/customer/rides" className="min-w-[80px] bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 active:scale-95 transition">
+              <div className="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center text-2xl">🏍️</div>
+              <span className="text-[11px] font-bold text-gray-700 text-center whitespace-nowrap">Book Ride</span>
             </Link>
-        <Link href="/customer/orders" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
-          <span className="text-xl">📦</span>
-          <span className="text-[10px] font-medium">Orders</span>
-        </Link>
-            <Link href="/customer/rides" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
-              <span className="text-2xl">📦</span><span className="text-[10px] font-bold text-gray-700 text-center">Send Parcel</span>
+            <Link href="/customer/rides?type=parcel" className="min-w-[80px] bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 active:scale-95 transition">
+              <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center text-2xl">📦</div>
+              <span className="text-[11px] font-bold text-gray-700 text-center whitespace-nowrap">Send Parcel</span>
+            </Link>
+            <Link href="/customer/orders" className="min-w-[80px] bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 active:scale-95 transition">
+              <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center text-2xl">🧾</div>
+              <span className="text-[11px] font-bold text-gray-700 text-center whitespace-nowrap">My Orders</span>
             </Link>
           </div>
         </section>
 
-        {/* 📝 My Estimate Requests (Service Feature) */}
+        {/* 📝 My Estimate Requests */}
         <div onClick={() => setIsQuoteModalOpen(true)} className="bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-4 shadow-lg flex items-center justify-between relative overflow-hidden cursor-pointer active:scale-95 transition">
           <div className="absolute right-0 top-0 text-6xl opacity-20">📄</div>
           <div className="flex items-center gap-3 relative z-10">
@@ -111,10 +114,10 @@ export default function CustomerSuperAppHome() {
           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">→</div>
         </div>
 
-        {/* 📦 Categories (Database Driven) */}
+        {/* 📦 Categories */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-800">Explore Services</h2>
+            <h2 className="text-lg font-bold text-gray-800">Explore Categories</h2>
             <Link href="/customer/explore" className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">See All</Link>
           </div>
           <div className="grid grid-cols-4 gap-2">
@@ -158,11 +161,10 @@ export default function CustomerSuperAppHome() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
             <h2 className="text-xl font-bold text-gray-800">Request Quotation</h2>
-            <p className="text-xs text-gray-500 mb-2">Bataiye aapko kya kaam karwana hai, providers aapko estimate bhejenge.</p>
-            <input type="text" placeholder="Kya chahiye? (e.g. AC Repair) *" value={quoteForm.requirement} onChange={e => setQuoteForm({...quoteForm, requirement: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 focus:ring-orange-500" />
+            <input type="text" placeholder="Kya chahiye? (e.g. AC Repair) *" value={quoteForm.requirement} onChange={e => setQuoteForm({...quoteForm, requirement: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
             <textarea placeholder="Details (Optional)" value={quoteForm.details} onChange={e => setQuoteForm({...quoteForm, details: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" rows={2}></textarea>
             <input type="text" placeholder="Your Name" value={quoteForm.name} onChange={e => setQuoteForm({...quoteForm, name: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
-            <input type="tel" placeholder="Phone Number *" value={quoteForm.phone} onChange={e => setQuoteForm({...quoteForm, phone: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 focus:ring-orange-500" />
+            <input type="tel" placeholder="Phone Number *" value={quoteForm.phone} onChange={e => setQuoteForm({...quoteForm, phone: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
             <div className="flex gap-3 pt-2">
               <button onClick={() => setIsQuoteModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700">Cancel</button>
               <button onClick={handleRequestQuotation} className="flex-1 bg-orange-500 py-3 rounded-xl font-bold text-white">Send Request</button>
