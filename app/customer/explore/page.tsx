@@ -47,6 +47,66 @@ export default function CustomerExplorePage() {
     ? services.filter(s => s.category_id === selectedCategory) 
     : services;
 
+  // 🎯 SMART GROUPING LOGIC (Aapki requirement ke hisaab se update kiya gaya)
+  const getGroupedCategories = () => {
+    const groups: { [key: string]: any[] } = {
+      '🛍️ Shopping (Fashion, Electronics & More)': [],
+      '💊 Medicine & Health': [],
+      '🛒 Grocery & Food': [],
+      '🏦 Financial & Loans': [],
+      '🏠 Home & Repair Services': [],
+      '💻 IT & Tech Services': [],
+      '🛵 Transport & Delivery': [],
+      '📚 Education & Digital': [],
+      'Other Services': []
+    };
+
+    categories.forEach(cat => {
+      const name = cat.name.toLowerCase();
+      
+      // 1. Shopping (Clothes, Shoes, Kids, Cosmetics, Electronics)
+      if (name.includes('fashion') || name.includes('cloth') || name.includes('shoe') || name.includes('kid') || name.includes('toy') || name.includes('beauty') || name.includes('cosmetic') || name.includes('salon') || name.includes('electronic') || name.includes('tv')) {
+        groups['🛍️ Shopping (Fashion, Electronics & More)'].push(cat);
+      }
+      // 2. Medicine (Only Health)
+      else if (name.includes('medical') || name.includes('medicine') || name.includes('pharmacy') || name.includes('health')) {
+        groups['💊 Medicine & Health'].push(cat);
+      }
+      // 3. Grocery & Food
+      else if (name.includes('grocery') || name.includes('food') || name.includes('sweet') || name.includes('bakery') || name.includes('restaurant')) {
+        groups['🛒 Grocery & Food'].push(cat);
+      }
+      // 4. Loans
+      else if (name.includes('loan') || name.includes('finance') || name.includes('property') || name.includes('gold')) {
+        groups['🏦 Financial & Loans'].push(cat);
+      } 
+      // 5. Home & Repair
+      else if (name.includes('ac') || name.includes('appliance') || name.includes('plumb') || name.includes('electric') || name.includes('carpenter') || name.includes('paint') || name.includes('labour') || name.includes('clean') || name.includes('pest') || name.includes('mover')) {
+        groups['🏠 Home & Repair Services'].push(cat);
+      } 
+      // 6. IT & Tech
+      else if (name.includes('wi-fi') || name.includes('internet') || name.includes('cctv') || name.includes('computer') || name.includes('laptop') || name.includes('mobile') || name.includes('security')) {
+        groups['💻 IT & Tech Services'].push(cat);
+      } 
+      // 7. Transport
+      else if (name.includes('bike') || name.includes('car') || name.includes('taxi') || name.includes('parcel') || name.includes('rental')) {
+        groups['🛵 Transport & Delivery'].push(cat);
+      } 
+      // 8. Education
+      else if (name.includes('tuition') || name.includes('education') || name.includes('digital')) {
+        groups['📚 Education & Digital'].push(cat);
+      } 
+      // Others
+      else {
+        groups['Other Services'].push(cat);
+      }
+    });
+
+    return groups;
+  };
+
+  const groupedCategories = getGroupedCategories();
+
   // --- SUBMIT CUSTOM REQUEST ---
   const handleCustomRequest = async () => {
     if (!customReq.name) return alert("Kripya service ka naam likhein.");
@@ -108,41 +168,6 @@ export default function CustomerExplorePage() {
     }
     setBookingLoading(false);
   };
-
-  // 🎯 GROUPS LOGIC (Sabko alag-alag group me daalna)
-  const getGroupedCategories = () => {
-    const groups: { [key: string]: any[] } = {
-      '🏠 Home & Repair Services': [],
-      '💻 IT, Telecom & Tech': [],
-      '🛵 Transport & Delivery': [],
-      '🛒 Shopping & Daily Needs': [],
-      '📚 Education & Digital': [],
-      '🏦 Financial & Loans': [],
-      'Other Services': []
-    };
-
-    categories.forEach(cat => {
-      if (['AC & Appliance', 'Plumber', 'Electrician', 'Carpenter', 'Painter', 'Labour & Helper', 'Home Cleaning', 'Pest Control', 'Packers & Movers'].includes(cat.name)) {
-        groups['🏠 Home & Repair Services'].push(cat);
-      } else if (['Wi-Fi & Internet', 'CCTV & Security', 'Computer & Laptop', 'Mobile Repair'].includes(cat.name)) {
-        groups['💻 IT, Telecom & Tech'].push(cat);
-      } else if (['Bike Taxi', 'Car Rental', 'Parcel Delivery'].includes(cat.name)) {
-        groups['🛵 Transport & Delivery'].push(cat);
-      } else if (['Grocery', 'Medical', 'Fashion', 'Electronics', 'Food & Sweets', 'Beauty & Salon'].includes(cat.name)) {
-        groups['🛒 Shopping & Daily Needs'].push(cat);
-      } else if (['Tuition & Education', 'Digital Services'].includes(cat.name)) {
-        groups['📚 Education & Digital'].push(cat);
-      } else if (['Personal Loan', 'Home Loan', 'Property Loan', 'Gold Loan', 'Business Loan', 'Vehicle Loan', 'Loan Against Property'].includes(cat.name)) {
-        groups['🏦 Financial & Loans'].push(cat);
-      } else {
-        groups['Other Services'].push(cat);
-      }
-    });
-
-    return groups;
-  };
-
-  const groupedCategories = getGroupedCategories();
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
