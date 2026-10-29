@@ -16,13 +16,21 @@ export default function CustomerExplorePage() {
   const [customReq, setCustomReq] = useState({ name: '', category: '', description: '' });
   const [submitting, setSubmitting] = useState(false);
 
+  // 🎯 Category Groups define karna (Visual Grouping)
+  const categoryGroups = {
+    'Home & Repair Services': ['AC & Appliance', 'Plumber', 'Electrician', 'Carpenter', 'Painter', 'Labour & Helper', 'Home Cleaning', 'Pest Control', 'Packers & Movers'],
+    'IT, Telecom & Tech': ['Wi-Fi & Internet', 'CCTV & Security', 'Computer & Laptop', 'Mobile Repair'],
+    'Transport & Delivery': ['Bike Taxi', 'Car Rental', 'Parcel Delivery'],
+    'Shopping & Daily Needs': ['Grocery', 'Medical', 'Fashion', 'Electronics', 'Food & Sweets', 'Beauty & Salon'],
+    'Education & Digital': ['Tuition & Education', 'Digital Services'],
+    'Financial & Loans': ['Personal Loan', 'Home Loan', 'Property Loan', 'Gold Loan', 'Business Loan', 'Vehicle Loan', 'Loan Against Property']
+  };
+
   useEffect(() => {
     const fetchData = async () => {
-      // Fetch all categories
-      const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true).order('name');
+      const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true);
       if (catData) setCategories(catData);
 
-      // Fetch all active services
       const { data: servData } = await supabase
         .from('services')
         .select(`*, businesses!inner (name, city, logo_url)`)
@@ -34,12 +42,10 @@ export default function CustomerExplorePage() {
     fetchData();
   }, [supabase]);
 
-  // Filter services based on selected category
   const filteredServices = selectedCategory 
     ? services.filter(s => s.category_id === selectedCategory) 
     : services;
 
-  // --- SUBMIT CUSTOM REQUEST ---
   const handleCustomRequest = async () => {
     if (!customReq.name) return alert("Kripya service ka naam likhein.");
     
@@ -54,13 +60,39 @@ export default function CustomerExplorePage() {
     }]);
 
     if (!error) {
-      alert("Aapki request Admin ko bhej di gayi hai! Wo approve karne ke baad ye service add ho jayegi.");
+      alert("Aapki request Admin ko bhej di gayi hai!");
       setIsModalOpen(false);
       setCustomReq({ name: '', category: '', description: '' });
     } else {
       alert("Error: " + error.message);
     }
     setSubmitting(false);
+  };
+
+  // 🎯 Helper function: Category ke hisaab se list nikalna
+  const renderCategoryGrid = (groupName: string, categoryNames: string[]) => {
+    const groupCats = categories.filter(c => categoryNames.includes(c.name));
+    if (groupCats.length === 0) return null;
+
+    return (
+      <div className="mb-6">
+        <h3 className="text-sm font-bold text-gray-800 mb-3 ml-1">{groupName}</h3>
+        <div className="grid grid-cols-4 gap-y-4 gap-x-2">
+          {groupCats.map(c => (
+            <div 
+              key={c.id} 
+              onClick={() => setSelectedCategory(c.id === selectedCategory ? null : c.id)}
+              className={`flex flex-col items-center gap-1.5 p-2 rounded-xl cursor-pointer transition ${selectedCategory === c.id ? 'bg-indigo-50 border border-indigo-200 shadow-sm' : 'hover:bg-gray-50 border border-transparent'}`}
+            >
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${selectedCategory === c.id ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                {c.icon}
+              </div>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{c.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -89,23 +121,23 @@ export default function CustomerExplorePage() {
         </div>
       </div>
 
-      {/* Categories Grid */}
-      <div className="px-4 bg-white border-b border-gray-100 py-3">
-        <h2 className="text-sm font-bold text-gray-800 mb-3 px-1">All Categories</h2>
-        <div className="grid grid-cols-4 gap-3">
-          {categories.map(c => (
-            <div 
-              key={c.id} 
-              onClick={() => setSelectedCategory(c.id === selectedCategory ? null : c.id)}
-              className={`flex flex-col items-center gap-1 p-2 rounded-xl cursor-pointer transition ${selectedCategory === c.id ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-gray-50'}`}
-            >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${selectedCategory === c.id ? 'bg-indigo-100' : 'bg-gray-100'}`}>
-                {c.icon}
-              </div>
-              <span className="text-[9px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{c.name}</span>
-            </div>
-          ))}
+      {/* Categories Grid (Grouped) */}
+      <div className="px-4 bg-white border-b border-gray-100 py-4 rounded-b-3xl shadow-sm">
+        <div className="flex justify-between items-center mb-4 px-1">
+          <h2 className="text-sm font-bold text-gray-800">All Categories</h2>
+          {selectedCategory && (
+            <button onClick={() => setSelectedCategory(null)} className="text-xs font-bold text-red-500">Clear Filter</button>
+          )}
         </div>
+        
+        {/* Render Groups */}
+        {renderCategoryGrid('Home & Repair Services', categoryGroups['Home & Repair Services'])}
+        {renderCategoryGrid('IT, Telecom & Tech', categoryGroups['IT, Telecom & Tech'])}
+        {renderCategoryGrid('Transport & Delivery', categoryGroups['Transport & Delivery'])}
+        {renderCategoryGrid('Shopping & Daily Needs', categoryGroups['Shopping & Daily Needs'])}
+        {renderCategoryGrid('Education & Digital', categoryGroups['Education & Digital'])}
+        {renderCategoryGrid('Financial & Loan Services', categoryGroups['Financial & Loans'])}
+        
       </div>
 
       {/* Services List */}
@@ -141,7 +173,7 @@ export default function CustomerExplorePage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
             <h2 className="text-xl font-bold text-gray-800">Request Custom Service</h2>
-            <p className="text-xs text-gray-500 mb-2">Aapko jo service chahiye wo yahan likhein. Admin approve karne ke baad ye service add ho jayegi.</p>
+            <p className="text-xs text-gray-500 mb-2">Jo service list me nahi hai, wo yahan request karein.</p>
             
             <div>
               <label className="text-sm font-bold text-gray-700">Service Name *</label>
