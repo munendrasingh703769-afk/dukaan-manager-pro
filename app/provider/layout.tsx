@@ -93,6 +93,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     { name: 'Plans & Upgrade', path: '/provider/plans', icon: '🚀' },
     { name: 'Settings', path: '/provider/settings', icon: '⚙️' },
     { name: 'My Profile', path: '/provider/profile', icon: '👤' },
+{ name: 'Support Tickets', path: '/provider/support', icon: '🎧' },
   ];
 
   return (
