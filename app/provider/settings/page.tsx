@@ -104,17 +104,34 @@ export default function ProviderSettingsPage() {
         </div>
       </div>
 
+            {/* PAYMENT & WEB SETTINGS */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-        <h2 className="text-lg font-bold text-gray-800 border-b pb-2">Payment & Web</h2>
+        <h2 className="text-lg font-bold text-gray-800 border-b pb-2 flex items-center gap-2">
+          💳 Payment & Web Settings
+        </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-bold text-gray-700">UPI ID (For payments)</label>
-            <input type="text" placeholder="e.g. shop@upi" value={settings.upi_id} onChange={e => setSettings({...settings, upi_id: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
+          <div className="md:col-span-2 bg-blue-50 p-4 rounded-xl border border-blue-100">
+            <label className="text-sm font-bold text-blue-900">UPI ID (Mandatory for receiving online payments) *</label>
+            <input 
+              type="text" 
+              placeholder="e.g. yourname@okhdfcbank or 9876543210@paytm" 
+              value={settings.upi_id} 
+              onChange={e => setSettings({...settings, upi_id: e.target.value})} 
+              className="w-full p-3 border border-blue-200 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500 font-medium" 
+            />
+            <p className="text-xs text-blue-600 mt-1">Customer isi UPI par QR scan karke aapko direct payment karega.</p>
           </div>
-          <div>
+
+          <div className="md:col-span-2">
             <label className="text-sm font-bold text-gray-700">Website Link (Optional)</label>
-            <input type="text" placeholder="e.g. www.myshop.com" value={settings.website} onChange={e => setSettings({...settings, website: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
+            <input 
+              type="text" 
+              placeholder="e.g. www.myshop.com" 
+              value={settings.website} 
+              onChange={e => setSettings({...settings, website: e.target.value})} 
+              className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" 
+            />
           </div>
         </div>
       </div>
