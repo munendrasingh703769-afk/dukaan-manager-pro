@@ -1,239 +1,235 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { getCurrentBusinessId } from '@/lib/business'
 import ChatModal from '@/components/ui/ChatModal'
 
-export default function CustomerBookingsPage() {
+type Service = { id: string; name: string; price: number; }
+type Worker = { id: string; name: string; role: string; }
+type Booking = { 
+  id: string; customer_name: string; customer_phone: string; 
+  booking_date: string; booking_time: string; status: string; 
+  notes: string; service_id: string; assigned_worker_id: string | null;
+  payment_status: string; utr_number: string | null;
+  completion_otp: string | null; // 👈 Naya field
+}
+
+export default function ProviderBookingsPage() {
   const supabase = createClient();
-  const [bookings, setBookings] = useState<any[]>([]);
+  const activeId = getCurrentBusinessId();
+
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
-
+  
   const [chatBookingId, setChatBookingId] = useState<string | null>(null);
-  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<any>(null);
-  const [utrNumber, setUtrNumber] = useState('');
-  const [providerUpi, setProviderUpi] = useState('');
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [reviewForm, setReviewForm] = useState({ rating: 5, text: '', name: '' });
 
-  const fetchBookings = async () => {
+  const fetchData = async () => {
+    if (!activeId) return;
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      setBookings([]);
-      setLoading(false);
-      return;
-    }
 
-    const { data } = await supabase
+    const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId);
+    if (servData) setServices(servData);
+
+    const { data: workerData } = await supabase.from('provider_workers').select('*').eq('business_id', activeId).eq('status', 'active');
+    if (workerData) setWorkers(workerData);
+
+    const { data: bookData } = await supabase
       .from('service_bookings')
-      .select(`
-        *,
-        services:service_id (name, price, business_id)
-      `)
-      .eq('customer_id', user.id) 
+      .select('*')
+      .eq('provider_business_id', activeId)
       .order('created_at', { ascending: false });
+    if (bookData) setBookings(bookData as any);
 
-    if (data) setBookings(data);
     setLoading(false);
   };
 
-  useEffect(() => { fetchBookings(); }, []);
+  useEffect(() => { fetchData(); }, [activeId]);
 
-  const openPayModal = async (booking: any) => {
-    setSelectedBooking(booking);
-    setIsPayModalOpen(true);
+  // --- UPDATE STATUS (With OTP Generation) ---
+  const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
+    let updateData: any = { status: newStatus };
+
+    // Agar Accept kiya hai, toh 4-digit OTP generate karo
+    if (newStatus === 'accepted') {
+      updateData.completion_otp = Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
+    const { error } = await supabase.from('service_bookings').update(updateData).eq('id', bookingId);
     
-    if (booking.services?.business_id) {
-      const { data } = await supabase.from('businesses').select('upi_id').eq('id', booking.services.business_id).single();
-      if (data && data.upi_id) setProviderUpi(data.upi_id);
-      else setProviderUpi('provider@upi'); 
+    if (!error) {
+      setBookings(bookings.map(b => 
+        b.id === bookingId 
+          ? { ...b, status: newStatus, completion_otp: updateData.completion_otp || b.completion_otp } 
+          : b
+      ));
     }
   };
 
-  const handlePaymentSubmit = async () => {
-    if (utrNumber.length < 8) return alert("Please enter a valid UTR/Transaction ID");
-    
-    const { error } = await supabase.from('service_bookings').update({
-      payment_status: 'pending_verification',
-      utr_number: utrNumber
-    }).eq('id', selectedBooking.id);
-
+  // --- ASSIGN WORKER ---
+  const handleAssignWorker = async (bookingId: string, workerId: string) => {
+    const { error } = await supabase.from('service_bookings').update({ assigned_worker_id: workerId || null }).eq('id', bookingId);
     if (!error) {
-      alert("Payment details submitted! Provider will verify soon.");
-      setIsPayModalOpen(false);
-      setUtrNumber('');
-      fetchBookings();
-    } else alert("Error: " + error.message);
+      setBookings(bookings.map(b => b.id === bookingId ? { ...b, assigned_worker_id: workerId || null } : b));
+    }
   };
 
-  const handleSubmitReview = async () => {
-    if (!reviewForm.name) return alert("Please enter your name");
-    
-    const { error } = await supabase.from('reviews').insert([{
-      provider_business_id: selectedBooking.services.business_id,
-      customer_name: reviewForm.name,
-      rating: reviewForm.rating,
-      review_text: reviewForm.text
-    }]);
-
+  // --- VERIFY PAYMENT ---
+  const handleVerifyPayment = async (bookingId: string) => {
+    const { error } = await supabase.from('service_bookings').update({ payment_status: 'paid' }).eq('id', bookingId);
     if (!error) {
-      alert("Thank you for your feedback! ⭐");
-      setIsReviewModalOpen(false);
-    } else alert("Error: " + error.message);
+      setBookings(bookings.map(b => b.id === bookingId ? { ...b, payment_status: 'paid' } : b));
+      alert("Payment Verified Successfully!");
+    }
   };
 
-  const generateUpiLink = () => {
-    if (!selectedBooking) return '#';
-    const amount = selectedBooking.services?.price || 0;
-    return `upi://pay?pa=${providerUpi}&pn=ServiceProvider&am=${amount}&cu=INR`;
+  const getServiceDetails = (serviceId: string) => {
+    const service = services.find(s => s.id === serviceId);
+    return service ? { name: service.name, price: service.price } : { name: 'Unknown', price: 0 };
   };
 
   if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading Bookings...</div>;
 
   return (
-    <div className="max-w-2xl mx-auto p-4 space-y-4 bg-gray-50 min-h-screen">
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4">
-        <h1 className="text-xl font-bold text-gray-800">My Bookings</h1>
-        <Link href="/customer" className="text-sm font-bold text-blue-600">← Back Home</Link>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+        <div>
+          <h1 className="text-xl font-bold text-gray-800">All Bookings</h1>
+          <p className="text-sm text-gray-500">Manage jobs, payments & assign workers</p>
+        </div>
+        <button onClick={fetchData} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-gray-200 transition">
+          🔄 Refresh
+        </button>
       </div>
 
       {bookings.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-          <p className="text-gray-500 text-lg">Aapne abhi tak koi booking nahi ki hai.</p>
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+          <div className="text-5xl mb-4">📭</div>
+          <p className="text-gray-800 font-bold text-lg">Abhi tak koi booking nahi aayi.</p>
         </div>
       ) : (
-        bookings.map((b) => (
-          <div key={b.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-bold text-lg text-gray-800">{b.services?.name || 'Service'}</h3>
-                <p className="text-sm text-gray-500">Amount: ₹{b.services?.price || 0}</p>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <span className={`px-3 py-1 text-xs font-bold rounded-full ${
-                  b.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
-                  b.status === 'accepted' ? 'bg-blue-100 text-blue-700' : 
-                  b.status === 'completed' ? 'bg-green-100 text-green-700' : 
-                  'bg-red-100 text-red-700'
-                }`}>
-                  {b.status.toUpperCase()}
-                </span>
-                {b.payment_status === 'paid' && <span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded font-bold">PAID</span>}
-                {b.payment_status === 'pending_verification' && <span className="text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded font-bold">VERIFYING</span>}
-              </div>
-            </div>
-            
-            <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg flex justify-between items-center">
-              <div>
-                <p><b>Date:</b> {b.booking_date} | {b.booking_time}</p>
-                {b.notes && <p className="mt-1 italic text-gray-500">"{b.notes}"</p>}
-              </div>
-              {b.payment_status !== 'paid' && (
-                <button onClick={() => openPayModal(b)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md">
-                  Pay ₹{b.services?.price}
-                </button>
-              )}
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {bookings.map((booking) => {
+            const serviceDetails = getServiceDetails(booking.service_id);
+            const assignedWorker = workers.find(w => w.id === booking.assigned_worker_id);
 
-            {/* 👇 OTP DISPLAY BOX */}
-            {(b.status === 'accepted' || b.status === 'in_progress') && b.completion_otp && (
-              <div className="bg-orange-50 border border-orange-200 p-3 rounded-xl text-center">
-                <p className="text-xs font-bold text-orange-800 mb-1">Give this OTP to Worker after job completion:</p>
-                <p className="text-2xl font-black text-orange-600 tracking-widest">{b.completion_otp}</p>
+            return (
+              <div key={booking.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 relative overflow-hidden flex flex-col">
+                
+                <div className={`absolute top-0 left-0 w-1.5 h-full ${
+                    booking.status === 'pending' ? 'bg-yellow-400' : 
+                    booking.status === 'accepted' ? 'bg-blue-500' : 
+                    booking.status === 'completed' ? 'bg-green-500' : 'bg-red-500'
+                  }`}></div>
+
+                <div className="flex justify-between items-start pl-2">
+                  <div>
+                    <h3 className="font-bold text-lg text-gray-800">{serviceDetails.name}</h3>
+                    <p className="text-sm text-purple-600 font-bold bg-purple-50 inline-block px-2 py-0.5 rounded mt-1">
+                      ₹{serviceDetails.price}
+                    </p>
+                  </div>
+                  <span className={`px-3 py-1 text-xs font-bold rounded-full border ${
+                    booking.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 
+                    booking.status === 'accepted' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
+                    booking.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : 
+                    'bg-red-50 text-red-700 border-red-200'
+                  }`}>
+                    {booking.status.toUpperCase()}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 bg-gray-50 p-4 rounded-xl ml-2">
+                  <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Customer</span> <span className="font-medium">{booking.customer_name}</span></p>
+                  <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Phone</span> <span className="font-medium text-blue-600">{booking.customer_phone}</span></p>
+                  <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Date</span> <span className="font-medium">{booking.booking_date}</span></p>
+                  <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Time</span> <span className="font-medium">{booking.booking_time || 'Any time'}</span></p>
+                </div>
+
+                {/* OTP DISPLAY (Provider ko bhi dikhega) */}
+                {booking.completion_otp && booking.status !== 'completed' && (
+                  <div className="ml-2 bg-orange-50 border border-orange-200 p-2 rounded-xl text-center">
+                    <p className="text-[10px] text-orange-800 font-bold uppercase">Customer OTP</p>
+                    <p className="text-xl font-black text-orange-600 tracking-widest">{booking.completion_otp}</p>
+                  </div>
+                )}
+
+                {/* PAYMENT STATUS */}
+                <div className="ml-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs font-bold text-indigo-800">Payment Status:</p>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      booking.payment_status === 'paid' ? 'bg-green-500 text-white' : 
+                      booking.payment_status === 'pending_verification' ? 'bg-orange-500 text-white' : 
+                      'bg-gray-300 text-gray-700'
+                    }`}>
+                      {booking.payment_status?.toUpperCase() || 'UNPAID'}
+                    </span>
+                  </div>
+
+                  {booking.utr_number && (
+                    <p className="text-xs text-indigo-700 mt-2">UTR: <span className="select-all font-mono font-bold">{booking.utr_number}</span></p>
+                  )}
+
+                  {booking.payment_status === 'pending_verification' && (
+                    <button onClick={() => handleVerifyPayment(booking.id)} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold text-xs shadow-sm mt-2">
+                      Verify & Mark as Paid
+                    </button>
+                  )}
+                </div>
+
+                {/* WORKER ASSIGNMENT */}
+                {(booking.status === 'accepted' || booking.status === 'completed') && (
+                  <div className="ml-2 p-3 bg-gray-50 rounded-xl border border-gray-200 mt-auto">
+                    <label className="text-xs font-bold text-gray-700 block mb-2">Assign to Worker:</label>
+                    <select 
+                      value={booking.assigned_worker_id || ''} 
+                      onChange={(e) => handleAssignWorker(booking.id, e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white outline-none"
+                    >
+                      <option value="">-- Unassigned --</option>
+                      {workers.map(w => (
+                        <option key={w.id} value={w.id}>{w.name} ({w.role})</option>
+                      ))}
+                    </select>
+                    {assignedWorker && (
+                      <p className="text-xs text-green-600 font-bold mt-2">✓ Assigned to: {assignedWorker.name}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* CHAT BUTTON */}
+                <div className="ml-2">
+                  <button onClick={() => setChatBookingId(booking.id)} className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-2 rounded-xl font-bold text-sm">
+                    💬 Chat with Customer
+                  </button>
+                </div>
+
+                {/* ACTION BUTTONS */}
+                <div className="pt-2 pl-2">
+                  {booking.status === 'pending' && (
+                    <div className="flex space-x-3">
+                      <button onClick={() => handleUpdateStatus(booking.id, 'rejected')} className="flex-1 bg-white text-red-600 border border-red-200 py-2.5 rounded-xl font-bold hover:bg-red-50">Reject</button>
+                      <button onClick={() => handleUpdateStatus(booking.id, 'accepted')} className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-md">Accept</button>
+                    </div>
+                  )}
+                  {booking.status === 'accepted' && (
+                     <div className="text-center p-2 bg-blue-50 rounded-xl border border-blue-200">
+                       <p className="text-blue-700 font-bold text-xs">Worker will complete the job.</p>
+                     </div>
+                  )}
+                </div>
+
               </div>
-            )}
-
-            {/* CHAT BUTTON */}
-            <button 
-              onClick={() => setChatBookingId(b.id)}
-              className="w-full bg-indigo-50 text-indigo-700 py-2.5 rounded-lg font-bold text-sm border border-indigo-100 hover:bg-indigo-100 transition"
-            >
-              💬 Chat with Provider
-            </button>
-
-            {/* REVIEW BUTTON */}
-            {b.status === 'completed' && (
-              <button 
-                onClick={() => { setSelectedBooking(b); setIsReviewModalOpen(true); }}
-                className="w-full bg-yellow-400 text-yellow-900 py-2.5 rounded-lg font-bold text-sm shadow-md"
-              >
-                ⭐ Rate & Review Provider
-              </button>
-            )}
-          </div>
-        ))
+            );
+          })}
+        </div>
       )}
 
-      {/* CHAT MODAL */}
       {chatBookingId && (
-        <ChatModal bookingId={chatBookingId} role="customer" onClose={() => setChatBookingId(null)} />
-      )}
-
-      {/* PAYMENT MODAL */}
-      {isPayModalOpen && selectedBooking && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
-            <h2 className="text-xl font-bold text-gray-800">Pay ₹{selectedBooking.services?.price}</h2>
-            <p className="text-sm text-gray-500">Scan QR or use UPI ID to pay</p>
-            
-            <div className="bg-gray-100 p-4 rounded-xl flex justify-center">
-              <img 
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generateUpiLink())}`} 
-                alt="UPI QR Code" 
-                className="w-40 h-40 rounded-lg shadow-sm"
-              />
-            </div>
-
-            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-              <p className="text-xs text-gray-600 mb-1">Or send to UPI ID:</p>
-              <p className="font-bold text-blue-800 select-all">{providerUpi}</p>
-            </div>
-
-            <a href={generateUpiLink()} className="block w-full bg-green-500 text-white py-3 rounded-xl font-bold shadow-md">
-              Pay via UPI App
-            </a>
-
-            <div className="pt-4 border-t border-gray-200">
-              <label className="text-sm font-bold text-gray-700 block text-left mb-1">Enter 12-digit UTR / Ref No.</label>
-              <input 
-                type="text" 
-                placeholder="e.g. 123456789012" 
-                value={utrNumber}
-                onChange={e => setUtrNumber(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-xl outline-none text-center font-bold tracking-widest"
-              />
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <button onClick={() => setIsPayModalOpen(false)} className="flex-1 bg-gray-100 py-2 rounded-lg font-bold text-gray-700">Cancel</button>
-              <button onClick={handlePaymentSubmit} className="flex-1 bg-indigo-600 py-2 rounded-lg font-bold text-white">Submit</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* REVIEW MODAL */}
-      {isReviewModalOpen && selectedBooking && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
-            <h2 className="text-xl font-bold text-center">Rate Service</h2>
-            <div className="flex justify-center gap-2 text-4xl cursor-pointer">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <span key={star} onClick={() => setReviewForm({ ...reviewForm, rating: star })} className={star <= reviewForm.rating ? 'text-yellow-400' : 'text-gray-300'}>★</span>
-              ))}
-            </div>
-            <input type="text" placeholder="Your Name" value={reviewForm.name} onChange={e => setReviewForm({...reviewForm, name: e.target.value})} className="w-full p-3 border rounded-xl" />
-            <textarea placeholder="Your experience..." value={reviewForm.text} onChange={e => setReviewForm({...reviewForm, text: e.target.value})} className="w-full p-3 border rounded-xl" rows={3}></textarea>
-            <div className="flex gap-3">
-              <button onClick={() => setIsReviewModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold">Cancel</button>
-              <button onClick={handleSubmitReview} className="flex-1 bg-yellow-500 text-white py-3 rounded-xl font-bold">Submit</button>
-            </div>
-          </div>
-        </div>
+        <ChatModal bookingId={chatBookingId} role="provider" onClose={() => setChatBookingId(null)} />
       )}
     </div>
   );
