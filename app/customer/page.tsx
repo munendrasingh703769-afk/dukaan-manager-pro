@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+// Types update kiye hain taaki Business (Provider) ki details bhi aayein
 type Service = {
   id: string;
   name: string;
@@ -12,6 +13,11 @@ type Service = {
   description: string;
   business_id: string;
   category_id: string;
+  businesses: {
+    name: string;
+    city: string;
+    logo_url: string;
+  };
 };
 
 type Category = {
@@ -26,11 +32,13 @@ export default function CustomerHome() {
 
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔍 Search & Filter States
+  // 🔍 Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string>('All'); // Naya City Filter
 
   // Booking Modal States
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -43,13 +51,27 @@ export default function CustomerHome() {
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteForm, setQuoteForm] = useState({ requirement: '', details: '', phone: '', name: '' });
 
-  // Fetch Services & Categories
+  // Fetch Services & Categories (With Business Join)
   const fetchData = async () => {
     setLoading(true);
     
-    // 1. Fetch Services
-    const { data: servData } = await supabase.from('services').select('*').eq('is_active', true);
-    if (servData) setServices(servData);
+    // 1. Fetch Services with Business Details (JOIN)
+    // Yahan hum businesses table se name, city, logo fetch kar rahe hain
+    const { data: servData } = await supabase
+      .from('services')
+      .select(`
+        *,
+        businesses!inner (name, city, logo_url)
+      `)
+      .eq('is_active', true);
+      
+    if (servData) {
+      setServices(servData as any);
+      
+      // Extract unique cities for the filter dropdown
+      const uniqueCities = Array.from(new Set(servData.map((s: any) => s.businesses?.city).filter(Boolean)));
+      setCities(uniqueCities as string[]);
+    }
 
     // 2. Fetch Categories
     const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true).limit(4);
@@ -67,14 +89,18 @@ export default function CustomerHome() {
     router.push('/login');
   };
 
-  // --- FILTER LOGIC (Search + Category) ---
+  // --- FILTER LOGIC (Search + Category + City) ---
   const filteredServices = services.filter(service => {
     const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (service.description && service.description.toLowerCase().includes(searchQuery.toLowerCase()));
+                          (service.description && service.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          (service.businesses?.name && service.businesses.name.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesCategory = selectedCategory ? service.category_id === selectedCategory : true;
     
-    return matchesSearch && matchesCategory;
+    // City Filter Logic
+    const matchesCity = selectedCity === 'All' ? true : service.businesses?.city === selectedCity;
+    
+    return matchesSearch && matchesCategory && matchesCity;
   });
 
   // --- SUBMIT BOOKING ---
@@ -167,17 +193,32 @@ export default function CustomerHome() {
 
       <div className="px-5 mt-6 space-y-6 max-w-2xl mx-auto">
         
-        {/* 🔍 Search Bar (Functional) */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 flex items-center p-2 relative z-20 -mt-12">
-          <span className="text-gray-400 pl-3">🔍</span>
-          <input 
-            type="text" 
-            placeholder="Search shops, products, services..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-transparent outline-none text-sm p-3 text-gray-700 font-medium" 
-          />
-          <button className="bg-indigo-50 text-indigo-600 font-bold px-4 py-2 rounded-xl text-sm">Go</button>
+        {/* 🔍 Search Bar & City Filter */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col md:flex-row items-center p-2 relative z-20 -mt-12 gap-2">
+          <div className="flex-1 flex items-center w-full">
+            <span className="text-gray-400 pl-3">🔍</span>
+            <input 
+              type="text" 
+              placeholder="Search services or shop names..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-transparent outline-none text-sm p-3 text-gray-700 font-medium" 
+            />
+          </div>
+          
+          {/* 📍 City Dropdown */}
+          <div className="w-full md:w-auto border-t md:border-t-0 md:border-l border-gray-200 pt-2 md:pt-0 pl-0 md:pl-2">
+            <select 
+              value={selectedCity} 
+              onChange={(e) => setSelectedCity(e.target.value)}
+              className="w-full md:w-auto p-2 bg-gray-50 rounded-lg text-sm font-bold text-gray-700 outline-none"
+            >
+              <option value="All">📍 All Cities</option>
+              {cities.map(city => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* 📝 My Estimate Requests */}
@@ -219,7 +260,7 @@ export default function CustomerHome() {
         <section>
           <div className="flex justify-between items-center mb-3 mt-4">
             <h2 className="text-lg font-bold text-gray-800">
-              {searchQuery || selectedCategory ? 'Search Results' : 'Services Near You'}
+              {searchQuery || selectedCategory || selectedCity !== 'All' ? 'Search Results' : 'Providers Near You'}
             </h2>
             <Link href="/customer/bookings" className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">My Bookings</Link>
           </div>
@@ -229,20 +270,42 @@ export default function CustomerHome() {
           ) : filteredServices.length === 0 ? (
             <div className="bg-white p-8 rounded-xl text-center shadow-sm border border-gray-100">
               <p className="text-gray-800 font-bold text-lg mb-1">Kuch nahi mila! 😕</p>
-              <p className="text-sm text-gray-500">Kripya kuch aur search karein ya category change karein.</p>
+              <p className="text-sm text-gray-500">Kripya kuch aur search karein ya City change karein.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {filteredServices.map((service) => (
-                <div key={service.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-                  <div>
-                    <h4 className="font-bold text-gray-800">{service.name}</h4>
-                    <p className="text-xs text-gray-500 line-clamp-1">{service.description || 'No description'}</p>
-                    <p className="text-blue-600 font-bold mt-1 text-sm">₹{service.price}</p>
+                <div key={service.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3">
+                  
+                  {/* Provider Info Header */}
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
+                        {service.businesses?.logo_url ? (
+                          <img src={service.businesses.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs">🏪</span>
+                        )}
+                      </div>
+                      <div>
+                        <h5 className="font-bold text-sm text-gray-800">{service.businesses?.name || 'Local Provider'}</h5>
+                        <p className="text-[10px] text-gray-500 flex items-center gap-1">📍 {service.businesses?.city || 'City not set'}</p>
+                      </div>
+                    </div>
                   </div>
-                  <button onClick={() => { setSelectedService(service); setIsBookingModalOpen(true); }} className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg font-bold text-xs active:scale-95 transition">
-                    Book Now
-                  </button>
+
+                  {/* Service Details */}
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-bold text-gray-800 text-base">{service.name}</h4>
+                      <p className="text-xs text-gray-500 line-clamp-1">{service.description || 'No description'}</p>
+                      <p className="text-blue-600 font-black mt-1 text-lg">₹{service.price}</p>
+                    </div>
+                    <button onClick={() => { setSelectedService(service); setIsBookingModalOpen(true); }} className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-md active:scale-95 transition">
+                      Book Now
+                    </button>
+                  </div>
+
                 </div>
               ))}
             </div>
@@ -285,7 +348,11 @@ export default function CustomerHome() {
       {isBookingModalOpen && selectedService && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
-            <h2 className="text-xl font-bold text-gray-800">Book: {selectedService.name}</h2>
+            <div className="text-center mb-2">
+              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Booking with</p>
+              <h2 className="text-lg font-black text-indigo-700">{selectedService.businesses?.name}</h2>
+            </div>
+            <h2 className="text-xl font-bold text-gray-800">{selectedService.name}</h2>
             <p className="text-sm text-gray-500">Price: ₹{selectedService.price}</p>
             
             <input type="text" placeholder="Your Name *" value={bookingForm.name} onChange={e => setBookingForm({...bookingForm, name: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 focus:ring-indigo-500" />
