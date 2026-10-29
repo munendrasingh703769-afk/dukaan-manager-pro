@@ -2,21 +2,31 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function CustomerExplorePage() {
   const supabase = createClient();
+  const router = useRouter();
+
   const [services, setServices] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Custom Request Modal States
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Custom Request States
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [customReq, setCustomReq] = useState({ name: '', category: '', description: '' });
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingCustom, setSubmittingCustom] = useState(false);
 
-  // 🎯 Category Groups define karna (Visual Grouping)
+  // 🎯 Booking Modal States (Naya add kiya hai)
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<any>(null);
+  const [bookingForm, setBookingForm] = useState({
+    name: '', phone: '', date: new Date().toISOString().split("T")[0], time: '10:00', notes: ''
+  });
+  const [bookingLoading, setBookingLoading] = useState(false);
+
   const categoryGroups = {
     'Home & Repair Services': ['AC & Appliance', 'Plumber', 'Electrician', 'Carpenter', 'Painter', 'Labour & Helper', 'Home Cleaning', 'Pest Control', 'Packers & Movers'],
     'IT, Telecom & Tech': ['Wi-Fi & Internet', 'CCTV & Security', 'Computer & Laptop', 'Mobile Repair'],
@@ -46,10 +56,10 @@ export default function CustomerExplorePage() {
     ? services.filter(s => s.category_id === selectedCategory) 
     : services;
 
+  // --- SUBMIT CUSTOM REQUEST ---
   const handleCustomRequest = async () => {
     if (!customReq.name) return alert("Kripya service ka naam likhein.");
-    
-    setSubmitting(true);
+    setSubmittingCustom(true);
     const { data: { user } } = await supabase.auth.getUser();
 
     const { error } = await supabase.from('custom_service_requests').insert([{
@@ -61,15 +71,54 @@ export default function CustomerExplorePage() {
 
     if (!error) {
       alert("Aapki request Admin ko bhej di gayi hai!");
-      setIsModalOpen(false);
+      setIsCustomModalOpen(false);
       setCustomReq({ name: '', category: '', description: '' });
     } else {
       alert("Error: " + error.message);
     }
-    setSubmitting(false);
+    setSubmittingCustom(false);
   };
 
-  // 🎯 Helper function: Category ke hisaab se list nikalna
+  // --- SUBMIT SERVICE BOOKING ---
+  const handleBookService = async () => {
+    if (!bookingForm.name || !bookingForm.phone) return alert("Name and Phone required");
+    if (!selectedService) return;
+
+    setBookingLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const payload = {
+      service_id: selectedService.id,
+      provider_business_id: selectedService.business_id,
+      customer_name: bookingForm.name,
+      customer_phone: bookingForm.phone,
+      booking_date: bookingForm.date,
+      booking_time: bookingForm.time,
+      notes: bookingForm.notes,
+      status: 'pending',
+      customer_id: user?.id || null 
+    };
+
+    const { error } = await supabase.from('service_bookings').insert([payload]);
+    
+    if (!error) {
+      // Provider ko Notification bhejein
+      await supabase.from('notifications').insert([{
+        business_id: selectedService.business_id,
+        title: 'New Booking Received! 🎉',
+        message: `${bookingForm.name} booked ${selectedService.name} for ₹${selectedService.price}.`,
+        type: 'booking'
+      }]);
+
+      alert("Booking Successful! Provider will contact you.");
+      setIsBookingModalOpen(false);
+      router.push('/customer/bookings'); // Redirect to My Bookings
+    } else {
+      alert("Error: " + error.message);
+    }
+    setBookingLoading(false);
+  };
+
   const renderCategoryGrid = (groupName: string, categoryNames: string[]) => {
     const groupCats = categories.filter(c => categoryNames.includes(c.name));
     if (groupCats.length === 0) return null;
@@ -107,7 +156,7 @@ export default function CustomerExplorePage() {
       {/* Custom Request Banner */}
       <div className="p-4">
         <div 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => setIsCustomModalOpen(true)}
           className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 shadow-lg flex items-center justify-between cursor-pointer active:scale-95 transition"
         >
           <div className="flex items-center gap-3">
@@ -130,7 +179,6 @@ export default function CustomerExplorePage() {
           )}
         </div>
         
-        {/* Render Groups */}
         {renderCategoryGrid('Home & Repair Services', categoryGroups['Home & Repair Services'])}
         {renderCategoryGrid('IT, Telecom & Tech', categoryGroups['IT, Telecom & Tech'])}
         {renderCategoryGrid('Transport & Delivery', categoryGroups['Transport & Delivery'])}
@@ -162,14 +210,19 @@ export default function CustomerExplorePage() {
                 <p className="text-xs text-gray-500 font-semibold">{service.businesses?.name} ({service.businesses?.city})</p>
                 <p className="text-blue-600 font-black mt-1 text-lg">₹{service.price}</p>
               </div>
-              <button onClick={() => alert("Booking feature coming soon!")} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md">Book Now</button>
+              <button 
+                onClick={() => { setSelectedService(service); setIsBookingModalOpen(true); }} 
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md"
+              >
+                Book Now
+              </button>
             </div>
           ))
         )}
       </div>
 
       {/* ================= CUSTOM REQUEST MODAL ================= */}
-      {isModalOpen && (
+      {isCustomModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
             <h2 className="text-xl font-bold text-gray-800">Request Custom Service</h2>
@@ -197,9 +250,41 @@ export default function CustomerExplorePage() {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setIsModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700 hover:bg-gray-200 transition">Cancel</button>
-              <button onClick={handleCustomRequest} disabled={submitting} className="flex-1 bg-indigo-600 py-3 rounded-xl font-bold text-white hover:bg-indigo-700 shadow-md transition disabled:opacity-50">
-                {submitting ? 'Sending...' : 'Send Request'}
+              <button onClick={() => setIsCustomModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700 hover:bg-gray-200 transition">Cancel</button>
+              <button onClick={handleCustomRequest} disabled={submittingCustom} className="flex-1 bg-indigo-600 py-3 rounded-xl font-bold text-white hover:bg-indigo-700 shadow-md transition disabled:opacity-50">
+                {submittingCustom ? 'Sending...' : 'Send Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= BOOKING MODAL (Naya) ================= */}
+      {isBookingModalOpen && selectedService && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="text-center mb-2">
+              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Booking with</p>
+              <h2 className="text-lg font-black text-indigo-700">{selectedService.businesses?.name}</h2>
+            </div>
+            
+            <h2 className="text-xl font-bold text-gray-800">{selectedService.name}</h2>
+            <p className="text-sm text-gray-500">Price: ₹{selectedService.price}</p>
+            
+            <input type="text" placeholder="Your Name *" value={bookingForm.name} onChange={e => setBookingForm({...bookingForm, name: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="tel" placeholder="Phone Number *" value={bookingForm.phone} onChange={e => setBookingForm({...bookingForm, phone: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 focus:ring-indigo-500" />
+            
+            <div className="grid grid-cols-2 gap-3">
+              <input type="date" value={bookingForm.date} onChange={e => setBookingForm({...bookingForm, date: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
+              <input type="time" value={bookingForm.time} onChange={e => setBookingForm({...bookingForm, time: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
+            </div>
+            
+            <input type="text" placeholder="Notes (Optional)" value={bookingForm.notes} onChange={e => setBookingForm({...bookingForm, notes: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
+
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setIsBookingModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700">Cancel</button>
+              <button onClick={handleBookService} disabled={bookingLoading} className="flex-1 bg-indigo-600 py-3 rounded-xl font-bold text-white disabled:opacity-50">
+                {bookingLoading ? 'Booking...' : 'Confirm Booking'}
               </button>
             </div>
           </div>
