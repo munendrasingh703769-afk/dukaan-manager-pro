@@ -15,7 +15,6 @@ export default function ProviderShopOrdersPage() {
     if (!activeId) return;
     setLoading(true);
 
-    // Orders fetch karna with Order Items aur Customer Details (profiles)
     const { data, error } = await supabase
       .from('orders')
       .select(`
@@ -34,29 +33,23 @@ export default function ProviderShopOrdersPage() {
 
   useEffect(() => { fetchOrders(); }, [activeId]);
 
-  // --- UPDATE ORDER STATUS & DEDUCT STOCK ---
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     if (newStatus === 'accepted') {
       if (!confirm("Accept this order? Product stock will be deducted automatically.")) return;
     }
 
-    // 1. Update status
     const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
     
     if (!error) {
-      // 2. Agar Accept kiya gaya hai, toh stock deduct karo
       if (newStatus === 'accepted') {
         const order = orders.find(o => o.id === orderId);
         for (const item of order.order_items) {
-          // Pehle current stock nikalna padega
           const { data: prod } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
           if (prod) {
             await supabase.from('products').update({ stock: prod.stock - item.qty }).eq('id', item.product_id);
           }
         }
       }
-
-      // Update local state
       setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     } else {
       alert("Error updating order: " + error.message);
@@ -68,7 +61,6 @@ export default function ProviderShopOrdersPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       
-      {/* HEADER */}
       <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Shop Orders</h1>
@@ -90,7 +82,6 @@ export default function ProviderShopOrdersPage() {
           {orders.map((order) => (
             <div key={order.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 flex flex-col">
               
-              {/* Order Header */}
               <div className="flex justify-between items-start border-b border-gray-100 pb-3">
                 <div>
                   <h3 className="font-bold text-lg text-gray-800">Order #{order.id.slice(0, 6).toUpperCase()}</h3>
@@ -99,20 +90,20 @@ export default function ProviderShopOrdersPage() {
                 <span className={`px-3 py-1 text-[10px] font-bold rounded-full border uppercase ${
                   order.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 
                   order.status === 'accepted' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
+                  order.status === 'out_for_delivery' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                  order.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
                   'bg-green-50 text-green-700 border-green-200'
                 }`}>
-                  {order.status}
+                  {order.status.replace('_', ' ')}
                 </span>
               </div>
 
-              {/* Customer Info */}
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
                 <p className="text-xs font-bold text-gray-500 uppercase mb-1">Customer Details</p>
                 <p className="text-sm font-bold text-gray-800">{order.profiles?.full_name || 'Customer'}</p>
                 <p className="text-xs text-blue-600 font-semibold">📞 {order.profiles?.phone || 'N/A'}</p>
               </div>
 
-              {/* Items List */}
               <div className="space-y-2 flex-1">
                 <p className="text-xs font-bold text-gray-500 uppercase">Items to Deliver</p>
                 {order.order_items.map((item: any) => (
@@ -126,14 +117,12 @@ export default function ProviderShopOrdersPage() {
                 ))}
               </div>
 
-              {/* Total & Action */}
               <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
                 <div>
                   <p className="text-xs text-gray-500 font-bold uppercase">Total Amount</p>
                   <p className="text-xl font-black text-indigo-600">₹{order.total_amount}</p>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex gap-2">
                   {order.status === 'pending' && (
                     <>
@@ -142,7 +131,10 @@ export default function ProviderShopOrdersPage() {
                     </>
                   )}
                   {order.status === 'accepted' && (
-                    <button onClick={() => handleUpdateStatus(order.id, 'completed')} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md">Mark Delivered</button>
+                    <button onClick={() => handleUpdateStatus(order.id, 'out_for_delivery')} className="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md">Dispatch Order</button>
+                  )}
+                  {order.status === 'out_for_delivery' && (
+                    <button onClick={() => handleUpdateStatus(order.id, 'delivered')} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md">Mark Delivered</button>
                   )}
                 </div>
               </div>
