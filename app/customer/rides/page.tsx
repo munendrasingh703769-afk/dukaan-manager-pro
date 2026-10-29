@@ -37,6 +37,13 @@ export default function ProviderRidesPage() {
           <h1 className="text-xl font-bold text-gray-800">Ride & Transport Requests</h1>
           <p className="text-sm text-gray-500">Accept passenger rides and parcels</p>
         </div>
+      <div className="bg-white p-4 sticky top-0 z-20 shadow-sm flex justify-between items-center">
+        <h1 className="text-xl font-bold text-gray-800">Rides & Transport</h1>
+        <div className="flex gap-2">
+          <Link href="/customer/my-rides" className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">My Rides</Link>
+          <Link href="/customer" className="text-sm font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg">Home</Link>
+        </div>
+      </div>
         <button onClick={fetchRides} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm">🔄 Refresh</button>
       </div>
 
