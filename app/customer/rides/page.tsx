@@ -1,98 +1,80 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getCurrentBusinessId } from '@/lib/business'
 
-export default function CustomerRidesPage() {
+export default function ProviderRidesPage() {
   const supabase = createClient();
-  const router = useRouter();
-  
-  const [rideType, setRideType] = useState('bike')
-  const [pickup, setPickup] = useState('')
-  const [drop, setDrop] = useState('')
-  const [loading, setLoading] = useState(false)
+  const activeId = getCurrentBusinessId();
+  const [rides, setRides] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleBookRide = async () => {
-    if (!pickup || !drop) return alert("Please enter pickup and drop location");
+  const fetchRides = async () => {
     setLoading(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    // Dummy fare calculation
-    const fare = rideType === 'bike' ? 50 : rideType === 'auto' ? 80 : rideType === 'car' ? 150 : 100;
-
-    const { error } = await supabase.from('ride_bookings').insert([{
-      customer_id: user?.id || null,
-      ride_type: rideType,
-      pickup_location: pickup,
-      drop_location: drop,
-      estimated_fare: fare,
-      status: 'searching'
-    }]);
-
-    if (!error) {
-      alert(`Searching for a ${rideType.toUpperCase()}... Fare: ₹${fare}`);
-      router.push('/customer');
-    } else {
-      alert("Error: " + error.message);
-    }
+    // Fetch searching rides (ya jo is provider ne accept ki hain)
+    const { data } = await supabase
+      .from('ride_bookings')
+      .select(`*, profiles:customer_id(full_name, phone)`)
+      .order('created_at', { ascending: false });
+      
+    if (data) setRides(data);
     setLoading(false);
-  }
+  };
+
+  useEffect(() => { fetchRides(); }, []);
+
+  const updateStatus = async (id: string, status: string) => {
+    const { error } = await supabase.from('ride_bookings').update({ status }).eq('id', id);
+    if (!error) fetchRides();
+    else alert(error.message);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="bg-white p-4 sticky top-0 z-20 shadow-sm flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-800">Rides & Transport</h1>
-        <Link href="/customer" className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">← Home</Link>
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+        <div>
+          <h1 className="text-xl font-bold text-gray-800">Ride & Transport Requests</h1>
+          <p className="text-sm text-gray-500">Accept passenger rides and parcels</p>
+        </div>
+        <button onClick={fetchRides} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm">🔄 Refresh</button>
       </div>
 
-      <div className="p-4 max-w-2xl mx-auto mt-4">
-        {/* Map Placeholder */}
-        <div className="w-full h-48 bg-gray-200 rounded-2xl mb-4 flex items-center justify-center border border-gray-300 relative overflow-hidden">
-           <p className="text-gray-500 font-bold text-sm">Map View (Coming Soon)</p>
-           <div className="absolute top-4 left-4 bg-white p-2 rounded-lg shadow text-xs font-bold">📍 Current Location</div>
+      {loading ? <p className="text-center font-bold text-blue-600">Loading...</p> : rides.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+          <p className="text-gray-800 font-bold text-lg">Abhi koi ride request nahi hai.</p>
         </div>
-
-        {/* Booking Form */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-          
-          <div className="relative">
-            <div className="absolute left-3 top-3 bottom-3 w-0.5 bg-gray-300"></div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full z-10 border-2 border-white shadow"></div>
-              <input type="text" placeholder="Pickup Location" value={pickup} onChange={e => setPickup(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium" />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {rides.map(ride => (
+            <div key={ride.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+              <div className="flex justify-between items-start">
+                <h3 className="font-bold text-lg text-indigo-700 capitalize">{ride.ride_type} Request</h3>
+                <span className={`px-2 py-1 text-[10px] font-bold rounded-full uppercase ${ride.status === 'searching' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{ride.status}</span>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                <p className="text-xs text-gray-500 font-bold uppercase mb-1">Customer</p>
+                <p className="text-sm font-bold">{ride.profiles?.full_name || 'Customer'}</p>
+                <p className="text-xs text-blue-600">📞 {ride.profiles?.phone || 'N/A'}</p>
+              </div>
+              <div className="space-y-2 relative">
+                <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-gray-300"></div>
+                <div className="flex items-center gap-3"><div className="w-2.5 h-2.5 bg-green-500 rounded-full z-10"></div><p className="text-sm font-medium">{ride.pickup_location}</p></div>
+                <div className="flex items-center gap-3"><div className="w-2.5 h-2.5 bg-red-500 rounded-full z-10"></div><p className="text-sm font-medium">{ride.drop_location}</p></div>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                <p className="font-black text-xl text-gray-800">₹{ride.estimated_fare}</p>
+                {ride.status === 'searching' && (
+                  <button onClick={() => updateStatus(ride.id, 'accepted')} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md">Accept Ride</button>
+                )}
+                {ride.status === 'accepted' && (
+                  <button onClick={() => updateStatus(ride.id, 'completed')} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-md">Complete Ride</button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-red-500 rounded-full z-10 border-2 border-white shadow"></div>
-              <input type="text" placeholder="Drop Location" value={drop} onChange={e => setDrop(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium" />
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <p className="text-sm font-bold text-gray-700 mb-2">Choose Ride Type</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setRideType('bike')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'bike' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🏍️</span><span className="text-xs font-bold">Bike Taxi</span>
-              </button>
-              <button onClick={() => setRideType('auto')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'auto' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🛺</span><span className="text-xs font-bold">Auto</span>
-              </button>
-              <button onClick={() => setRideType('car')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'car' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🚗</span><span className="text-xs font-bold">Car</span>
-              </button>
-              <button onClick={() => setRideType('parcel')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'parcel' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">📦</span><span className="text-xs font-bold">Parcel</span>
-              </button>
-            </div>
-          </div>
-
-          <button onClick={handleBookRide} disabled={loading} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md hover:bg-indigo-700 transition mt-4 disabled:opacity-50">
-            {loading ? 'Processing...' : `Book ${rideType.charAt(0).toUpperCase() + rideType.slice(1)}`}
-          </button>
+          ))}
         </div>
-      </div>
+      )}
     </div>
-  )
+  );
 }
