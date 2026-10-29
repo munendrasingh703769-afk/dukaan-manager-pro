@@ -88,6 +88,10 @@ export default function CustomerSuperAppHome() {
             <Link href="/customer/rides" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
               <span className="text-2xl">🏍️</span><span className="text-[10px] font-bold text-gray-700 text-center">Book Ride</span>
             </Link>
+        <Link href="/customer/orders" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
+          <span className="text-xl">📦</span>
+          <span className="text-[10px] font-medium">Orders</span>
+        </Link>
             <Link href="/customer/rides" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
               <span className="text-2xl">📦</span><span className="text-[10px] font-bold text-gray-700 text-center">Send Parcel</span>
             </Link>
