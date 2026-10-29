@@ -10,23 +10,16 @@ export default function CustomerBookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Chat State
   const [chatBookingId, setChatBookingId] = useState<string | null>(null);
-
-  // Payment State
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [utrNumber, setUtrNumber] = useState('');
   const [providerUpi, setProviderUpi] = useState('');
-
-  // Review State
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, text: '', name: '' });
 
   const fetchBookings = async () => {
     setLoading(true);
-    
-    // 1. Current User ki ID nikalna (Security ke liye)
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -35,7 +28,6 @@ export default function CustomerBookingsPage() {
       return;
     }
 
-    // 2. Sirf usi user ki bookings fetch karna
     const { data } = await supabase
       .from('service_bookings')
       .select(`
@@ -51,7 +43,6 @@ export default function CustomerBookingsPage() {
 
   useEffect(() => { fetchBookings(); }, []);
 
-  // --- OPEN PAYMENT MODAL ---
   const openPayModal = async (booking: any) => {
     setSelectedBooking(booking);
     setIsPayModalOpen(true);
@@ -63,7 +54,6 @@ export default function CustomerBookingsPage() {
     }
   };
 
-  // --- SUBMIT UTR ---
   const handlePaymentSubmit = async () => {
     if (utrNumber.length < 8) return alert("Please enter a valid UTR/Transaction ID");
     
@@ -80,7 +70,6 @@ export default function CustomerBookingsPage() {
     } else alert("Error: " + error.message);
   };
 
-  // --- SUBMIT REVIEW ---
   const handleSubmitReview = async () => {
     if (!reviewForm.name) return alert("Please enter your name");
     
@@ -150,6 +139,14 @@ export default function CustomerBookingsPage() {
               )}
             </div>
 
+            {/* 👇 OTP DISPLAY BOX */}
+            {(b.status === 'accepted' || b.status === 'in_progress') && b.completion_otp && (
+              <div className="bg-orange-50 border border-orange-200 p-3 rounded-xl text-center">
+                <p className="text-xs font-bold text-orange-800 mb-1">Give this OTP to Worker after job completion:</p>
+                <p className="text-2xl font-black text-orange-600 tracking-widest">{b.completion_otp}</p>
+              </div>
+            )}
+
             {/* CHAT BUTTON */}
             <button 
               onClick={() => setChatBookingId(b.id)}
@@ -171,12 +168,12 @@ export default function CustomerBookingsPage() {
         ))
       )}
 
-      {/* ================= CHAT MODAL ================= */}
+      {/* CHAT MODAL */}
       {chatBookingId && (
         <ChatModal bookingId={chatBookingId} role="customer" onClose={() => setChatBookingId(null)} />
       )}
 
-      {/* ================= PAYMENT MODAL ================= */}
+      {/* PAYMENT MODAL */}
       {isPayModalOpen && selectedBooking && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4 text-center">
@@ -219,7 +216,7 @@ export default function CustomerBookingsPage() {
         </div>
       )}
 
-      {/* ================= REVIEW MODAL ================= */}
+      {/* REVIEW MODAL */}
       {isReviewModalOpen && selectedBooking && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
