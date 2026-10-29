@@ -23,7 +23,18 @@ export default function ProviderRidesPage() {
   };
 
   useEffect(() => { fetchRides(); }, []);
+  const updateStatus = async (id: string, status: string) => {
+    const updateData: any = { status };
+    
+    // Agar accept kar raha hai, toh provider ki ID bhi save karo
+    if (status === 'accepted') {
+      updateData.provider_business_id = activeId;
+    }
 
+    const { error } = await supabase.from('ride_bookings').update(updateData).eq('id', id);
+    if (!error) fetchRides();
+    else alert(error.message);
+  };
   const updateStatus = async (id: string, status: string) => {
     const { error } = await supabase.from('ride_bookings').update({ status }).eq('id', id);
     if (!error) fetchRides();
