@@ -10,7 +10,6 @@ export default function CustomerSuperAppHome() {
   const supabase = createClient();
   const [categories, setCategories] = useState<any[]>([]);
 
-  // Quotation Modal State (Jo pehle se chal raha tha)
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteForm, setQuoteForm] = useState({ requirement: '', details: '', phone: '', name: '' });
 
@@ -48,7 +47,6 @@ export default function CustomerSuperAppHome() {
 
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
-      
       {/* 🟣 Premium Header 🟣 */}
       <header className="bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 rounded-b-[2.5rem] px-6 pt-12 pb-16 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
@@ -63,7 +61,6 @@ export default function CustomerSuperAppHome() {
           <button onClick={handleLogout} className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-4 py-2 rounded-lg text-xs font-bold active:scale-95 transition">Logout</button>
         </div>
         
-        {/* Location & Greeting */}
         <div className="relative z-10 mb-4">
           <p className="text-blue-100 text-xs font-bold mb-1 flex items-center gap-1">📍 Deliver to: <span className="text-white">Current Location</span></p>
           <h2 className="text-2xl font-black text-white leading-tight">Namaste,<br/>Aaj kya khareedna hai?</h2>
@@ -82,18 +79,18 @@ export default function CustomerSuperAppHome() {
         {/* ⚡ Quick Actions (Super App Features) */}
         <section>
           <div className="grid grid-cols-4 gap-2">
-            <Link href="/customer/explore" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
+            <Link href="/customer/shop" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
               <span className="text-2xl">🛒</span><span className="text-[10px] font-bold text-gray-700 text-center">Shop Now</span>
             </Link>
-            <Link href="/customer/services" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
+            <Link href="/customer/explore" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
               <span className="text-2xl">🛠️</span><span className="text-[10px] font-bold text-gray-700 text-center">Services</span>
             </Link>
-            <div onClick={() => alert("Ride booking coming soon!")} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition">
+            <Link href="/customer/rides" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
               <span className="text-2xl">🏍️</span><span className="text-[10px] font-bold text-gray-700 text-center">Book Ride</span>
-            </div>
-            <div onClick={() => alert("Parcel delivery coming soon!")} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-95 transition">
+            </Link>
+            <Link href="/customer/rides" className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 active:scale-95 transition">
               <span className="text-2xl">📦</span><span className="text-[10px] font-bold text-gray-700 text-center">Send Parcel</span>
-            </div>
+            </Link>
           </div>
         </section>
 
@@ -113,7 +110,7 @@ export default function CustomerSuperAppHome() {
         {/* 📦 Categories (Database Driven) */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-800">Explore Categories</h2>
+            <h2 className="text-lg font-bold text-gray-800">Explore Services</h2>
             <Link href="/customer/explore" className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">See All</Link>
           </div>
           <div className="grid grid-cols-4 gap-2">
@@ -123,25 +120,28 @@ export default function CustomerSuperAppHome() {
                 <p className="text-[10px] font-bold text-gray-700 truncate">{cat.name}</p>
               </Link>
             ))}
-            {categories.length === 0 && <p className="col-span-4 text-center text-sm text-gray-500 py-4">Admin ne abhi categories add nahi ki hain.</p>}
           </div>
         </section>
 
       </div>
 
-      {/* 📱 Bottom Navigation (Fixed) */}
+      {/* 📱 Bottom Navigation */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
         <Link href="/customer" className="flex flex-col items-center gap-1 text-indigo-600">
           <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center">🏠</div>
           <span className="text-[10px] font-bold">Home</span>
         </Link>
-        <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
-          <span className="text-xl">🧭</span>
-          <span className="text-[10px] font-medium">Explore</span>
+        <Link href="/customer/shop" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
+          <span className="text-xl">🛒</span>
+          <span className="text-[10px] font-medium">Shop</span>
         </Link>
-        <Link href="/customer/bookings" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
-          <span className="text-xl">📦</span>
-          <span className="text-[10px] font-medium">Orders</span>
+        <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
+          <span className="text-xl">🛠️</span>
+          <span className="text-[10px] font-medium">Services</span>
+        </Link>
+        <Link href="/customer/rides" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
+          <span className="text-xl">🏍️</span>
+          <span className="text-[10px] font-medium">Rides</span>
         </Link>
         <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
           <span className="text-xl">👤</span>
@@ -149,7 +149,7 @@ export default function CustomerSuperAppHome() {
         </Link>
       </nav>
 
-      {/* ================= QUOTATION MODAL ================= */}
+      {/* QUOTATION MODAL */}
       {isQuoteModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
