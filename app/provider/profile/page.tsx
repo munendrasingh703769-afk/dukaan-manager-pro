@@ -6,10 +6,10 @@ import { getCurrentBusinessId } from '@/lib/business'
 
 export default function ProviderProfilePage() {
   const supabase = createClient();
-  const activeId = getCurrentBusinessId();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -26,35 +26,51 @@ export default function ProviderProfilePage() {
   });
 
   // --- FETCH PROFILE ---
-  const fetchProfile = async () => {
-    if (!activeId) return;
-    setLoading(true);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const activeId = getCurrentBusinessId();
+        
+        if (!activeId) {
+          setErrorMsg("Aapka account login nahi hai. Kripya logout karke dobara login karein.");
+          setLoading(false);
+          return;
+        }
 
-    const { data, error } = await supabase.from('businesses').select('*').eq('id', activeId).single();
-    
-    if (data) {
-      setProfile({
-        name: data.name || '',
-        owner_name: data.owner_name || '',
-        phone: data.phone || '',
-        address: data.address || '',
-        city: data.city || '',
-        state: data.state || '',
-        pincode: data.pincode || '',
-        logo_url: data.logo_url || ''
-      });
-    }
-    setLoading(false);
-  };
+        const { data, error } = await supabase.from('businesses').select('*').eq('id', activeId).single();
+        
+        if (error) throw new Error("Database error: " + error.message);
 
-  useEffect(() => { fetchProfile(); }, [activeId]);
+        if (data) {
+          setProfile({
+            name: data.name || '',
+            owner_name: data.owner_name || '',
+            phone: data.phone || '',
+            address: data.address || '',
+            city: data.city || '',
+            state: data.state || '',
+            pincode: data.pincode || '',
+            logo_url: data.logo_url || ''
+          });
+        }
+      } catch (err: any) {
+        setErrorMsg(err.message || "Failed to load profile.");
+      } finally {
+        setLoading(false); // Chahe error aaye ya na aaye, loader 100% band hoga
+      }
+    };
+
+    fetchProfile();
+  }, [supabase]);
 
   // --- UPLOAD IMAGE ---
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !activeId) return;
+    if (!file) return;
 
-    // 5MB limit check (Master Ref requirement)
+    const activeId = getCurrentBusinessId();
+    if (!activeId) return alert("User not logged in");
+
     if (file.size > 5 * 1024 * 1024) return alert("File size 5MB se kam honi chahiye.");
 
     try {
@@ -62,24 +78,19 @@ export default function ProviderProfilePage() {
       
       const fileExt = file.name.split('.').pop();
       const fileName = `${activeId}-${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
 
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('business-assets')
-        .upload(filePath, file);
+        .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      // Get Public URL
       const { data: { publicUrl } } = supabase.storage
         .from('business-assets')
-        .getPublicUrl(filePath);
+        .getPublicUrl(fileName);
 
-      // Update local state
       setProfile({ ...profile, logo_url: publicUrl });
 
-      // Save immediately to DB
       await supabase.from('businesses').update({ logo_url: publicUrl }).eq('id', activeId);
       
     } catch (error: any) {
@@ -92,6 +103,9 @@ export default function ProviderProfilePage() {
   // --- SAVE PROFILE ---
   const handleSave = async () => {
     if (!profile.name) return alert("Business Name required");
+    const activeId = getCurrentBusinessId();
+    if (!activeId) return;
+
     setSaving(true);
 
     const { error } = await supabase.from('businesses').update({
@@ -112,12 +126,32 @@ export default function ProviderProfilePage() {
     setSaving(false);
   };
 
-  if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading Profile...</div>;
+  // --- LOADING SCREEN ---
+  if (loading) {
+    return (
+      <div className="flex flex-col h-[60vh] items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-lg font-bold text-blue-600">Loading Profile...</p>
+      </div>
+    );
+  }
 
+  // --- ERROR SCREEN ---
+  if (errorMsg) {
+    return (
+      <div className="flex flex-col h-[60vh] items-center justify-center bg-red-50 p-6 rounded-2xl border border-red-200 text-center">
+        <span className="text-5xl mb-4">⚠️</span>
+        <h2 className="text-xl font-bold text-red-800 mb-2">Oops! Kuch galat ho gaya.</h2>
+        <p className="text-red-600 font-medium max-w-md">{errorMsg}</p>
+        <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-xl font-bold">Try Again</button>
+      </div>
+    );
+  }
+
+  // --- MAIN PROFILE UI ---
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       
-      {/* HEADER */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <h1 className="text-xl font-bold text-gray-800">My Profile & Settings</h1>
         <p className="text-sm text-gray-500">Update your business details and photo</p>
@@ -138,7 +172,6 @@ export default function ProviderProfilePage() {
                 <span className="text-3xl text-gray-400">🏪</span>
               )}
               
-              {/* Hover effect for upload */}
               <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white text-xs font-bold">
                 {uploading ? '...' : 'CHANGE'}
               </div>
