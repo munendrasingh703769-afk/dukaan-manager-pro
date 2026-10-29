@@ -5,74 +5,113 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
 
-type Booking = { id: string; status: string; service_id: string; customer_name: string; created_at: string; }
-type Quotation = { id: string; status: string; }
-type Expense = { id: string; amount: number; }
-
 export default function ProviderDashboardHome() {
   const supabase = createClient();
-  const activeId = getCurrentBusinessId();
-
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [services, setServices] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+  
+  // Data States
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
-      // Agar activeId nahi hai (user login nahi hai), toh loader hatao
-      if (!activeId) {
-        setLoading(false);
-        return;
-      }
-
       try {
-        // Hum saari queries ek saath (Parallel) run karenge taaki time bache
-        const [servRes, bookRes, quoteRes, expRes] = await Promise.all([
-          supabase.from('services').select('*').eq('business_id', activeId),
-          supabase.from('service_bookings').select('*').eq('provider_business_id', activeId).order('created_at', { ascending: false }),
-          supabase.from('quotations').select('*').eq('provider_business_id', activeId),
-          supabase.from('expenses').select('*').eq('business_id', activeId)
-        ]);
+        // 1. Get Active ID
+        const activeId = getCurrentBusinessId();
+        
+        if (!activeId) {
+          setErrorMsg("Aapka account login nahi hai ya Business ID nahi mili. Kripya logout karke dobara login karein.");
+          setLoading(false);
+          return;
+        }
 
-        // Data mila toh set karo, error aaya toh ignore karo
-        if (servRes.data) setServices(servRes.data);
-        if (bookRes.data) setBookings(bookRes.data as any);
-        if (quoteRes.data) setQuotations(quoteRes.data as any);
-        if (expRes.data) setExpenses(expRes.data as any);
+        // 2. Fetch Services (First test query)
+        const { data: servData, error: servErr } = await supabase
+          .from('services')
+          .select('*')
+          .eq('business_id', activeId);
+          
+        if (servErr) throw new Error("Services fetch error: " + servErr.message);
+        setServices(servData || []);
 
-      } catch (error) {
-        console.error("Dashboard fetch error:", error);
+        // 3. Fetch Bookings
+        const { data: bookData, error: bookErr } = await supabase
+          .from('service_bookings')
+          .select('*')
+          .eq('provider_business_id', activeId)
+          .order('created_at', { ascending: false });
+          
+        if (bookErr) console.error("Bookings error:", bookErr.message); // Don't crash if this fails
+        if (bookData) setBookings(bookData);
+
+        // 4. Fetch Quotations
+        const { data: quoteData, error: quoteErr } = await supabase
+          .from('quotations')
+          .select('*')
+          .eq('provider_business_id', activeId);
+        if (quoteData) setQuotations(quoteData);
+
+        // 5. Fetch Expenses
+        const { data: expData, error: expErr } = await supabase
+          .from('expenses')
+          .select('*')
+          .eq('business_id', activeId);
+        if (expData) setExpenses(expData);
+
+      } catch (err: any) {
+        // Agar koi bhi error aaya, toh screen par dikhao
+        setErrorMsg(err.message || "Ek unknown error aaya hai.");
       } finally {
-        // Chahe error aaye ya na aaye, Loader ko HAMESHA band karo
+        // CHAHE ERROR AAYE YA NA AAYE, LOADER BAND HOGA
         setLoading(false);
       }
     };
-    
-    fetchData();
-  }, [activeId]);
 
+    fetchData();
+  }, [supabase]);
+
+  // --- LOADING SCREEN ---
+  if (loading) {
+    return (
+      <div className="flex flex-col h-[60vh] items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-lg font-bold text-blue-600">Loading Dashboard...</p>
+      </div>
+    );
+  }
+
+  // --- ERROR SCREEN ---
+  if (errorMsg) {
+    return (
+      <div className="flex flex-col h-[60vh] items-center justify-center bg-red-50 p-6 rounded-2xl border border-red-200 text-center">
+        <span className="text-5xl mb-4">⚠️</span>
+        <h2 className="text-xl font-bold text-red-800 mb-2">Oops! Kuch galat ho gaya.</h2>
+        <p className="text-red-600 font-medium max-w-md">{errorMsg}</p>
+        <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-xl font-bold">Try Again</button>
+      </div>
+    );
+  }
+
+  // --- DATA CALCULATIONS ---
   const getServicePrice = (serviceId: string) => {
     const s = services.find((x: any) => x.id === serviceId);
     return s ? s.price : 0;
   };
 
-  // --- CALCULATIONS ---
   const totalBookings = bookings.length;
   const pendingBookings = bookings.filter(b => b.status === 'pending').length;
   const pendingQuotes = quotations.filter(q => q.status === 'pending').length;
-  
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const totalEarnings = completedBookings.reduce((acc, curr) => acc + getServicePrice(curr.service_id), 0);
-  
   const totalExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
   const netProfit = totalEarnings - totalExpenses;
-
   const recentBookings = bookings.slice(0, 5);
 
-  if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading Dashboard...</div>;
-
+  // --- MAIN DASHBOARD ---
   return (
     <div className="space-y-6">
       
@@ -91,34 +130,29 @@ export default function ProviderDashboardHome() {
 
       {/* STATS CARDS GRID */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        
         <Link href="/provider/bookings" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl mb-3">📦</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">Total Bookings</p>
           <h3 className="text-2xl font-bold text-gray-800">{totalBookings}</h3>
         </Link>
-
         <Link href="/provider/bookings" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
           <div className="w-10 h-10 bg-yellow-50 text-yellow-600 rounded-xl flex items-center justify-center text-xl mb-3">⏳</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">Pending Jobs</p>
           <h3 className="text-2xl font-bold text-gray-800">{pendingBookings}</h3>
         </Link>
-
         <Link href="/provider/quotations" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
           <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center text-xl mb-3">📄</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">New Quotes</p>
           <h3 className="text-2xl font-bold text-gray-800">{pendingQuotes}</h3>
         </Link>
-
         <Link href="/provider/earnings" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
           <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-xl mb-3">💰</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">Total Earnings</p>
           <h3 className="text-2xl font-bold text-green-600">₹{totalEarnings}</h3>
         </Link>
-
       </div>
 
-      {/* PROFIT & LOSS (Small Cards) */}
+      {/* PROFIT & LOSS */}
       <div className="grid grid-cols-2 gap-4">
         <Link href="/provider/expenses" className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition">
           <div className="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center text-xl">💸</div>
@@ -127,7 +161,6 @@ export default function ProviderDashboardHome() {
             <h3 className="text-xl font-bold text-gray-800">₹{totalExpenses}</h3>
           </div>
         </Link>
-        
         <div className={`p-4 rounded-2xl shadow-sm border flex items-center gap-4 ${netProfit >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
           <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${netProfit >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
             {netProfit >= 0 ? '📈' : '📉'}
@@ -139,17 +172,14 @@ export default function ProviderDashboardHome() {
         </div>
       </div>
 
-      {/* RECENT BOOKINGS TABLE */}
+      {/* RECENT BOOKINGS */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
           <h2 className="font-bold text-gray-800">Recent Bookings</h2>
           <Link href="/provider/bookings" className="text-xs font-bold text-blue-600">View All →</Link>
         </div>
-        
         {recentBookings.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500 text-sm">Abhi tak koi booking nahi aayi.</p>
-          </div>
+          <div className="text-center py-8"><p className="text-gray-500 text-sm">Abhi tak koi booking nahi aayi.</p></div>
         ) : (
           <div className="divide-y divide-gray-100">
             {recentBookings.map(b => (
@@ -163,15 +193,12 @@ export default function ProviderDashboardHome() {
                   b.status === 'accepted' ? 'bg-blue-100 text-blue-700' : 
                   b.status === 'completed' ? 'bg-green-100 text-green-700' : 
                   'bg-red-100 text-red-700'
-                }`}>
-                  {b.status}
-                </span>
+                }`}>{b.status}</span>
               </div>
             ))}
           </div>
         )}
       </div>
-
     </div>
   );
 }
