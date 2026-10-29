@@ -73,6 +73,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const menuItems = [
     { name: 'Dashboard', path: '/provider', icon: '🏠' },
 { name: 'Shop Orders', path: '/provider/orders', icon: '🛍️' },
+{ name: 'Ride Requests', path: '/provider/rides', icon: '🏍️' }
 { name: 'My Services', path: '/provider/services', icon: '🛠️' },
     { name: 'Bookings', path: '/provider/bookings', icon: '📅' },
     { name: 'Quotations', path: '/provider/quotations', icon: '📄' },
