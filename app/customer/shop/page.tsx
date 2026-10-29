@@ -12,19 +12,18 @@ export default function CustomerShopPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
-
-  // Cart Count State
   const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
-    // Check cart items count from localStorage
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
     setCartCount(cart.length);
 
     const fetchData = async () => {
+      // 1. Fetch SHOP Categories (Medicines, Fashion, etc.)
       const { data: cats } = await supabase.from('shop_categories').select('*').eq('is_active', true);
       if (cats) setCategories(cats);
 
+      // 2. Fetch Products
       const { data: prods } = await supabase.from('products').select(`*, businesses!inner(name, city, id)`).gt('stock', 0);
       if (prods) setProducts(prods);
       setLoading(false);
@@ -34,15 +33,12 @@ export default function CustomerShopPage() {
 
   const addToCart = (product: any) => {
     let cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    
-    // Check if item already exists
     const existing = cart.find((item: any) => item.id === product.id);
     if (existing) {
       existing.qty += 1;
     } else {
       cart.push({ ...product, qty: 1 });
     }
-    
     localStorage.setItem('cart', JSON.stringify(cart));
     setCartCount(cart.length);
     alert(`${product.name} added to cart!`);
@@ -54,8 +50,6 @@ export default function CustomerShopPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      
-      {/* Header */}
       <div className="bg-white p-4 sticky top-0 z-20 shadow-sm space-y-3">
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-800">Shopping Store</h1>
@@ -66,7 +60,6 @@ export default function CustomerShopPage() {
         <input type="text" placeholder="Search for Medicines, Clothes, Toys..." className="w-full p-3 bg-gray-100 rounded-xl outline-none text-sm font-medium" />
       </div>
 
-      {/* Category Chips */}
       <div className="flex gap-2 overflow-x-auto p-4 no-scrollbar">
         <button onClick={() => setSelectedCat(null)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap ${!selectedCat ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>All Products</button>
         {categories.map(c => (
@@ -76,7 +69,6 @@ export default function CustomerShopPage() {
         ))}
       </div>
 
-      {/* Products Grid */}
       <div className="p-4 grid grid-cols-2 gap-3 max-w-2xl mx-auto">
         {loading ? <p className="col-span-2 text-center text-indigo-600 font-bold">Loading Products...</p> : 
          filteredProducts.length === 0 ? <p className="col-span-2 text-center text-gray-500 font-bold py-10">Is category me abhi koi product nahi hai.</p> :
