@@ -16,11 +16,9 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const [isOnline, setIsOnline] = useState(true);
   const [profile, setProfile] = useState({ name: 'Provider', photo: '' });
   
-  // Notification States
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Notifications Fetch karna
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!activeId) return;
@@ -69,16 +67,16 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     router.push('/login');
   };
 
-  // Navigation Links Menu
+  // ✅ YAHAN COMMA FIX KIYA GAYA HAI
   const menuItems = [
     { name: 'Dashboard', path: '/provider', icon: '🏠' },
-{ name: 'Shop Orders', path: '/provider/orders', icon: '🛍️' },
-{ name: 'Ride Requests', path: '/provider/rides', icon: '🏍️' }
-{ name: 'My Services', path: '/provider/services', icon: '🛠️' },
     { name: 'Bookings', path: '/provider/bookings', icon: '📅' },
     { name: 'Quotations', path: '/provider/quotations', icon: '📄' },
     { name: 'Team / Workers', path: '/provider/team', icon: '👥' },
     { name: 'Inventory', path: '/provider/inventory', icon: '📦' },
+    { name: 'Shop Orders', path: '/provider/orders', icon: '🛍️' },
+    { name: 'Ride Requests', path: '/provider/rides', icon: '🏍️' }, // <-- Yahan comma miss tha
+    { name: 'My Services', path: '/provider/services', icon: '🛠️' },
     { name: 'Sales', path: '/provider/sales', icon: '🧾' },
     { name: 'Expenses', path: '/provider/expenses', icon: '💸' },
     { name: 'Purchases', path: '/provider/purchases', icon: '🛒' },
