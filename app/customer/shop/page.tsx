@@ -2,50 +2,71 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function CustomerShopPage() {
   const supabase = createClient();
+  const router = useRouter();
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
 
+  // Cart Count State
+  const [cartCount, setCartCount] = useState(0);
+
   useEffect(() => {
+    // Check cart items count from localStorage
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    setCartCount(cart.length);
+
     const fetchData = async () => {
-      // 1. Fetch Shop Categories
       const { data: cats } = await supabase.from('shop_categories').select('*').eq('is_active', true);
       if (cats) setCategories(cats);
 
-      // 2. Fetch Products (Flipkart style) with Business Details
-      const { data: prods } = await supabase
-        .from('products')
-        .select(`*, businesses!inner(name, city)`)
-        .gt('stock', 0); // Sirf jo stock me hain
-      
+      const { data: prods } = await supabase.from('products').select(`*, businesses!inner(name, city, id)`).gt('stock', 0);
       if (prods) setProducts(prods);
       setLoading(false);
     };
     fetchData();
   }, [supabase]);
 
-  // Filter products by category
+  const addToCart = (product: any) => {
+    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    
+    // Check if item already exists
+    const existing = cart.find((item: any) => item.id === product.id);
+    if (existing) {
+      existing.qty += 1;
+    } else {
+      cart.push({ ...product, qty: 1 });
+    }
+    
+    localStorage.setItem('cart', JSON.stringify(cart));
+    setCartCount(cart.length);
+    alert(`${product.name} added to cart!`);
+  };
+
   const filteredProducts = selectedCat 
     ? products.filter(p => p.category === selectedCat) 
     : products;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Search Header */}
+    <div className="min-h-screen bg-gray-50 pb-24">
+      
+      {/* Header */}
       <div className="bg-white p-4 sticky top-0 z-20 shadow-sm space-y-3">
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-800">Shopping Store</h1>
-          <Link href="/customer" className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">← Home</Link>
+          <Link href="/customer/cart" className="bg-indigo-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1">
+            🛒 Cart ({cartCount})
+          </Link>
         </div>
         <input type="text" placeholder="Search for Medicines, Clothes, Toys..." className="w-full p-3 bg-gray-100 rounded-xl outline-none text-sm font-medium" />
       </div>
 
-      {/* Category Chips (Flipkart Style) */}
+      {/* Category Chips */}
       <div className="flex gap-2 overflow-x-auto p-4 no-scrollbar">
         <button onClick={() => setSelectedCat(null)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap ${!selectedCat ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>All Products</button>
         {categories.map(c => (
@@ -62,17 +83,17 @@ export default function CustomerShopPage() {
          filteredProducts.map(prod => (
           <div key={prod.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
             <div className="h-32 bg-gray-50 flex items-center justify-center text-gray-400">
-              {prod.name.charAt(0)} {/* Placeholder for Image */}
+              {prod.name.charAt(0)}
             </div>
             <div className="p-3 flex-1 flex flex-col justify-between">
               <div>
                 <h3 className="font-bold text-gray-800 text-sm line-clamp-2">{prod.name}</h3>
-                <p className="text-xs text-gray-500 mt-1">{prod.businesses?.name} ({prod.businesses?.city})</p>
+                <p className="text-xs text-gray-500 mt-1 truncate">{prod.businesses?.name}</p>
               </div>
               <div className="mt-2">
                 <p className="text-lg font-black text-gray-800">₹{prod.selling_price}</p>
                 <p className="text-[10px] text-green-600 font-bold mb-2">In Stock ({prod.stock})</p>
-                <button onClick={() => alert("Cart system coming soon!")} className="w-full bg-indigo-50 text-indigo-700 py-2 rounded-lg font-bold text-xs active:scale-95 transition">Add to Cart</button>
+                <button onClick={() => addToCart(prod)} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold text-xs active:scale-95 transition">Add to Cart</button>
               </div>
             </div>
           </div>
