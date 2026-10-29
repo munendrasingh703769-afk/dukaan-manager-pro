@@ -23,12 +23,30 @@ export default function ProviderRidesPage() {
   };
 
   useEffect(() => { fetchRides(); }, []);
+    const { error } = await supabase.from('ride_bookings').insert([{
+      customer_id: user?.id || null,
+      ride_type: rideType,
+      pickup_location: pickup,
+      drop_location: drop,
+      estimated_fare: fare,
+      status: 'searching'
+    }]);
 
-  const updateStatus = async (id: string, status: string) => {
-    const { error } = await supabase.from('ride_bookings').update({ status }).eq('id', id);
-    if (!error) fetchRides();
-    else alert(error.message);
-  };
+    if (!error) {
+      // 👇 NAYA CODE: Ride Notification
+      await supabase.from('notifications').insert([{
+        business_id: getCurrentBusinessId(), // Filhal current user (agar provider) ko jayega, baad me hum sabko broadcast karenge
+        title: 'New Ride Request! 🏍️',
+        message: `A customer needs a ${rideType} from ${pickup} to ${drop}.`,
+        type: 'ride'
+      }]);
+
+      alert(`Searching for a ${rideType.toUpperCase()}... Fare: ₹${fare}`);
+      router.push('/customer/my-rides');
+    } else {
+      alert("Error: " + error.message);
+    }
+  
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
