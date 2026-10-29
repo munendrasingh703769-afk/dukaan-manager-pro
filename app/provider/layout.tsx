@@ -16,12 +16,15 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const [isOnline, setIsOnline] = useState(true);
   const [profile, setProfile] = useState({ name: 'Provider', photo: '' });
   
+  // Notifications State
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
+  // 1. Fetch Notifications
   useEffect(() => {
+    if (!activeId) return;
+
     const fetchNotifications = async () => {
-      if (!activeId) return;
       const { data } = await supabase
         .from('notifications')
         .select('*')
@@ -32,25 +35,27 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     };
 
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000);
+    const interval = setInterval(fetchNotifications, 10000); // Har 10 sec me check
     return () => clearInterval(interval);
   }, [activeId, supabase]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const markAsRead = async () => {
-    if (unreadCount === 0) return;
+    if (unreadCount === 0 || !activeId) return;
     await supabase.from('notifications').update({ is_read: true }).eq('business_id', activeId).eq('is_read', false);
     setNotifications(notifications.map(n => ({ ...n, is_read: true })));
   };
 
+  // 2. Fetch Online Status & Profile
   useEffect(() => {
+    if (!activeId) return;
+
     const fetchStatus = async () => {
-      if (!activeId) return;
       const { data } = await supabase.from('businesses').select('name, is_online, logo_url').eq('id', activeId).single();
       if (data) {
         setIsOnline(data.is_online ?? true);
-        setProfile({ name: data.name, photo: data.logo_url || '' });
+        setProfile({ name: data.name || 'Provider', photo: data.logo_url || '' });
       }
     };
     fetchStatus();
@@ -59,7 +64,9 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const toggleOnline = async () => {
     const newStatus = !isOnline;
     setIsOnline(newStatus);
-    await supabase.from('businesses').update({ is_online: newStatus }).eq('id', activeId);
+    if (activeId) {
+      await supabase.from('businesses').update({ is_online: newStatus }).eq('id', activeId);
+    }
   };
 
   const handleLogout = async () => {
@@ -67,7 +74,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     router.push('/login');
   };
 
-  // ✅ YAHAN COMMA FIX KIYA GAYA HAI
+  // 3. Sidebar Menu Items (Sabhi commas perfect hain)
   const menuItems = [
     { name: 'Dashboard', path: '/provider', icon: '🏠' },
     { name: 'Bookings', path: '/provider/bookings', icon: '📅' },
@@ -75,7 +82,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     { name: 'Team / Workers', path: '/provider/team', icon: '👥' },
     { name: 'Inventory', path: '/provider/inventory', icon: '📦' },
     { name: 'Shop Orders', path: '/provider/orders', icon: '🛍️' },
-    { name: 'Ride Requests', path: '/provider/rides', icon: '🏍️' }, // <-- Yahan comma miss tha
+    { name: 'Ride Requests', path: '/provider/rides', icon: '🏍️' },
     { name: 'My Services', path: '/provider/services', icon: '🛠️' },
     { name: 'Sales', path: '/provider/sales', icon: '🧾' },
     { name: 'Expenses', path: '/provider/expenses', icon: '💸' },
@@ -138,7 +145,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
           
           <div className="flex items-center gap-4">
             
-            {/* 🔔 NOTIFICATION BELL */}
+            {/* NOTIFICATION BELL */}
             <div className="relative">
               <button 
                 onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} 
@@ -180,7 +187,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
 
             {/* PROFILE AVATAR */}
             <Link href="/provider/profile" className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold overflow-hidden border border-blue-200">
-              {profile.photo ? <img src={profile.photo} alt="P" className="w-full h-full object-cover" /> : profile.name.charAt(0)}
+              {profile.photo ? <img src={profile.photo} alt="P" className="w-full h-full object-cover" /> : profile.name.charAt(0).toUpperCase()}
             </Link>
           </div>
         </header>
