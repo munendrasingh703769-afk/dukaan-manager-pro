@@ -21,29 +21,37 @@ export default function ProviderDashboardHome() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!activeId) return;
-      setLoading(true);
+      // Agar activeId nahi hai (user login nahi hai), toh loader hatao
+      if (!activeId) {
+        setLoading(false);
+        return;
+      }
 
-      // Fetch Services
-      const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId);
-      if (servData) setServices(servData);
+      try {
+        // Hum saari queries ek saath (Parallel) run karenge taaki time bache
+        const [servRes, bookRes, quoteRes, expRes] = await Promise.all([
+          supabase.from('services').select('*').eq('business_id', activeId),
+          supabase.from('service_bookings').select('*').eq('provider_business_id', activeId).order('created_at', { ascending: false }),
+          supabase.from('quotations').select('*').eq('provider_business_id', activeId),
+          supabase.from('expenses').select('*').eq('business_id', activeId)
+        ]);
 
-      // Fetch Bookings
-      const { data: bookData } = await supabase.from('service_bookings').select('*').eq('provider_business_id', activeId).order('created_at', { ascending: false });
-      if (bookData) setBookings(bookData as any);
+        // Data mila toh set karo, error aaya toh ignore karo
+        if (servRes.data) setServices(servRes.data);
+        if (bookRes.data) setBookings(bookRes.data as any);
+        if (quoteRes.data) setQuotations(quoteRes.data as any);
+        if (expRes.data) setExpenses(expRes.data as any);
 
-      // Fetch Quotations
-      const { data: quoteData } = await supabase.from('quotations').select('*').eq('provider_business_id', activeId);
-      if (quoteData) setQuotations(quoteData as any);
-
-      // Fetch Expenses
-      const { data: expData } = await supabase.from('expenses').select('*').eq('business_id', activeId);
-      if (expData) setExpenses(expData as any);
-
-      setLoading(false);
+      } catch (error) {
+        console.error("Dashboard fetch error:", error);
+      } finally {
+        // Chahe error aaye ya na aaye, Loader ko HAMESHA band karo
+        setLoading(false);
+      }
     };
+    
     fetchData();
-  }, [activeId, supabase]);
+  }, [activeId]);
 
   const getServicePrice = (serviceId: string) => {
     const s = services.find((x: any) => x.id === serviceId);
@@ -55,15 +63,12 @@ export default function ProviderDashboardHome() {
   const pendingBookings = bookings.filter(b => b.status === 'pending').length;
   const pendingQuotes = quotations.filter(q => q.status === 'pending').length;
   
-  // Earnings (Sirf completed bookings)
   const completedBookings = bookings.filter(b => b.status === 'completed');
   const totalEarnings = completedBookings.reduce((acc, curr) => acc + getServicePrice(curr.service_id), 0);
   
-  // Expenses & Net Profit
   const totalExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
   const netProfit = totalEarnings - totalExpenses;
 
-  // Recent Bookings (Top 5)
   const recentBookings = bookings.slice(0, 5);
 
   if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading Dashboard...</div>;
