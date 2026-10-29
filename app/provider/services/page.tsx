@@ -21,6 +21,9 @@ export default function ProviderServicesPage() {
   // Modals
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
+  
+  // Edit State
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
 
   // Form States
   const [newService, setNewService] = useState({
@@ -32,15 +35,12 @@ export default function ProviderServicesPage() {
     if (!activeId) return;
     setLoading(true);
 
-    // 1. Fetch Provider's Services
     const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId).order('created_at', { ascending: false });
     if (servData) setServices(servData);
 
-    // 2. Fetch Admin Categories
     const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true).order('name');
     if (catData) setCategories(catData);
 
-    // 3. Fetch Subcategories
     const { data: subData } = await supabase.from('service_subcategories').select('*').eq('is_active', true).order('name');
     if (subData) setSubcategories(subData);
 
@@ -49,29 +49,65 @@ export default function ProviderServicesPage() {
 
   useEffect(() => { fetchData(); }, [activeId]);
 
-  // --- SAVE NEW SERVICE ---
+  // --- OPEN EDIT MODAL ---
+  const openEditModal = (service: Service) => {
+    setEditingServiceId(service.id);
+    setNewService({
+      name: service.name,
+      price: service.price.toString(),
+      description: service.description || '',
+      category_id: service.category_id || '',
+      subcategory_id: service.subcategory_id || ''
+    });
+    setIsServiceModalOpen(true);
+  };
+
+  // --- OPEN ADD MODAL ---
+  const openAddModal = () => {
+    setEditingServiceId(null);
+    setNewService({ name: '', price: '', description: '', category_id: '', subcategory_id: '' });
+    setIsServiceModalOpen(true);
+  };
+
+  // --- SAVE SERVICE (ADD or EDIT) ---
   const handleSaveService = async () => {
     if (!newService.name || !newService.price || !newService.category_id) return alert("Name, Price and Category are required");
     
     setSaving(true);
-    const { error } = await supabase.from('services').insert([{
-      business_id: activeId,
+    const payload = {
       name: newService.name,
       price: Number(newService.price),
       description: newService.description,
       category_id: newService.category_id,
       subcategory_id: newService.subcategory_id || null,
-      is_active: true
-    }]);
+    };
 
-    if (!error) {
-      setIsServiceModalOpen(false);
-      setNewService({ name: '', price: '', description: '', category_id: '', subcategory_id: '' });
-      fetchData();
+    if (editingServiceId) {
+      // Update existing service
+      const { error } = await supabase.from('services').update(payload).eq('id', editingServiceId);
+      if (!error) {
+        setIsServiceModalOpen(false);
+        fetchData();
+      } else alert("Error updating: " + error.message);
     } else {
-      alert("Error: " + error.message);
+      // Insert new service
+      const { error } = await supabase.from('services').insert([{ ...payload, business_id: activeId, is_active: true }]);
+      if (!error) {
+        setIsServiceModalOpen(false);
+        fetchData();
+      } else alert("Error adding: " + error.message);
     }
     setSaving(false);
+  };
+
+  // --- TOGGLE STATUS (Pause/Activate) ---
+  const toggleServiceStatus = async (id: string, currentStatus: boolean) => {
+    const { error } = await supabase.from('services').update({ is_active: !currentStatus }).eq('id', id);
+    if (!error) {
+      setServices(services.map(s => s.id === id ? { ...s, is_active: !currentStatus } : s));
+    } else {
+      alert("Error updating status: " + error.message);
+    }
   };
 
   // --- REQUEST CUSTOM SERVICE ---
@@ -111,7 +147,7 @@ export default function ProviderServicesPage() {
           <button onClick={() => setIsCustomModalOpen(true)} className="flex-1 md:flex-none bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-200 transition">
             + Custom Request
           </button>
-          <button onClick={() => setIsServiceModalOpen(true)} className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 transition">
+          <button onClick={openAddModal} className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 transition">
             + Add Service
           </button>
         </div>
@@ -122,18 +158,19 @@ export default function ProviderServicesPage() {
         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
           <div className="text-5xl mb-4">🧰</div>
           <p className="text-gray-800 font-bold text-lg">Aapne abhi tak koi service add nahi ki hai.</p>
-          <p className="text-gray-500 text-sm mt-1">Nayi service add karne ke liye upar button dabayein.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {services.map((service) => {
             const category = categories.find(c => c.id === service.category_id);
             return (
-              <div key={service.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+              <div key={service.id} className={`bg-white p-5 rounded-2xl shadow-sm border ${service.is_active ? 'border-gray-100' : 'border-red-200 opacity-75'} flex flex-col justify-between`}>
                 <div>
                   <div className="flex justify-between items-start">
                     <h3 className="font-bold text-lg text-gray-800">{service.name}</h3>
-                    <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded-lg border border-green-100">Active</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border ${service.is_active ? 'text-green-700 bg-green-50 border-green-100' : 'text-red-700 bg-red-50 border-red-100'}`}>
+                      {service.is_active ? 'ACTIVE' : 'PAUSED'}
+                    </span>
                   </div>
                   <p className="text-xs text-blue-600 font-semibold bg-blue-50 inline-block px-2 py-0.5 rounded mt-1 mb-2">
                     {category ? `${category.icon} ${category.name}` : 'Uncategorized'}
@@ -141,17 +178,25 @@ export default function ProviderServicesPage() {
                   <p className="text-2xl font-black text-purple-600 mt-2">₹{service.price}</p>
                   <p className="text-sm text-gray-500 mt-2 line-clamp-2">{service.description || 'No description provided.'}</p>
                 </div>
+                
+                {/* ACTION BUTTONS */}
+                <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                  <button onClick={() => openEditModal(service)} className="flex-1 bg-gray-50 text-gray-700 py-2 rounded-lg text-xs font-bold border border-gray-200 hover:bg-gray-100 transition">✏️ Edit</button>
+                  <button onClick={() => toggleServiceStatus(service.id, service.is_active)} className={`flex-1 py-2 rounded-lg text-xs font-bold border transition ${service.is_active ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}>
+                    {service.is_active ? '⏸️ Pause' : '▶️ Activate'}
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
       )}
 
-      {/* ================= ADD SERVICE MODAL ================= */}
+      {/* ================= ADD/EDIT SERVICE MODAL ================= */}
       {isServiceModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-            <h2 className="text-xl font-bold text-gray-800">Add New Service</h2>
+            <h2 className="text-xl font-bold text-gray-800">{editingServiceId ? 'Edit Service' : 'Add New Service'}</h2>
             
             <div>
               <label className="text-sm font-bold text-gray-700">Category *</label>
