@@ -43,14 +43,14 @@ export default function CustomerBookingsPage() {
 
   useEffect(() => { fetchBookings(); }, []);
 
-  const openPayModal = async (booking: any) => {
+    const openPayModal = async (booking: any) => {
     setSelectedBooking(booking);
     setIsPayModalOpen(true);
-    
+
     if (booking.services?.business_id) {
       const { data } = await supabase.from('businesses').select('upi_id').eq('id', booking.services.business_id).single();
       if (data && data.upi_id) setProviderUpi(data.upi_id);
-      else setProviderUpi('provider@upi'); 
+      else setProviderUpi('provider@upi');
     }
   };
 
