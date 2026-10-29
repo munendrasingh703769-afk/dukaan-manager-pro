@@ -19,30 +19,45 @@ export default function ProviderInventoryPage() {
   const activeId = getCurrentBusinessId();
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [shopCategories, setShopCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newProduct, setNewProduct] = useState({
-    name: '', category: 'Spare Part', purchase_price: '', selling_price: '', stock: '', tax_percentage: 18
+    name: '', category: '', purchase_price: '', selling_price: '', stock: '', tax_percentage: 18
   });
 
-  const fetchProducts = async () => {
+  const fetchData = async () => {
     if (!activeId) return;
     setLoading(true);
     
-    // Humne pehle purchase page me 'products' table use kiya tha
-    const { data } = await supabase
+    // 1. Fetch Products
+    const { data: prodData } = await supabase
       .from('products')
       .select('*')
       .eq('business_id', activeId)
       .order('created_at', { ascending: false });
+    if (prodData) setProducts(prodData as any);
 
-    if (data) setProducts(data as any);
+    // 2. Fetch Shop Categories (Medicines, Fashion, etc.)
+    const { data: catData } = await supabase
+      .from('shop_categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('name');
+    if (catData) {
+      setShopCategories(catData);
+      // Default category set karein pehli category
+      if (catData.length > 0 && !newProduct.category) {
+        setNewProduct(prev => ({ ...prev, category: catData[0].name }));
+      }
+    }
+
     setLoading(false);
   };
 
-  useEffect(() => { fetchProducts(); }, [activeId]);
+  useEffect(() => { fetchData(); }, [activeId]);
 
   // --- ADD PRODUCT ---
   const handleAddProduct = async () => {
@@ -62,8 +77,8 @@ export default function ProviderInventoryPage() {
 
     if (!error) {
       setIsModalOpen(false);
-      setNewProduct({ name: '', category: 'Spare Part', purchase_price: '', selling_price: '', stock: '', tax_percentage: 18 });
-      fetchProducts();
+      setNewProduct({ name: '', category: shopCategories[0]?.name || '', purchase_price: '', selling_price: '', stock: '', tax_percentage: 18 });
+      fetchData();
     } else {
       alert("Error adding product: " + error.message);
     }
@@ -77,8 +92,8 @@ export default function ProviderInventoryPage() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100 gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-800">Inventory & Spare Parts</h1>
-          <p className="text-sm text-gray-500">Manage your products, gas, and spare parts</p>
+          <h1 className="text-xl font-bold text-gray-800">Inventory & Products</h1>
+          <p className="text-sm text-gray-500">Manage your shop products and spare parts</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)} 
@@ -92,7 +107,7 @@ export default function ProviderInventoryPage() {
         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
           <div className="text-5xl mb-4">📦</div>
           <p className="text-gray-800 font-bold text-lg">Aapka inventory khali hai.</p>
-          <p className="text-gray-500 text-sm mt-1">Naye spare parts add karne ke liye upar button dabayein.</p>
+          <p className="text-gray-500 text-sm mt-1">Naye products add karne ke liye upar button dabayein.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -130,17 +145,16 @@ export default function ProviderInventoryPage() {
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-bold text-gray-700">Product Name *</label>
-                <input type="text" placeholder="e.g. AC Gas R32" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
+                <input type="text" placeholder="e.g. Paracetamol 500mg" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-bold text-gray-700">Category</label>
                   <select value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none bg-white focus:ring-2 focus:ring-blue-500">
-                    <option value="Spare Part">Spare Part</option>
-                    <option value="Gas / Chemical">Gas / Chemical</option>
-                    <option value="Pipe / Wire">Pipe / Wire</option>
-                    <option value="Tool">Tool</option>
+                    {shopCategories.map(c => (
+                      <option key={c.id} value={c.name}>{c.icon} {c.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
