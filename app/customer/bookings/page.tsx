@@ -43,15 +43,20 @@ export default function CustomerBookingsPage() {
 
   useEffect(() => { fetchBookings(); }, []);
 
-    const openPayModal = async (booking: any) => {
+      const openPayModal = async (booking: any) => {
+    if (!booking.services?.business_id) return alert("Provider details not found.");
+
+    const { data } = await supabase.from('businesses').select('upi_id').eq('id', booking.services.business_id).single();
+    
+    // Agar Provider ne UPI set nahi kiya hai
+    if (!data || !data.upi_id) {
+      return alert("Is provider ne abhi tak apna UPI ID set nahi kiya hai. Kripya Cash me payment karein ya provider se contact karein.");
+    }
+
+    // Agar UPI set hai, tabhi modal kholo
+    setProviderUpi(data.upi_id);
     setSelectedBooking(booking);
     setIsPayModalOpen(true);
-
-    if (booking.services?.business_id) {
-      const { data } = await supabase.from('businesses').select('upi_id').eq('id', booking.services.business_id).single();
-      if (data && data.upi_id) setProviderUpi(data.upi_id);
-      else setProviderUpi('provider@upi');
-    }
   };
 
   const handlePaymentSubmit = async () => {
