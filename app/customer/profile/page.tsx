@@ -203,6 +203,18 @@ export default function CustomerProfilePage() {
           <span className="text-xl">🏍️</span>
           <span className="text-[10px] font-medium">Rides</span>
         </Link>
+            <Link href="/customer/support" className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center text-xl">🎧</div>
+                <div>
+                  <p className="font-bold text-gray-800 text-sm">Help & Support</p>
+                  <p className="text-xs text-gray-500">Raise a ticket or get help</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">›</span>
+              </div>
+            </Link>
         <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-indigo-600">
           <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center">👤</div>
           <span className="text-[10px] font-bold">Profile</span>
