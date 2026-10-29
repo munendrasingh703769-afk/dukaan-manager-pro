@@ -48,12 +48,11 @@ export default function CustomerHome() {
     router.push('/login');
   };
 
-  // --- SUBMIT BOOKING (With Notification & Time Check) ---
+  // --- SUBMIT BOOKING (With Time Check & Notification) ---
   const handleBookService = async () => {
     if (!bookingForm.name || !bookingForm.phone) return alert("Name and Phone required");
     if (!selectedService) return;
 
-    // Check Provider Availability
     const { data: biz } = await supabase.from('businesses').select('opening_time, closing_time, is_online').eq('id', selectedService.business_id).single();
     
     if (biz) {
@@ -149,48 +148,34 @@ export default function CustomerHome() {
           </button>
         </div>
         <div className="relative z-10 mb-4">
-          <h2 className="text-2xl font-black text-white">Namaste,<br/>Aaj kya khareedna hai?</h2>
+          <h2 className="text-2xl font-black text-white leading-tight">Namaste,<br/>Aaj kya khareedna hai?</h2>
           <p className="text-blue-100 text-sm mt-2">Discover local shops & services near you.</p>
         </div>
       </header>
 
       <div className="px-5 mt-6 space-y-6 max-w-2xl mx-auto">
         
-        {/* 🔍 Search Bar */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 flex items-center p-2">
+        {/* 🔍 Search Bar (Exact design) */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 flex items-center p-2 relative z-20 -mt-12">
           <span className="text-gray-400 pl-3">🔍</span>
           <input type="text" placeholder="Search shops, products, services..." className="w-full bg-transparent outline-none text-sm p-3 text-gray-700 font-medium" />
           <button className="bg-indigo-50 text-indigo-600 font-bold px-4 py-2 rounded-xl text-sm">Go</button>
         </div>
 
-        {/* 📝 My Estimate Requests (Quotation) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div onClick={() => setIsQuoteModalOpen(true)} className="bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-4 shadow-lg flex items-center justify-between relative overflow-hidden cursor-pointer active:scale-95 transition">
-            <div className="absolute right-0 top-0 text-6xl opacity-20">📄</div>
-            <div className="relative z-10 flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-xl">📝</div>
-              <div>
-                <p className="text-white font-bold text-sm">My Estimate Requests</p>
-                <p className="text-orange-50 text-[10px] mt-0.5">Check quotes & approve</p>
-              </div>
+        {/* 📝 My Estimate Requests (Single Full Width Card) */}
+        <div onClick={() => setIsQuoteModalOpen(true)} className="bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-5 shadow-lg flex items-center justify-between relative overflow-hidden cursor-pointer active:scale-95 transition">
+          <div className="absolute right-0 top-0 text-7xl opacity-20">📄</div>
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-2xl border border-white/30">📝</div>
+            <div>
+              <p className="text-white font-bold text-base">My Estimate Requests</p>
+              <p className="text-orange-50 text-xs mt-0.5">Check provider quotes & approve</p>
             </div>
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">→</div>
           </div>
-
-          {/* View Quotes Link */}
-          <Link href="/customer/requests" className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center justify-between active:scale-95 transition">
-             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-xl">📋</div>
-              <div>
-                <p className="text-gray-800 font-bold text-sm">View Received Quotes</p>
-                <p className="text-gray-500 text-[10px] mt-0.5">See estimates from providers</p>
-              </div>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-600">→</div>
-          </Link>
+          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">→</div>
         </div>
 
-        {/* 📦 Categories */}
+        {/* 📦 Categories (Exact design) */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold text-gray-800">Explore Categories</h2>
@@ -216,9 +201,9 @@ export default function CustomerHome() {
           </div>
         </section>
 
-        {/* 🛠️ Available Services (Fetched from DB) */}
+        {/* 🛠️ Available Services (Yeh section aapki purani screenshot me cut gaya tha, par functions kaam karne ke liye ye zaroori hai, isliye ise Categories ke theek neeche rakha hai) */}
         <section>
-          <div className="flex justify-between items-center mb-3">
+          <div className="flex justify-between items-center mb-3 mt-4">
             <h2 className="text-lg font-bold text-gray-800">Services Near You</h2>
             <Link href="/customer/bookings" className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">My Bookings</Link>
           </div>
@@ -247,7 +232,7 @@ export default function CustomerHome() {
           )}
         </section>
 
-        {/* 🚀 Featured Banner */}
+        {/* 🚀 Featured Banner (Exact design) */}
         <section className="mt-6">
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4">
             <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center text-3xl">🏪</div>
@@ -259,7 +244,7 @@ export default function CustomerHome() {
         </section>
       </div>
 
-      {/* 📱 Bottom Navigation */}
+      {/* 📱 Bottom Navigation (Exact design) */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
         <Link href="/customer" className="flex flex-col items-center gap-1 text-indigo-600">
           <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center">🏠</div>
