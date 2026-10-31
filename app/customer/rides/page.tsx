@@ -12,15 +12,12 @@ export default function CustomerRidesPage() {
   const [rideType, setRideType] = useState('bike')
   const [pickup, setPickup] = useState('')
   const [drop, setDrop] = useState('')
-  // 👇 distance ko string type diya hai taaki input se match kare
   const [distance, setDistance] = useState<string>('') 
   const [loading, setLoading] = useState(false)
 
-  // 🎯 FARE CALCULATION LOGIC (Return type number fix kiya)
   const calculateFare = (): number => {
     const km = parseFloat(distance);
     if (isNaN(km) || km <= 0) return 0;
-
     switch (rideType) {
       case 'bike': return 20 + (km * 8);
       case 'auto': return 30 + (km * 12);
@@ -30,29 +27,35 @@ export default function CustomerRidesPage() {
     }
   };
 
-  const estimatedFare: number = calculateFare();
+  const estimatedFare = calculateFare();
 
   const handleBookRide = async () => {
-    if (!pickup || !drop || !distance) return alert("Please fill all details including distance");
+    if (!pickup || !drop || !distance) return alert("Please fill all details");
     setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // 👇 Check karein ki user login hai ya nahi
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
+    if (!user) {
+      setLoading(false);
+      return alert("Aap login nahi hain! Ride book karne ke liye pehle login karein.");
+    }
+
     const rideOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
     const { error } = await supabase.from('ride_bookings').insert([{
-      customer_id: user?.id || null,
+      customer_id: user.id, // 👈 Direct user ID
       ride_type: rideType,
       pickup_location: pickup,
       drop_location: drop,
-      distance_km: parseFloat(distance), // 👈 Yahan parseFloat use kiya
+      distance_km: parseFloat(distance),
       estimated_fare: estimatedFare,
       ride_otp: rideOtp,
       status: 'searching'
     }]);
 
     if (!error) {
-      alert(`Ride Requested! Fare: ₹${estimatedFare}. Searching for a driver...`);
+      alert(`Ride Requested! Fare: ₹${estimatedFare}`);
       router.push('/customer/my-rides');
     } else {
       alert("Error: " + error.message);
@@ -71,12 +74,7 @@ export default function CustomerRidesPage() {
       </div>
 
       <div className="p-4 max-w-2xl mx-auto mt-4">
-        <div className="w-full h-40 bg-gray-200 rounded-2xl mb-4 flex items-center justify-center border border-gray-300 relative overflow-hidden">
-           <p className="text-gray-500 font-bold text-sm">Map View (Coming Soon)</p>
-        </div>
-
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-          
           <div className="relative">
             <div className="absolute left-3 top-3 bottom-3 w-0.5 bg-gray-300"></div>
             <div className="flex items-center gap-3 mb-3">
@@ -89,17 +87,9 @@ export default function CustomerRidesPage() {
             </div>
           </div>
 
-          {/* Distance Input */}
           <div>
             <label className="text-sm font-bold text-gray-700">Distance (in KM) *</label>
-            <input 
-              type="number" 
-              placeholder="e.g. 5" 
-              value={distance} 
-              onChange={e => setDistance(e.target.value)} 
-              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium mt-1" 
-            />
-            <p className="text-xs text-gray-500 mt-1">* (Abhi testing ke liye manually daal rahe hain. Baad me Google Maps API lagegi)</p>
+            <input type="number" placeholder="e.g. 5" value={distance} onChange={e => setDistance(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium mt-1" />
           </div>
 
           <div className="mt-4">
@@ -120,7 +110,6 @@ export default function CustomerRidesPage() {
             </div>
           </div>
 
-          {/* Fare Display */}
           <div className="bg-indigo-50 p-4 rounded-xl flex justify-between items-center border border-indigo-100">
             <span className="font-bold text-indigo-900">Estimated Fare:</span>
             <span className="text-2xl font-black text-indigo-600">₹{estimatedFare}</span>
