@@ -12,14 +12,14 @@ export default function CustomerRidesPage() {
   const [rideType, setRideType] = useState('bike')
   const [pickup, setPickup] = useState('')
   const [drop, setDrop] = useState('')
-  // 👇 Yahan state ko string banaya hai
-  const [distance, setDistance] = useState('') 
+  // 👇 distance ko string type diya hai taaki input se match kare
+  const [distance, setDistance] = useState<string>('') 
   const [loading, setLoading] = useState(false)
 
-  // 🎯 FARE CALCULATION LOGIC
-  const calculateFare = () => {
-    const km = Number(distance) || 0;
-    if (km <= 0) return 0;
+  // 🎯 FARE CALCULATION LOGIC (Return type number fix kiya)
+  const calculateFare = (): number => {
+    const km = parseFloat(distance);
+    if (isNaN(km) || km <= 0) return 0;
 
     switch (rideType) {
       case 'bike': return 20 + (km * 8);
@@ -30,7 +30,7 @@ export default function CustomerRidesPage() {
     }
   };
 
-  const estimatedFare = calculateFare();
+  const estimatedFare: number = calculateFare();
 
   const handleBookRide = async () => {
     if (!pickup || !drop || !distance) return alert("Please fill all details including distance");
@@ -45,7 +45,7 @@ export default function CustomerRidesPage() {
       ride_type: rideType,
       pickup_location: pickup,
       drop_location: drop,
-      distance_km: Number(distance),
+      distance_km: parseFloat(distance), // 👈 Yahan parseFloat use kiya
       estimated_fare: estimatedFare,
       ride_otp: rideOtp,
       status: 'searching'
@@ -92,7 +92,13 @@ export default function CustomerRidesPage() {
           {/* Distance Input */}
           <div>
             <label className="text-sm font-bold text-gray-700">Distance (in KM) *</label>
-            <input type="number" placeholder="e.g. 5" value={distance} onChange={e => setDistance(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium mt-1" />
+            <input 
+              type="number" 
+              placeholder="e.g. 5" 
+              value={distance} 
+              onChange={e => setDistance(e.target.value)} 
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium mt-1" 
+            />
             <p className="text-xs text-gray-500 mt-1">* (Abhi testing ke liye manually daal rahe hain. Baad me Google Maps API lagegi)</p>
           </div>
 
