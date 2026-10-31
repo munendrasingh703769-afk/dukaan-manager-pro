@@ -12,22 +12,48 @@ export default function ProviderRidesPage() {
 
   const fetchRides = async () => {
     setLoading(true);
-    const { data } = await supabase
+    
+    // 👇 1. Saari rides fetch karo (Bina join ke)
+    const { data: rideData, error } = await supabase
       .from('ride_bookings')
-      .select(`*, profiles:customer_id(full_name, phone)`)
+      .select('*')
       .order('created_at', { ascending: false });
       
-    if (data) setRides(data);
+    if (error) {
+      console.error("Error fetching rides:", error);
+      setLoading(false);
+      return;
+    }
+
+    if (rideData) {
+      // 👇 2. Har ride ke liye customer ka naam manually fetch karo
+      const ridesWithCustomers = await Promise.all(
+        rideData.map(async (ride) => {
+          if (ride.customer_id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name, phone')
+              .eq('id', ride.customer_id)
+              .single();
+            return { ...ride, customer: profile };
+          }
+          return { ...ride, customer: null };
+        })
+      );
+      setRides(ridesWithCustomers);
+    }
+    
     setLoading(false);
   };
 
-  useEffect(() => { fetchRides(); }, []);
+  useEffect(() => { fetchRides(); }, [activeId]);
 
-  // ✅ Yahan sirf EK BAAR updateStatus function hai
   const updateStatus = async (id: string, status: string) => {
     const updateData: any = { status };
+    
     if (status === 'accepted') {
       updateData.provider_business_id = activeId;
+      updateData.driver_vehicle_no = `UP-${Math.floor(10 + Math.random() * 89)}-AB-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
     const { error } = await supabase.from('ride_bookings').update(updateData).eq('id', id);
@@ -57,16 +83,24 @@ export default function ProviderRidesPage() {
                 <h3 className="font-bold text-lg text-indigo-700 capitalize">{ride.ride_type} Request</h3>
                 <span className={`px-2 py-1 text-[10px] font-bold rounded-full uppercase ${ride.status === 'searching' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{ride.status}</span>
               </div>
+              
               <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                 <p className="text-xs text-gray-500 font-bold uppercase mb-1">Customer</p>
-                <p className="text-sm font-bold">{ride.profiles?.full_name || 'Customer'}</p>
-                <p className="text-xs text-blue-600">📞 {ride.profiles?.phone || 'N/A'}</p>
+                <p className="text-sm font-bold">{ride.customer?.full_name || 'Customer Name Missing'}</p>
+                <p className="text-xs text-blue-600">📞 {ride.customer?.phone || 'N/A'}</p>
               </div>
+              
               <div className="space-y-2 relative">
                 <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-gray-300"></div>
                 <div className="flex items-center gap-3"><div className="w-2.5 h-2.5 bg-green-500 rounded-full z-10"></div><p className="text-sm font-medium">{ride.pickup_location}</p></div>
                 <div className="flex items-center gap-3"><div className="w-2.5 h-2.5 bg-red-500 rounded-full z-10"></div><p className="text-sm font-medium">{ride.drop_location}</p></div>
               </div>
+
+              <div className="flex justify-between items-center text-sm bg-blue-50 p-2 rounded-lg">
+                <span className="text-blue-800 font-bold">Distance:</span>
+                <span className="font-bold text-blue-900">{ride.distance_km} KM</span>
+              </div>
+
               <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                 <p className="font-black text-xl text-gray-800">₹{ride.estimated_fare}</p>
                 {ride.status === 'searching' && (
