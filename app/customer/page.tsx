@@ -8,7 +8,14 @@ import { createClient } from '@/lib/supabase/client'
 export default function CustomerSuperAppHome() {
   const router = useRouter();
   const supabase = createClient();
+  
   const [categories, setCategories] = useState<any[]>([]);
+  
+  // Notifications State
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // Quotation Modal State
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteForm, setQuoteForm] = useState({ requirement: '', details: '', phone: '', name: '' });
 
@@ -19,6 +26,36 @@ export default function CustomerSuperAppHome() {
     };
     fetchCats();
   }, [supabase]);
+
+  // 👇 Notifications Fetch Logic
+  useEffect(() => {
+    const fetchCustomerNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('customer_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (data) setNotifications(data);
+    };
+    
+    fetchCustomerNotifications();
+    const interval = setInterval(fetchCustomerNotifications, 10000);
+    return () => clearInterval(interval);
+  }, [supabase]);
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const markAsRead = async () => {
+    if (unreadCount === 0) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    await supabase.from('notifications').update({ is_read: true }).eq('customer_id', user.id).eq('is_read', false);
+    setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -49,6 +86,7 @@ export default function CustomerSuperAppHome() {
       {/* 🟣 Premium Header 🟣 */}
       <header className="bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 rounded-b-[2.5rem] px-6 pt-12 pb-16 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        
         <div className="relative z-10 flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white text-xl font-bold border border-white/30 shadow-inner">V</div>
@@ -57,7 +95,44 @@ export default function CustomerSuperAppHome() {
               <p className="text-blue-100 text-[10px] uppercase tracking-wider">Super App</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-4 py-2 rounded-lg text-xs font-bold active:scale-95 transition">Logout</button>
+          
+          <div className="flex items-center gap-3">
+            {/* 🔔 NOTIFICATION BELL */}
+            <div className="relative">
+              <button 
+                onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} 
+                className="relative p-2 bg-white/10 rounded-full hover:bg-white/20 transition border border-white/20"
+              >
+                <span className="text-xl">🔔</span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
+                )}
+              </button>
+
+              {/* Notification Dropdown */}
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 max-h-96 overflow-y-auto">
+                  <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl sticky top-0">
+                    <h3 className="font-bold text-sm text-gray-800">Notifications</h3>
+                    <button onClick={() => setShowNotifications(false)} className="text-xs font-bold text-blue-600">Close</button>
+                  </div>
+                  {notifications.length === 0 ? (
+                    <p className="p-4 text-center text-sm text-gray-500">No new notifications.</p>
+                  ) : (
+                    notifications.map(n => (
+                      <div key={n.id} className={`p-3 border-b border-gray-50 text-sm ${n.is_read ? 'bg-white' : 'bg-blue-50'}`}>
+                        <p className="font-bold text-gray-800">{n.title}</p>
+                        <p className="text-xs text-gray-600 mt-1">{n.message}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleTimeString()}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button onClick={handleLogout} className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-4 py-2 rounded-lg text-xs font-bold active:scale-95 transition">Logout</button>
+          </div>
         </div>
         
         <div className="relative z-10 mb-4">
@@ -75,7 +150,7 @@ export default function CustomerSuperAppHome() {
           <button className="bg-indigo-50 text-indigo-600 font-bold px-4 py-2 rounded-xl text-sm">Search</button>
         </Link>
 
-        {/* ⚡ Quick Actions (Horizontal Scroll) */}
+        {/* ⚡ Quick Actions */}
         <section>
           <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
             <Link href="/customer/shop" className="min-w-[80px] bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 active:scale-95 transition">
@@ -129,7 +204,6 @@ export default function CustomerSuperAppHome() {
             ))}
           </div>
         </section>
-
       </div>
 
       {/* 📱 Bottom Navigation */}
@@ -172,7 +246,6 @@ export default function CustomerSuperAppHome() {
           </div>
         </div>
       )}
-
     </main>
   );
 }
