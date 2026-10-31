@@ -12,18 +12,20 @@ export default function CustomerRidesPage() {
   const [rideType, setRideType] = useState('bike')
   const [pickup, setPickup] = useState('')
   const [drop, setDrop] = useState('')
-  const [distance, setDistance] = useState<number | ''>('')
+  // 👇 Yahan state ko string banaya hai
+  const [distance, setDistance] = useState('') 
   const [loading, setLoading] = useState(false)
 
-  // 🎯 FARE CALCULATION LOGIC (Base + Per KM)
+  // 🎯 FARE CALCULATION LOGIC
   const calculateFare = () => {
-    if (!distance || distance <= 0) return 0;
-    const km = Number(distance);
+    const km = Number(distance) || 0;
+    if (km <= 0) return 0;
+
     switch (rideType) {
-      case 'bike': return 20 + (km * 8); // Base 20 + ₹8/km
-      case 'auto': return 30 + (km * 12); // Base 30 + ₹12/km
-      case 'car': return 50 + (km * 18); // Base 50 + ₹18/km
-      case 'parcel': return 40 + (km * 15); // Base 40 + ₹15/km
+      case 'bike': return 20 + (km * 8);
+      case 'auto': return 30 + (km * 12);
+      case 'car': return 50 + (km * 18);
+      case 'parcel': return 40 + (km * 15);
       default: return 0;
     }
   };
@@ -36,7 +38,6 @@ export default function CustomerRidesPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
     
-    // Generate 4 digit OTP for Ride start
     const rideOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
     const { error } = await supabase.from('ride_bookings').insert([{
