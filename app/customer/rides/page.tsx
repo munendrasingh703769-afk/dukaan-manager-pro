@@ -12,27 +12,46 @@ export default function CustomerRidesPage() {
   const [rideType, setRideType] = useState('bike')
   const [pickup, setPickup] = useState('')
   const [drop, setDrop] = useState('')
+  const [distance, setDistance] = useState<number | ''>('')
   const [loading, setLoading] = useState(false)
 
+  // 🎯 FARE CALCULATION LOGIC (Base + Per KM)
+  const calculateFare = () => {
+    if (!distance || distance <= 0) return 0;
+    const km = Number(distance);
+    switch (rideType) {
+      case 'bike': return 20 + (km * 8); // Base 20 + ₹8/km
+      case 'auto': return 30 + (km * 12); // Base 30 + ₹12/km
+      case 'car': return 50 + (km * 18); // Base 50 + ₹18/km
+      case 'parcel': return 40 + (km * 15); // Base 40 + ₹15/km
+      default: return 0;
+    }
+  };
+
+  const estimatedFare = calculateFare();
+
   const handleBookRide = async () => {
-    if (!pickup || !drop) return alert("Please enter pickup and drop location");
+    if (!pickup || !drop || !distance) return alert("Please fill all details including distance");
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
     
-    const fare = rideType === 'bike' ? 50 : rideType === 'auto' ? 80 : rideType === 'car' ? 150 : 100;
+    // Generate 4 digit OTP for Ride start
+    const rideOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
     const { error } = await supabase.from('ride_bookings').insert([{
       customer_id: user?.id || null,
       ride_type: rideType,
       pickup_location: pickup,
       drop_location: drop,
-      estimated_fare: fare,
+      distance_km: Number(distance),
+      estimated_fare: estimatedFare,
+      ride_otp: rideOtp,
       status: 'searching'
     }]);
 
     if (!error) {
-      alert(`Searching for a ${rideType.toUpperCase()}... Fare: ₹${fare}`);
+      alert(`Ride Requested! Fare: ₹${estimatedFare}. Searching for a driver...`);
       router.push('/customer/my-rides');
     } else {
       alert("Error: " + error.message);
@@ -51,9 +70,8 @@ export default function CustomerRidesPage() {
       </div>
 
       <div className="p-4 max-w-2xl mx-auto mt-4">
-        <div className="w-full h-48 bg-gray-200 rounded-2xl mb-4 flex items-center justify-center border border-gray-300 relative overflow-hidden">
+        <div className="w-full h-40 bg-gray-200 rounded-2xl mb-4 flex items-center justify-center border border-gray-300 relative overflow-hidden">
            <p className="text-gray-500 font-bold text-sm">Map View (Coming Soon)</p>
-           <div className="absolute top-4 left-4 bg-white p-2 rounded-lg shadow text-xs font-bold">📍 Current Location</div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
@@ -70,22 +88,35 @@ export default function CustomerRidesPage() {
             </div>
           </div>
 
+          {/* Distance Input */}
+          <div>
+            <label className="text-sm font-bold text-gray-700">Distance (in KM) *</label>
+            <input type="number" placeholder="e.g. 5" value={distance} onChange={e => setDistance(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium mt-1" />
+            <p className="text-xs text-gray-500 mt-1">* (Abhi testing ke liye manually daal rahe hain. Baad me Google Maps API lagegi)</p>
+          </div>
+
           <div className="mt-4">
             <p className="text-sm font-bold text-gray-700 mb-2">Choose Ride Type</p>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setRideType('bike')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'bike' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🏍️</span><span className="text-xs font-bold">Bike Taxi</span>
+                <span className="text-2xl">🏍️</span><span className="text-xs font-bold">Bike (₹20 + ₹8/km)</span>
               </button>
               <button onClick={() => setRideType('auto')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'auto' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🛺</span><span className="text-xs font-bold">Auto</span>
+                <span className="text-2xl">🛺</span><span className="text-xs font-bold">Auto (₹30 + ₹12/km)</span>
               </button>
               <button onClick={() => setRideType('car')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'car' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🚗</span><span className="text-xs font-bold">Car</span>
+                <span className="text-2xl">🚗</span><span className="text-xs font-bold">Car (₹50 + ₹18/km)</span>
               </button>
               <button onClick={() => setRideType('parcel')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'parcel' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">📦</span><span className="text-xs font-bold">Parcel</span>
+                <span className="text-2xl">📦</span><span className="text-xs font-bold">Parcel (₹40 + ₹15/km)</span>
               </button>
             </div>
+          </div>
+
+          {/* Fare Display */}
+          <div className="bg-indigo-50 p-4 rounded-xl flex justify-between items-center border border-indigo-100">
+            <span className="font-bold text-indigo-900">Estimated Fare:</span>
+            <span className="text-2xl font-black text-indigo-600">₹{estimatedFare}</span>
           </div>
 
           <button onClick={handleBookRide} disabled={loading} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md hover:bg-indigo-700 transition mt-4 disabled:opacity-50">
