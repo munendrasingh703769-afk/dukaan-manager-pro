@@ -50,6 +50,18 @@ export default function ProviderShopOrdersPage() {
           }
         }
       }
+
+      // 👇 Notify Customer
+      const orderData = orders.find(o => o.id === orderId);
+      if (orderData?.customer_id) {
+        await supabase.from('notifications').insert([{
+          customer_id: orderData.customer_id,
+          title: `Order ${newStatus.replace('_', ' ').toUpperCase()}!`,
+          message: `Your order #${orderId.slice(0,6).toUpperCase()} status has been updated to ${newStatus.replace('_', ' ')}.`,
+          type: 'order_update'
+        }]);
+      }
+
       setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     } else {
       alert("Error updating order: " + error.message);
@@ -75,7 +87,6 @@ export default function ProviderShopOrdersPage() {
         <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
           <div className="text-5xl mb-4">🛍️</div>
           <p className="text-gray-800 font-bold text-lg">Abhi tak koi shop order nahi aaya.</p>
-          <p className="text-gray-500 text-sm mt-1">Jab customer shop se kuch kharidega, wo yahan dikhega.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
