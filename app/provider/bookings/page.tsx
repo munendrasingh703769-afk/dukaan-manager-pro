@@ -11,8 +11,8 @@ type Booking = {
   id: string; customer_name: string; customer_phone: string; 
   booking_date: string; booking_time: string; status: string; 
   notes: string; service_id: string; assigned_worker_id: string | null;
-  payment_status: string; utr_number: string | null;
-  completion_otp: string | null; // 👈 Naya field
+  payment_status: string; utr_number: string | null; completion_otp: string | null;
+  customer_id: string | null;
 }
 
 export default function ProviderBookingsPage() {
@@ -48,27 +48,40 @@ export default function ProviderBookingsPage() {
 
   useEffect(() => { fetchData(); }, [activeId]);
 
-  // --- UPDATE STATUS (With OTP Generation) ---
+  // --- UPDATE STATUS (With Customer Notification) ---
   const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
     let updateData: any = { status: newStatus };
 
-    // Agar Accept kiya hai, toh 4-digit OTP generate karo
     if (newStatus === 'accepted') {
       updateData.completion_otp = Math.floor(1000 + Math.random() * 9000).toString();
     }
 
-    const { error } = await supabase.from('service_bookings').update(updateData).eq('id', bookingId);
+    const { data: updatedBooking, error } = await supabase
+      .from('service_bookings')
+      .update(updateData)
+      .eq('id', bookingId)
+      .select()
+      .single();
     
-    if (!error) {
+    if (!error && updatedBooking) {
       setBookings(bookings.map(b => 
         b.id === bookingId 
           ? { ...b, status: newStatus, completion_otp: updateData.completion_otp || b.completion_otp } 
           : b
       ));
+
+      // 👇 Notify Customer
+      if (updatedBooking.customer_id) {
+        await supabase.from('notifications').insert([{
+          customer_id: updatedBooking.customer_id,
+          title: `Booking ${newStatus.toUpperCase()}!`,
+          message: `Your booking for ${updatedBooking.customer_name} has been ${newStatus}.`,
+          type: 'booking_update'
+        }]);
+      }
     }
   };
 
-  // --- ASSIGN WORKER ---
   const handleAssignWorker = async (bookingId: string, workerId: string) => {
     const { error } = await supabase.from('service_bookings').update({ assigned_worker_id: workerId || null }).eq('id', bookingId);
     if (!error) {
@@ -76,7 +89,6 @@ export default function ProviderBookingsPage() {
     }
   };
 
-  // --- VERIFY PAYMENT ---
   const handleVerifyPayment = async (bookingId: string) => {
     const { error } = await supabase.from('service_bookings').update({ payment_status: 'paid' }).eq('id', bookingId);
     if (!error) {
@@ -148,7 +160,6 @@ export default function ProviderBookingsPage() {
                   <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Time</span> <span className="font-medium">{booking.booking_time || 'Any time'}</span></p>
                 </div>
 
-                {/* OTP DISPLAY (Provider ko bhi dikhega) */}
                 {booking.completion_otp && booking.status !== 'completed' && (
                   <div className="ml-2 bg-orange-50 border border-orange-200 p-2 rounded-xl text-center">
                     <p className="text-[10px] text-orange-800 font-bold uppercase">Customer OTP</p>
@@ -156,7 +167,6 @@ export default function ProviderBookingsPage() {
                   </div>
                 )}
 
-                {/* PAYMENT STATUS */}
                 <div className="ml-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
                   <div className="flex justify-between items-center">
                     <p className="text-xs font-bold text-indigo-800">Payment Status:</p>
@@ -180,7 +190,6 @@ export default function ProviderBookingsPage() {
                   )}
                 </div>
 
-                {/* WORKER ASSIGNMENT */}
                 {(booking.status === 'accepted' || booking.status === 'completed') && (
                   <div className="ml-2 p-3 bg-gray-50 rounded-xl border border-gray-200 mt-auto">
                     <label className="text-xs font-bold text-gray-700 block mb-2">Assign to Worker:</label>
@@ -200,14 +209,12 @@ export default function ProviderBookingsPage() {
                   </div>
                 )}
 
-                {/* CHAT BUTTON */}
                 <div className="ml-2">
                   <button onClick={() => setChatBookingId(booking.id)} className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-2 rounded-xl font-bold text-sm">
                     💬 Chat with Customer
                   </button>
                 </div>
 
-                {/* ACTION BUTTONS */}
                 <div className="pt-2 pl-2">
                   {booking.status === 'pending' && (
                     <div className="flex space-x-3">
