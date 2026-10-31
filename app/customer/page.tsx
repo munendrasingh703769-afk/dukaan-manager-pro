@@ -10,24 +10,33 @@ export default function CustomerSuperAppHome() {
   const supabase = createClient();
   
   const [categories, setCategories] = useState<any[]>([]);
+  const [topServices, setTopServices] = useState<any[]>([]);
+  const [topProducts, setTopProducts] = useState<any[]>([]);
   
+  // 🔍 Search State
+  const [homeSearchQuery, setHomeSearchQuery] = useState('');
+
   // Notifications State
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Quotation Modal State
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [quoteForm, setQuoteForm] = useState({ requirement: '', details: '', phone: '', name: '' });
 
   useEffect(() => {
-    const fetchCats = async () => {
-      const { data } = await supabase.from('service_categories').select('*').eq('is_active', true).limit(8);
-      if (data) setCategories(data);
+    const fetchData = async () => {
+      const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true).limit(8);
+      if (catData) setCategories(catData);
+
+      const { data: servData } = await supabase.from('services').select(`*, businesses!inner(name, city)`).eq('is_active', true).limit(5);
+      if (servData) setTopServices(servData);
+
+      const { data: prodData } = await supabase.from('products').select(`*, businesses!inner(name, city)`).gt('stock', 0).limit(5);
+      if (prodData) setTopProducts(prodData);
     };
-    fetchCats();
+    fetchData();
   }, [supabase]);
 
-  // 👇 Notifications Fetch Logic
   useEffect(() => {
     const fetchCustomerNotifications = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -40,7 +49,6 @@ export default function CustomerSuperAppHome() {
         .limit(10);
       if (data) setNotifications(data);
     };
-    
     fetchCustomerNotifications();
     const interval = setInterval(fetchCustomerNotifications, 10000);
     return () => clearInterval(interval);
@@ -52,7 +60,6 @@ export default function CustomerSuperAppHome() {
     if (unreadCount === 0) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    
     await supabase.from('notifications').update({ is_read: true }).eq('customer_id', user.id).eq('is_read', false);
     setNotifications(notifications.map(n => ({ ...n, is_read: true })));
   };
@@ -60,6 +67,16 @@ export default function CustomerSuperAppHome() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
+  };
+
+  // 👇 Search Submit Function
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (homeSearchQuery.trim()) {
+      router.push(`/customer/explore?search=${homeSearchQuery}`);
+    } else {
+      router.push('/customer/explore');
+    }
   };
 
   const handleRequestQuotation = async () => {
@@ -97,19 +114,12 @@ export default function CustomerSuperAppHome() {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* 🔔 NOTIFICATION BELL */}
             <div className="relative">
-              <button 
-                onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} 
-                className="relative p-2 bg-white/10 rounded-full hover:bg-white/20 transition border border-white/20"
-              >
+              <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} className="relative p-2 bg-white/10 rounded-full hover:bg-white/20 transition border border-white/20">
                 <span className="text-xl">🔔</span>
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
-                )}
+                {unreadCount > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>}
               </button>
 
-              {/* Notification Dropdown */}
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 max-h-96 overflow-y-auto">
                   <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl sticky top-0">
@@ -130,7 +140,6 @@ export default function CustomerSuperAppHome() {
                 </div>
               )}
             </div>
-
             <button onClick={handleLogout} className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-4 py-2 rounded-lg text-xs font-bold active:scale-95 transition">Logout</button>
           </div>
         </div>
@@ -141,14 +150,20 @@ export default function CustomerSuperAppHome() {
         </div>
       </header>
 
-      <div className="px-5 space-y-6 max-w-2xl mx-auto -mt-8 relative z-20">
+      <div className="px-4 space-y-6 max-w-2xl mx-auto -mt-8 relative z-20">
         
-        {/* 🔍 Search Bar */}
-        <Link href="/customer/explore" className="bg-white rounded-2xl shadow-lg border border-gray-100 flex items-center p-2 w-full">
+        {/* 🔍 WORKING SEARCH BAR */}
+        <form onSubmit={handleSearchSubmit} className="bg-white rounded-2xl shadow-lg border border-gray-100 flex items-center p-2 w-full">
           <span className="text-gray-400 pl-3">🔍</span>
-          <input type="text" placeholder="Search shops, products, services..." className="w-full bg-transparent outline-none text-sm p-3 text-gray-700 font-medium pointer-events-none" />
-          <button className="bg-indigo-50 text-indigo-600 font-bold px-4 py-2 rounded-xl text-sm">Search</button>
-        </Link>
+          <input 
+            type="text" 
+            placeholder="Search shops, products, services..." 
+            value={homeSearchQuery}
+            onChange={(e) => setHomeSearchQuery(e.target.value)}
+            className="w-full bg-transparent outline-none text-sm p-3 text-gray-700 font-medium" 
+          />
+          <button type="submit" className="bg-indigo-50 text-indigo-600 font-bold px-4 py-2 rounded-xl text-sm">Search</button>
+        </form>
 
         {/* ⚡ Quick Actions */}
         <section>
@@ -169,15 +184,23 @@ export default function CustomerSuperAppHome() {
               <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center text-2xl">📦</div>
               <span className="text-[11px] font-bold text-gray-700 text-center whitespace-nowrap">Send Parcel</span>
             </Link>
-            <Link href="/customer/orders" className="min-w-[80px] bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 active:scale-95 transition">
-              <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center text-2xl">🧾</div>
-              <span className="text-[11px] font-bold text-gray-700 text-center whitespace-nowrap">My Orders</span>
-            </Link>
+          </div>
+        </section>
+
+        {/* 🚀 Promotional Banner */}
+        <section className="my-2">
+          <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl p-4 flex items-center justify-between shadow-lg">
+             <div>
+                <h3 className="text-white font-black text-lg">Flat 20% OFF</h3>
+                <p className="text-pink-100 text-xs font-medium mt-1">On your first service booking!</p>
+                <button className="bg-white text-pink-600 text-xs font-bold px-4 py-1.5 rounded-full mt-3 shadow-md">Claim Now</button>
+             </div>
+             <div className="text-5xl opacity-80">🎁</div>
           </div>
         </section>
 
         {/* 📝 My Estimate Requests */}
-        <div onClick={() => setIsQuoteModalOpen(true)} className="bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl p-4 shadow-lg flex items-center justify-between relative overflow-hidden cursor-pointer active:scale-95 transition">
+        <div onClick={() => setIsQuoteModalOpen(true)} className="bg-gradient-to-r from-orange-400 to-yellow-500 rounded-2xl p-4 shadow-lg flex items-center justify-between relative overflow-hidden cursor-pointer active:scale-95 transition">
           <div className="absolute right-0 top-0 text-6xl opacity-20">📄</div>
           <div className="flex items-center gap-3 relative z-10">
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-xl border border-white/30">📝</div>
@@ -189,14 +212,15 @@ export default function CustomerSuperAppHome() {
           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">→</div>
         </div>
 
-        {/* 📦 Categories */}
+        {/* 📦 Categories (With Specific Links) */}
         <section>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-lg font-bold text-gray-800">Explore Categories</h2>
             <Link href="/customer/explore" className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">See All</Link>
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-3">
             {categories.map((cat) => (
+              // 👇 Yahan ?cat=id add kiya hai
               <Link href={`/customer/explore?cat=${cat.id}`} key={cat.id} className="bg-white p-2 rounded-2xl text-center shadow-sm border border-gray-100 hover:border-indigo-200 transition">
                 <div className="w-12 h-12 mx-auto bg-gray-50 rounded-full flex items-center justify-center text-2xl mb-2">{cat.icon}</div>
                 <p className="text-[10px] font-bold text-gray-700 truncate">{cat.name}</p>
@@ -204,6 +228,54 @@ export default function CustomerSuperAppHome() {
             ))}
           </div>
         </section>
+
+        {/* 🛠️ Top Services */}
+        {topServices.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-lg font-bold text-gray-800">Top Services Near You</h2>
+              <Link href="/customer/explore" className="text-xs font-bold text-indigo-600">View All</Link>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+              {topServices.map(service => (
+                <Link href="/customer/explore" key={service.id} className="min-w-[200px] bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between">
+                  <div>
+                    <h4 className="font-bold text-gray-800 text-sm line-clamp-1">{service.name}</h4>
+                    <p className="text-xs text-gray-500 mt-1">{service.businesses?.name}</p>
+                  </div>
+                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-50">
+                    <p className="text-indigo-600 font-black">₹{service.price}</p>
+                    <span className="bg-indigo-50 text-indigo-600 text-[10px] font-bold px-2 py-1 rounded-md">Book</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 🛒 Shop Essentials */}
+        {topProducts.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-lg font-bold text-gray-800">Shop Essentials</h2>
+              <Link href="/customer/shop" className="text-xs font-bold text-indigo-600">View All</Link>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+              {topProducts.map(prod => (
+                <Link href="/customer/shop" key={prod.id} className="min-w-[140px] bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-col justify-between">
+                   <div className="h-20 bg-gray-50 rounded-xl mb-2 flex items-center justify-center text-xl text-gray-400">
+                     {prod.name.charAt(0)}
+                   </div>
+                   <div>
+                     <h4 className="font-bold text-gray-800 text-xs line-clamp-2">{prod.name}</h4>
+                     <p className="text-indigo-600 font-black mt-1">₹{prod.selling_price}</p>
+                   </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
       </div>
 
       {/* 📱 Bottom Navigation */}
