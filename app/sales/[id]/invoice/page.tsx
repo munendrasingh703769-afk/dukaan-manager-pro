@@ -208,8 +208,8 @@ export default function SaleInvoicePage() {
               <th className="border border-black p-1 text-left">Name of Product / Service</th>
               <th className="border border-black p-1 text-left">HSN / SAC</th>
               <th className="border border-black p-1 text-right">Qty</th>
-              <th className="border border-black p-1 text-right">Rate</th>
-              <th className="border border-black p-1 text-right">Taxable Value</th>
+              <th className={s?.invoice_type === 'Delivery Challan' ? 'hidden' : 'border border-black p-1 text-right'}>Rate</th>
+              <th className={s?.invoice_type === 'Delivery Challan' ? 'hidden' : 'border border-black p-1 text-right'}>Taxable Value</th>
             </tr>
           </thead>
           <tbody>
@@ -219,8 +219,8 @@ export default function SaleInvoicePage() {
                 <td className="border border-black p-1">{it.product_name}</td>
                 <td className="border border-black p-1">{it.hsn_code || '-'}</td>
                 <td className="border border-black p-1 text-right">{it.qty} {it.unit || 'NOS'}</td>
-                <td className="border border-black p-1 text-right">{Number(it.price).toFixed(2)}</td>
-                <td className="border border-black p-1 text-right">{Number(it.taxable_amount || it.qty * it.price).toFixed(2)}</td>
+                <td className={s?.invoice_type === 'Delivery Challan' ? 'hidden' : 'border border-black p-1 text-right'}>{Number(it.price).toFixed(2)}</td>
+                <td className={s?.invoice_type === 'Delivery Challan' ? 'hidden' : 'border border-black p-1 text-right'}>{Number(it.taxable_amount || it.qty * it.price).toFixed(2)}</td>
               </tr>
             ))}
             {(!s?.invoice_type || s?.invoice_type === 'Tax Invoice') ? (
@@ -247,7 +247,7 @@ export default function SaleInvoicePage() {
       </tr>
     )}
             <tr className="font-bold">
-              <td className="border border-black p-1 text-right" colSpan={3}>Total</td>
+              <td className="border border-black p-1 text-right" colSpan={s?.invoice_type === 'Delivery Challan' ? 5 : 3}>Total</td>
               <td className="border border-black p-1 text-right">
                 {items.reduce((a, b) => a + Number(b.qty || 0), 0)}
               </td>
