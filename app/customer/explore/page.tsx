@@ -20,6 +20,8 @@ export default function CustomerExplorePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null); 
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null); 
+  const [sortOrder, setSortOrder] = useState<'none' | 'low-high' | 'high-low'>('none');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   // Booking Modal States
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -46,8 +48,8 @@ export default function CustomerExplorePage() {
     fetchData();
   }, [supabase]);
 
-  // 🎯 Filter Logic
-  const filteredServices = services.filter(service => {
+  // 🎯 Filter & Sort Logic
+  let filteredServices = services.filter(service => {
     const matchesSearch = searchQuery 
       ? service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         (service.businesses?.name && service.businesses.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -55,6 +57,12 @@ export default function CustomerExplorePage() {
     const matchesCategory = selectedCategory ? service.category_id === selectedCategory : true;
     return matchesSearch && matchesCategory;
   });
+
+  if (sortOrder === 'low-high') {
+    filteredServices = [...filteredServices].sort((a, b) => a.price - b.price);
+  } else if (sortOrder === 'high-low') {
+    filteredServices = [...filteredServices].sort((a, b) => b.price - a.price);
+  }
 
   const handleCategoryClick = (id: string, name: string) => {
     setSelectedCategory(id);
@@ -69,7 +77,6 @@ export default function CustomerExplorePage() {
     setSearchQuery('');
   };
 
-  // Location Change Handler
   const handleLocationClick = () => {
     const newLoc = prompt("Enter your City (e.g. Bareilly, UP):", userLocation);
     if (newLoc) setUserLocation(newLoc);
@@ -153,7 +160,6 @@ export default function CustomerExplorePage() {
   };
 
   const groupedCategories = getGroupedCategories();
-
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
       
@@ -173,7 +179,6 @@ export default function CustomerExplorePage() {
           </div>
         </div>
 
-        {/* Location (Clickable) & Search */}
         <div className="space-y-3">
           <div 
             onClick={handleLocationClick}
@@ -193,8 +198,14 @@ export default function CustomerExplorePage() {
                 className="w-full bg-transparent outline-none text-sm px-2 text-gray-800 font-medium" 
               />
             </div>
-            <button className="bg-blue-500 text-white font-bold px-4 rounded-xl shadow-sm flex items-center gap-1">
-              <span className="text-lg">Y</span> Filter
+            <button 
+              onClick={() => setIsFilterModalOpen(true)}
+              className="bg-blue-500 text-white font-bold px-4 rounded-xl shadow-sm flex items-center gap-1 active:scale-95 transition"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Filter
             </button>
           </div>
         </div>
@@ -218,7 +229,7 @@ export default function CustomerExplorePage() {
           </section>
         )}
 
-        {/* CATEGORIES GRID */}
+        {/* 🎯 VIEW 1: CATEGORIES (Horizontal Scroll) */}
         {!selectedCategory && !searchQuery && (
           <div className="space-y-6">
             {Object.keys(groupedCategories).map((groupName) => {
@@ -227,8 +238,6 @@ export default function CustomerExplorePage() {
 
               return (
                 <div key={groupName} className="space-y-3">
-                  
-                  {/* Group Header with Clickable View All */}
                   <div className="flex items-center justify-between px-1">
                     <h3 className="text-[15px] font-black text-gray-800 flex items-center gap-2">
                       {groupName.split(' ')[0]} <span>{groupName.substring(groupName.indexOf(' ') + 1)}</span>
@@ -241,18 +250,17 @@ export default function CustomerExplorePage() {
                     </Link>
                   </div>
                   
-                  {/* Category Cards (Clean White Design) */}
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
                     {cats.map(c => (
                       <div 
                         key={c.id} 
                         onClick={() => handleCategoryClick(c.id, c.name)}
-                        className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all hover:shadow-md hover:border-blue-200"
+                        className="min-w-[85px] w-[85px] bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all hover:shadow-md hover:border-blue-200"
                       >
                         <div className="text-4xl leading-none">
                           {c.icon}
                         </div>
-                        <span className="text-[11px] font-bold text-gray-800 text-center leading-tight line-clamp-2">
+                        <span className="text-[10.5px] font-bold text-gray-800 text-center leading-tight line-clamp-2">
                           {c.name}
                         </span>
                       </div>
@@ -263,8 +271,7 @@ export default function CustomerExplorePage() {
             })}
           </div>
         )}
-
-        {/* SERVICES LIST */}
+        {/* 🎯 VIEW 2: SERVICES LIST */}
         {(selectedCategory || searchQuery) && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 mb-2">
@@ -318,7 +325,6 @@ export default function CustomerExplorePage() {
           <span className="text-[10px] font-medium">Shop</span>
         </Link>
         
-        {/* Active Services Tab */}
         <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-blue-600">
           <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl shadow-md border-2 border-white -mt-4">
             🧭
@@ -335,6 +341,37 @@ export default function CustomerExplorePage() {
           <span className="text-[10px] font-medium">Profile</span>
         </Link>
       </nav>
+
+      {/* ================= FILTER MODAL ================= */}
+      {isFilterModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end justify-center z-[60] sm:items-center">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h2 className="text-xl font-bold text-gray-800">Sort By</h2>
+              <button onClick={() => setIsFilterModalOpen(false)} className="text-gray-500 font-bold text-xl">✕</button>
+            </div>
+            
+            <div className="space-y-3">
+              <label className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer ${sortOrder === 'none' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                <span className="font-bold text-gray-800">Relevance (Default)</span>
+                <input type="radio" checked={sortOrder === 'none'} onChange={() => setSortOrder('none')} className="w-5 h-5 accent-blue-600" />
+              </label>
+              <label className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer ${sortOrder === 'low-high' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                <span className="font-bold text-gray-800">Price: Low to High</span>
+                <input type="radio" checked={sortOrder === 'low-high'} onChange={() => setSortOrder('low-high')} className="w-5 h-5 accent-blue-600" />
+              </label>
+              <label className={`flex items-center justify-between p-4 border rounded-xl cursor-pointer ${sortOrder === 'high-low' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                <span className="font-bold text-gray-800">Price: High to Low</span>
+                <input type="radio" checked={sortOrder === 'high-low'} onChange={() => setSortOrder('high-low')} className="w-5 h-5 accent-blue-600" />
+              </label>
+            </div>
+
+            <button onClick={() => setIsFilterModalOpen(false)} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 transition">
+              Apply Filter
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* BOOKING MODAL */}
       {isBookingModalOpen && selectedService && (
