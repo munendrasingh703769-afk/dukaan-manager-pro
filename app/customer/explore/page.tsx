@@ -13,9 +13,10 @@ export default function CustomerExplorePage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Search & Filter States
+  // 🔍 Filter States
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // Category ID
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null); 
 
   // Booking Modal States
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -26,18 +27,13 @@ export default function CustomerExplorePage() {
   const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
-    // 👇 URL se 'search' ya 'cat' nikalna
-    const params = new URLSearchParams(window.location.search);
-    const searchParam = params.get('search');
-    const catParam = params.get('cat');
-
-    if (searchParam) setSearchQuery(searchParam);
-    if (catParam) setSelectedCategory(catParam);
-
     const fetchData = async () => {
+      setLoading(true);
+      // Fetch Categories
       const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true);
       if (catData) setCategories(catData);
 
+      // Fetch Services with Provider details
       const { data: servData } = await supabase
         .from('services')
         .select(`*, businesses!inner (name, city, logo_url)`)
@@ -49,7 +45,7 @@ export default function CustomerExplorePage() {
     fetchData();
   }, [supabase]);
 
-  // 🎯 FILTER LOGIC (Search + Category)
+  // 🎯 FILTER LOGIC (Search + Category Click)
   const filteredServices = services.filter(service => {
     const matchesSearch = searchQuery 
       ? service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -62,6 +58,21 @@ export default function CustomerExplorePage() {
       
     return matchesSearch && matchesCategory;
   });
+
+  // Handle Category Click
+  const handleCategoryClick = (id: string, name: string) => {
+    setSelectedCategory(id);
+    setSelectedCategoryName(name);
+    setSearchQuery(''); // Clear search when category changes
+    window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top
+  };
+
+  // Handle Back to Categories
+  const handleBackToCategories = () => {
+    setSelectedCategory(null);
+    setSelectedCategoryName(null);
+    setSearchQuery('');
+  };
 
   // --- SUBMIT SERVICE BOOKING ---
   const handleBookService = async () => {
@@ -101,7 +112,7 @@ export default function CustomerExplorePage() {
     setBookingLoading(false);
   };
 
-  // Group categories
+  // Group categories by their names
   const getGroupedCategories = () => {
     const groups: { [key: string]: any[] } = {
       '🏠 Home & Repair Services': [],
@@ -148,13 +159,23 @@ export default function CustomerExplorePage() {
       {/* Header & Search Bar */}
       <div className="bg-white p-4 sticky top-0 z-20 shadow-sm space-y-3">
         <div className="flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800">Explore Services</h1>
-          <Link href="/customer" className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">← Home</Link>
+          <div className="flex items-center gap-3">
+            {selectedCategory && (
+              <button onClick={handleBackToCategories} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-700">
+                ←
+              </button>
+            )}
+            <h1 className="text-xl font-bold text-gray-800">
+              {selectedCategory ? selectedCategoryName : 'Explore Services'}
+            </h1>
+          </div>
+          <Link href="/customer" className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">Home</Link>
         </div>
+        
         <div className="flex gap-2">
           <input 
             type="text" 
-            placeholder="Search services..." 
+            placeholder="Search services or providers..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 p-2.5 bg-gray-100 rounded-xl outline-none text-sm font-medium" 
@@ -162,73 +183,78 @@ export default function CustomerExplorePage() {
         </div>
       </div>
 
-      {/* Categories Grouped */}
-      <div className="px-4 bg-white border-b border-gray-100 py-4 shadow-sm">
-        <div className="flex justify-between items-center mb-4 px-1">
-          <h2 className="text-sm font-bold text-gray-800">All Categories</h2>
-          {selectedCategory && (
-            <button onClick={() => setSelectedCategory(null)} className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded">Clear Filter</button>
-          )}
-        </div>
-        
-        {Object.keys(groupedCategories).map((groupName) => {
-          const cats = groupedCategories[groupName];
-          if (cats.length === 0) return null;
-
-          return (
-            <div key={groupName} className="mb-6">
-              <h3 className="text-[13px] font-black text-gray-700 mb-3 ml-1 border-b pb-1">{groupName}</h3>
-              <div className="grid grid-cols-4 gap-y-4 gap-x-2">
-                {cats.map(c => (
-                  <div 
-                    key={c.id} 
-                    onClick={() => setSelectedCategory(c.id === selectedCategory ? null : c.id)}
-                    className={`flex flex-col items-center gap-1.5 p-2 rounded-xl cursor-pointer transition ${selectedCategory === c.id ? 'bg-indigo-50 border border-indigo-200 shadow-sm' : 'hover:bg-gray-50 border border-transparent'}`}
-                  >
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${selectedCategory === c.id ? 'bg-indigo-100' : 'bg-gray-100'}`}>
-                      {c.icon}
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{c.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Services List */}
-      <div className="p-4 max-w-2xl mx-auto space-y-3 mt-2">
-        <h2 className="text-sm font-bold text-gray-800 mb-2">
-          {searchQuery ? `Search Results for "${searchQuery}"` : (selectedCategory ? 'Services in this category' : 'All Available Services')}
-        </h2>
-
-        {loading ? (
-          <p className="text-center font-bold text-indigo-600 py-10">Loading Services...</p>
-        ) : filteredServices.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
-            <div className="text-5xl mb-4">📭</div>
-            <p className="text-gray-800 font-bold text-lg">Kuch nahi mila.</p>
-            <p className="text-gray-500 text-sm mt-1">Kripya kuch aur search karein ya category change karein.</p>
+      {/* ================= VIEW 1: CATEGORIES GRID ================= */}
+      {!selectedCategory && !searchQuery && (
+        <div className="px-4 bg-white border-b border-gray-100 py-4 shadow-sm mt-4 rounded-b-3xl">
+          <div className="flex justify-between items-center mb-4 px-1">
+            <h2 className="text-sm font-bold text-gray-800">All Categories</h2>
           </div>
-        ) : (
-          filteredServices.map(service => (
-            <div key={service.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-gray-800">{service.name}</h4>
-                <p className="text-xs text-gray-500 font-semibold">{service.businesses?.name} ({service.businesses?.city})</p>
-                <p className="text-blue-600 font-black mt-1 text-lg">₹{service.price}</p>
+          
+          {Object.keys(groupedCategories).map((groupName) => {
+            const cats = groupedCategories[groupName];
+            if (cats.length === 0) return null;
+
+            return (
+              <div key={groupName} className="mb-6">
+                <h3 className="text-[13px] font-black text-gray-700 mb-3 ml-1 border-b pb-1">{groupName}</h3>
+                <div className="grid grid-cols-4 gap-y-4 gap-x-2">
+                  {cats.map(c => (
+                    <div 
+                      key={c.id} 
+                      onClick={() => handleCategoryClick(c.id, c.name)}
+                      className="flex flex-col items-center gap-1.5 p-2 rounded-xl cursor-pointer hover:bg-indigo-50 border border-transparent transition"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl">
+                        {c.icon}
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{c.name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <button 
-                onClick={() => { setSelectedService(service); setIsBookingModalOpen(true); }} 
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md"
-              >
-                Book Now
+            );
+          })}
+        </div>
+      )}
+
+      {/* ================= VIEW 2: SERVICES LIST ================= */}
+      {(selectedCategory || searchQuery) && (
+        <div className="p-4 max-w-2xl mx-auto space-y-3 mt-2">
+          
+          <h2 className="text-sm font-bold text-gray-800 mb-3 border-b pb-2">
+            {searchQuery ? `Search Results for "${searchQuery}"` : `${selectedCategoryName} Services`}
+          </h2>
+
+          {loading ? (
+            <p className="text-center font-bold text-indigo-600 py-10">Loading Services...</p>
+          ) : filteredServices.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+              <div className="text-5xl mb-4">📭</div>
+              <p className="text-gray-800 font-bold text-lg">Is category me abhi koi service nahi hai.</p>
+              <p className="text-gray-500 text-sm mt-1">Kripya koi doosri category check karein.</p>
+              <button onClick={handleBackToCategories} className="mt-4 bg-indigo-50 text-indigo-600 font-bold px-4 py-2 rounded-xl text-sm">
+                ← Back to Categories
               </button>
             </div>
-          ))
-        )}
-      </div>
+          ) : (
+            filteredServices.map(service => (
+              <div key={service.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                <div>
+                  <h4 className="font-bold text-gray-800">{service.name}</h4>
+                  <p className="text-xs text-gray-500 font-semibold">{service.businesses?.name} ({service.businesses?.city})</p>
+                  <p className="text-blue-600 font-black mt-1 text-lg">₹{service.price}</p>
+                </div>
+                <button 
+                  onClick={() => { setSelectedService(service); setIsBookingModalOpen(true); }} 
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md"
+                >
+                  Book Now
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       {/* BOOKING MODAL */}
       {isBookingModalOpen && selectedService && (
