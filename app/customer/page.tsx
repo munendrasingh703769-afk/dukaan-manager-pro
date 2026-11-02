@@ -233,28 +233,28 @@ export default function CustomerSuperAppHome() {
 
       </div>
 
-      {/* BOTTOM NAVIGATION */}
+            {/* 📱 BOTTOM NAVIGATION */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
         <Link href="/customer" className="flex flex-col items-center gap-1 text-blue-600">
           <span className="text-xl">🏠</span>
           <span className="text-[10px] font-bold">Home</span>
         </Link>
-        <Link href="/customer/shop" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600">
+        <Link href="/customer/shop" className="flex flex-col items-center gap-1 text-gray-500 hover:text-blue-600">
           <span className="text-xl">🛍️</span>
           <span className="text-[10px] font-medium">Shop</span>
         </Link>
         
-        <div className="relative -top-5">
-          <Link href="/customer/explore" className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl shadow-lg border-4 border-white">
-            🧭
-          </Link>
-        </div>
-
-        <Link href="/customer/my-rides" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600 relative">
-          <span className="text-xl">🏍️</span>
-          <span className="text-[10px] font-medium">Rides</span>
+        {/* Services Tab (Center) */}
+        <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-gray-500 hover:text-blue-600">
+          <span className="text-xl">🧭</span>
+          <span className="text-[10px] font-medium">Services</span>
         </Link>
-        <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600">
+
+        <Link href="/customer/orders" className="flex flex-col items-center gap-1 text-gray-500 hover:text-blue-600">
+          <span className="text-xl">📦</span>
+          <span className="text-[10px] font-medium">Orders</span>
+        </Link>
+        <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-gray-500 hover:text-blue-600">
           <span className="text-xl">👤</span>
           <span className="text-[10px] font-medium">Profile</span>
         </Link>
