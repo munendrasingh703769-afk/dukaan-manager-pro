@@ -13,10 +13,15 @@ export default function CustomerExplorePage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Location State
+  const [userLocation, setUserLocation] = useState('Bareilly, UP');
+
+  // Search & Filter States
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); 
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null); 
 
+  // Booking Modal States
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<any>(null);
   const [bookingForm, setBookingForm] = useState({
@@ -41,6 +46,7 @@ export default function CustomerExplorePage() {
     fetchData();
   }, [supabase]);
 
+  // 🎯 Filter Logic
   const filteredServices = services.filter(service => {
     const matchesSearch = searchQuery 
       ? service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -63,6 +69,13 @@ export default function CustomerExplorePage() {
     setSearchQuery('');
   };
 
+  // Location Change Handler
+  const handleLocationClick = () => {
+    const newLoc = prompt("Enter your City (e.g. Bareilly, UP):", userLocation);
+    if (newLoc) setUserLocation(newLoc);
+  };
+
+  // --- SUBMIT SERVICE BOOKING ---
   const handleBookService = async () => {
     if (!bookingForm.name || !bookingForm.phone) return alert("Name and Phone required");
     if (!selectedService) return;
@@ -100,7 +113,7 @@ export default function CustomerExplorePage() {
     setBookingLoading(false);
   };
 
-  // 🎯 DYNAMIC GROUPING LOGIC
+  // Group Categories Logic
   const getGroupedCategories = () => {
     const groups: { [key: string]: any[] } = {
       '🏠 Home & Repair Services': [],
@@ -142,9 +155,9 @@ export default function CustomerExplorePage() {
   const groupedCategories = getGroupedCategories();
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-24 font-sans">
+    <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
       
-      {/* 🔵 TOP HEADER (Matching Screenshot) */}
+      {/* 🔵 TOP HEADER */}
       <header className="bg-blue-700 text-white pt-6 pb-6 px-4 rounded-b-3xl shadow-md relative">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -160,10 +173,13 @@ export default function CustomerExplorePage() {
           </div>
         </div>
 
-        {/* Location & Search */}
+        {/* Location (Clickable) & Search */}
         <div className="space-y-3">
-          <div className="flex items-center gap-1 text-sm font-medium text-blue-100 bg-blue-600/50 w-max px-3 py-1.5 rounded-full">
-            📍 <span>Current Location</span> <span className="text-[10px]">▼</span>
+          <div 
+            onClick={handleLocationClick}
+            className="flex items-center gap-1 text-sm font-medium text-blue-100 bg-blue-600/50 w-max px-3 py-1.5 rounded-full cursor-pointer hover:bg-blue-600 transition"
+          >
+            📍 <span>{userLocation}</span> <span className="text-[10px]">▼</span>
           </div>
           
           <div className="flex gap-2">
@@ -186,7 +202,7 @@ export default function CustomerExplorePage() {
 
       <div className="px-4 mt-5 max-w-2xl mx-auto space-y-6">
         
-        {/* 🚀 HERO BANNER */}
+        {/* HERO BANNER */}
         {!selectedCategory && !searchQuery && (
           <section>
             <div className="bg-gradient-to-r from-blue-100 to-cyan-100 rounded-2xl p-5 relative overflow-hidden flex items-center shadow-sm border border-blue-200">
@@ -202,7 +218,7 @@ export default function CustomerExplorePage() {
           </section>
         )}
 
-        {/* 🎯 VIEW 1: CATEGORIES GRID (Screenshot Style) */}
+        {/* CATEGORIES GRID */}
         {!selectedCategory && !searchQuery && (
           <div className="space-y-6">
             {Object.keys(groupedCategories).map((groupName) => {
@@ -211,26 +227,34 @@ export default function CustomerExplorePage() {
 
               return (
                 <div key={groupName} className="space-y-3">
-                  {/* Group Header */}
+                  
+                  {/* Group Header with Clickable View All */}
                   <div className="flex items-center justify-between px-1">
                     <h3 className="text-[15px] font-black text-gray-800 flex items-center gap-2">
                       {groupName.split(' ')[0]} <span>{groupName.substring(groupName.indexOf(' ') + 1)}</span>
                     </h3>
-                    <button className="text-xs font-bold text-blue-600 flex items-center">View All <span className="text-lg leading-none ml-0.5">›</span></button>
+                    <Link 
+                      href={`/customer/explore?search=${groupName.split(' ')[1]}`} 
+                      className="text-xs font-bold text-blue-600 flex items-center hover:underline"
+                    >
+                      View All <span className="text-lg leading-none ml-0.5">›</span>
+                    </Link>
                   </div>
                   
-                  {/* Category Grid */}
+                  {/* Category Cards (Clean White Design) */}
                   <div className="grid grid-cols-4 gap-2">
                     {cats.map(c => (
                       <div 
                         key={c.id} 
                         onClick={() => handleCategoryClick(c.id, c.name)}
-                        className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-blue-300 transition active:scale-95"
+                        className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all hover:shadow-md hover:border-blue-200"
                       >
-                        <div className="w-12 h-12 flex items-center justify-center text-3xl">
+                        <div className="text-4xl leading-none">
                           {c.icon}
                         </div>
-                        <span className="text-[10px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{c.name}</span>
+                        <span className="text-[11px] font-bold text-gray-800 text-center leading-tight line-clamp-2">
+                          {c.name}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -240,7 +264,7 @@ export default function CustomerExplorePage() {
           </div>
         )}
 
-        {/* 🎯 VIEW 2: SERVICES LIST (When Category clicked or Search active) */}
+        {/* SERVICES LIST */}
         {(selectedCategory || searchQuery) && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 mb-2">
@@ -283,7 +307,7 @@ export default function CustomerExplorePage() {
 
       </div>
 
-      {/* 📱 BOTTOM NAVIGATION (No Floating Button, 5 Items) */}
+      {/* 📱 BOTTOM NAVIGATION */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
         <Link href="/customer" className="flex flex-col items-center gap-1 text-gray-500">
           <span className="text-xl">🏠</span>
