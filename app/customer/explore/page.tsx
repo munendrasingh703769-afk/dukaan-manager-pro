@@ -13,12 +13,10 @@ export default function CustomerExplorePage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // 🔍 Filter States
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // Category ID
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null); 
 
-  // Booking Modal States
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<any>(null);
   const [bookingForm, setBookingForm] = useState({
@@ -29,11 +27,9 @@ export default function CustomerExplorePage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      // Fetch Categories
       const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true);
       if (catData) setCategories(catData);
 
-      // Fetch Services with Provider details
       const { data: servData } = await supabase
         .from('services')
         .select(`*, businesses!inner (name, city, logo_url)`)
@@ -45,36 +41,28 @@ export default function CustomerExplorePage() {
     fetchData();
   }, [supabase]);
 
-  // 🎯 FILTER LOGIC (Search + Category Click)
   const filteredServices = services.filter(service => {
     const matchesSearch = searchQuery 
       ? service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         (service.businesses?.name && service.businesses.name.toLowerCase().includes(searchQuery.toLowerCase()))
       : true;
-      
-    const matchesCategory = selectedCategory 
-      ? service.category_id === selectedCategory 
-      : true;
-      
+    const matchesCategory = selectedCategory ? service.category_id === selectedCategory : true;
     return matchesSearch && matchesCategory;
   });
 
-  // Handle Category Click
   const handleCategoryClick = (id: string, name: string) => {
     setSelectedCategory(id);
     setSelectedCategoryName(name);
-    setSearchQuery(''); // Clear search when category changes
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top
+    setSearchQuery('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Handle Back to Categories
   const handleBackToCategories = () => {
     setSelectedCategory(null);
     setSelectedCategoryName(null);
     setSearchQuery('');
   };
 
-  // --- SUBMIT SERVICE BOOKING ---
   const handleBookService = async () => {
     if (!bookingForm.name || !bookingForm.phone) return alert("Name and Phone required");
     if (!selectedService) return;
@@ -112,7 +100,7 @@ export default function CustomerExplorePage() {
     setBookingLoading(false);
   };
 
-  // Group categories by their names
+  // 🎯 DYNAMIC GROUPING LOGIC
   const getGroupedCategories = () => {
     const groups: { [key: string]: any[] } = {
       '🏠 Home & Repair Services': [],
@@ -154,107 +142,175 @@ export default function CustomerExplorePage() {
   const groupedCategories = getGroupedCategories();
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <main className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* Header & Search Bar */}
-      <div className="bg-white p-4 sticky top-0 z-20 shadow-sm space-y-3">
-        <div className="flex justify-between items-center">
+      {/* 🔵 TOP HEADER (Matching Screenshot) */}
+      <header className="bg-blue-700 text-white pt-6 pb-6 px-4 rounded-b-3xl shadow-md relative">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            {selectedCategory && (
-              <button onClick={handleBackToCategories} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-700">
-                ←
-              </button>
-            )}
-            <h1 className="text-xl font-bold text-gray-800">
-              {selectedCategory ? selectedCategoryName : 'Explore Services'}
-            </h1>
-          </div>
-          <Link href="/customer" className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">Home</Link>
-        </div>
-        
-        <div className="flex gap-2">
-          <input 
-            type="text" 
-            placeholder="Search services or providers..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 p-2.5 bg-gray-100 rounded-xl outline-none text-sm font-medium" 
-          />
-        </div>
-      </div>
-
-      {/* ================= VIEW 1: CATEGORIES GRID ================= */}
-      {!selectedCategory && !searchQuery && (
-        <div className="px-4 bg-white border-b border-gray-100 py-4 shadow-sm mt-4 rounded-b-3xl">
-          <div className="flex justify-between items-center mb-4 px-1">
-            <h2 className="text-sm font-bold text-gray-800">All Categories</h2>
-          </div>
-          
-          {Object.keys(groupedCategories).map((groupName) => {
-            const cats = groupedCategories[groupName];
-            if (cats.length === 0) return null;
-
-            return (
-              <div key={groupName} className="mb-6">
-                <h3 className="text-[13px] font-black text-gray-700 mb-3 ml-1 border-b pb-1">{groupName}</h3>
-                <div className="grid grid-cols-4 gap-y-4 gap-x-2">
-                  {cats.map(c => (
-                    <div 
-                      key={c.id} 
-                      onClick={() => handleCategoryClick(c.id, c.name)}
-                      className="flex flex-col items-center gap-1.5 p-2 rounded-xl cursor-pointer hover:bg-indigo-50 border border-transparent transition"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl">
-                        {c.icon}
-                      </div>
-                      <span className="text-[10px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{c.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ================= VIEW 2: SERVICES LIST ================= */}
-      {(selectedCategory || searchQuery) && (
-        <div className="p-4 max-w-2xl mx-auto space-y-3 mt-2">
-          
-          <h2 className="text-sm font-bold text-gray-800 mb-3 border-b pb-2">
-            {searchQuery ? `Search Results for "${searchQuery}"` : `${selectedCategoryName} Services`}
-          </h2>
-
-          {loading ? (
-            <p className="text-center font-bold text-indigo-600 py-10">Loading Services...</p>
-          ) : filteredServices.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
-              <div className="text-5xl mb-4">📭</div>
-              <p className="text-gray-800 font-bold text-lg">Is category me abhi koi service nahi hai.</p>
-              <p className="text-gray-500 text-sm mt-1">Kripya koi doosri category check karein.</p>
-              <button onClick={handleBackToCategories} className="mt-4 bg-indigo-50 text-indigo-600 font-bold px-4 py-2 rounded-xl text-sm">
-                ← Back to Categories
-              </button>
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-700 text-2xl font-black">🏪</div>
+            <div>
+              <h1 className="text-lg font-black tracking-wide">VyapaarSetu</h1>
+              <p className="text-blue-200 text-[11px]">Smart Dukaan, Smart Aapke Liye</p>
             </div>
-          ) : (
-            filteredServices.map(service => (
-              <div key={service.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
-                <div>
-                  <h4 className="font-bold text-gray-800">{service.name}</h4>
-                  <p className="text-xs text-gray-500 font-semibold">{service.businesses?.name} ({service.businesses?.city})</p>
-                  <p className="text-blue-600 font-black mt-1 text-lg">₹{service.price}</p>
-                </div>
-                <button 
-                  onClick={() => { setSelectedService(service); setIsBookingModalOpen(true); }} 
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md"
-                >
-                  Book Now
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/customer" className="relative text-2xl">🔔</Link>
+            <Link href="/customer/profile" className="w-9 h-9 bg-blue-500 rounded-full flex items-center justify-center font-bold border border-blue-400">M</Link>
+          </div>
+        </div>
+
+        {/* Location & Search */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-1 text-sm font-medium text-blue-100 bg-blue-600/50 w-max px-3 py-1.5 rounded-full">
+            📍 <span>Current Location</span> <span className="text-[10px]">▼</span>
+          </div>
+          
+          <div className="flex gap-2">
+            <div className="flex-1 bg-white rounded-xl flex items-center p-2 shadow-sm">
+              <span className="text-gray-400 pl-2">🔍</span>
+              <input 
+                type="text" 
+                placeholder="Search services or providers..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent outline-none text-sm px-2 text-gray-800 font-medium" 
+              />
+            </div>
+            <button className="bg-blue-500 text-white font-bold px-4 rounded-xl shadow-sm flex items-center gap-1">
+              <span className="text-lg">Y</span> Filter
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="px-4 mt-5 max-w-2xl mx-auto space-y-6">
+        
+        {/* 🚀 HERO BANNER */}
+        {!selectedCategory && !searchQuery && (
+          <section>
+            <div className="bg-gradient-to-r from-blue-100 to-cyan-100 rounded-2xl p-5 relative overflow-hidden flex items-center shadow-sm border border-blue-200">
+              <div className="relative z-10 w-3/5">
+                <h2 className="text-xl font-black text-blue-900 leading-tight">Trusted local services near you</h2>
+                <p className="text-xs text-blue-700 font-medium mt-1">Fast • Reliable • Professional</p>
+                <button className="bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg mt-3 shadow-md flex items-center gap-1">
+                  Explore Now →
                 </button>
               </div>
-            ))
-          )}
-        </div>
-      )}
+              <div className="absolute right-[-10px] bottom-[-10px] text-7xl opacity-80">👨‍🔧</div>
+            </div>
+          </section>
+        )}
+
+        {/* 🎯 VIEW 1: CATEGORIES GRID (Screenshot Style) */}
+        {!selectedCategory && !searchQuery && (
+          <div className="space-y-6">
+            {Object.keys(groupedCategories).map((groupName) => {
+              const cats = groupedCategories[groupName];
+              if (cats.length === 0) return null;
+
+              return (
+                <div key={groupName} className="space-y-3">
+                  {/* Group Header */}
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-[15px] font-black text-gray-800 flex items-center gap-2">
+                      {groupName.split(' ')[0]} <span>{groupName.substring(groupName.indexOf(' ') + 1)}</span>
+                    </h3>
+                    <button className="text-xs font-bold text-blue-600 flex items-center">View All <span className="text-lg leading-none ml-0.5">›</span></button>
+                  </div>
+                  
+                  {/* Category Grid */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {cats.map(c => (
+                      <div 
+                        key={c.id} 
+                        onClick={() => handleCategoryClick(c.id, c.name)}
+                        className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-blue-300 transition active:scale-95"
+                      >
+                        <div className="w-12 h-12 flex items-center justify-center text-3xl">
+                          {c.icon}
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{c.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 🎯 VIEW 2: SERVICES LIST (When Category clicked or Search active) */}
+        {(selectedCategory || searchQuery) && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-2">
+              <button onClick={handleBackToCategories} className="w-8 h-8 bg-white shadow-sm border border-gray-200 rounded-full flex items-center justify-center font-bold text-gray-700">←</button>
+              <h2 className="text-lg font-black text-gray-800">
+                {searchQuery ? `Search Results` : selectedCategoryName}
+              </h2>
+            </div>
+
+            {loading ? (
+              <p className="text-center font-bold text-blue-600 py-10">Loading Services...</p>
+            ) : filteredServices.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
+                <div className="text-5xl mb-4">📭</div>
+                <p className="text-gray-800 font-bold text-lg">Is category me abhi koi service nahi hai.</p>
+                <button onClick={handleBackToCategories} className="mt-4 bg-blue-50 text-blue-600 font-bold px-4 py-2 rounded-xl text-sm">← Back</button>
+              </div>
+            ) : (
+              filteredServices.map(service => (
+                <div key={service.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center active:scale-95 transition">
+                  <div className="flex gap-3">
+                    <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl">🛠️</div>
+                    <div>
+                      <h4 className="font-bold text-gray-800">{service.name}</h4>
+                      <p className="text-[11px] text-gray-500 font-medium">{service.businesses?.name}</p>
+                      <p className="text-blue-600 font-black mt-1">₹{service.price}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => { setSelectedService(service); setIsBookingModalOpen(true); }} 
+                    className="bg-blue-50 text-blue-700 border border-blue-100 px-4 py-2 rounded-xl font-bold text-xs shadow-sm"
+                  >
+                    Book
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+      </div>
+
+      {/* 📱 BOTTOM NAVIGATION (No Floating Button, 5 Items) */}
+      <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
+        <Link href="/customer" className="flex flex-col items-center gap-1 text-gray-500">
+          <span className="text-xl">🏠</span>
+          <span className="text-[10px] font-medium">Home</span>
+        </Link>
+        <Link href="/customer/shop" className="flex flex-col items-center gap-1 text-gray-500">
+          <span className="text-xl">🛍️</span>
+          <span className="text-[10px] font-medium">Shop</span>
+        </Link>
+        
+        {/* Active Services Tab */}
+        <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-blue-600">
+          <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl shadow-md border-2 border-white -mt-4">
+            🧭
+          </div>
+          <span className="text-[10px] font-bold mt-0.5">Services</span>
+        </Link>
+
+        <Link href="/customer/orders" className="flex flex-col items-center gap-1 text-gray-500">
+          <span className="text-xl">📦</span>
+          <span className="text-[10px] font-medium">Orders</span>
+        </Link>
+        <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-gray-500">
+          <span className="text-xl">👤</span>
+          <span className="text-[10px] font-medium">Profile</span>
+        </Link>
+      </nav>
 
       {/* BOOKING MODAL */}
       {isBookingModalOpen && selectedService && (
@@ -262,27 +318,22 @@ export default function CustomerExplorePage() {
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
             <h2 className="text-xl font-bold text-gray-800">Book: {selectedService.name}</h2>
             <p className="text-sm text-gray-500">Price: ₹{selectedService.price}</p>
-            
-            <input type="text" placeholder="Your Name *" value={bookingForm.name} onChange={e => setBookingForm({...bookingForm, name: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
-            <input type="tel" placeholder="Phone Number *" value={bookingForm.phone} onChange={e => setBookingForm({...bookingForm, phone: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
-            
+            <input type="text" placeholder="Your Name *" value={bookingForm.name} onChange={e => setBookingForm({...bookingForm, name: e.target.value})} className="w-full p-3 border rounded-xl outline-none" />
+            <input type="tel" placeholder="Phone Number *" value={bookingForm.phone} onChange={e => setBookingForm({...bookingForm, phone: e.target.value})} className="w-full p-3 border rounded-xl outline-none" />
             <div className="grid grid-cols-2 gap-3">
-              <input type="date" value={bookingForm.date} onChange={e => setBookingForm({...bookingForm, date: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
-              <input type="time" value={bookingForm.time} onChange={e => setBookingForm({...bookingForm, time: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
+              <input type="date" value={bookingForm.date} onChange={e => setBookingForm({...bookingForm, date: e.target.value})} className="w-full p-3 border rounded-xl outline-none" />
+              <input type="time" value={bookingForm.time} onChange={e => setBookingForm({...bookingForm, time: e.target.value})} className="w-full p-3 border rounded-xl outline-none" />
             </div>
-            
-            <input type="text" placeholder="Notes (Optional)" value={bookingForm.notes} onChange={e => setBookingForm({...bookingForm, notes: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none" />
-
+            <input type="text" placeholder="Notes (Optional)" value={bookingForm.notes} onChange={e => setBookingForm({...bookingForm, notes: e.target.value})} className="w-full p-3 border rounded-xl outline-none" />
             <div className="flex gap-3 pt-2">
               <button onClick={() => setIsBookingModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700">Cancel</button>
-              <button onClick={handleBookService} disabled={bookingLoading} className="flex-1 bg-indigo-600 py-3 rounded-xl font-bold text-white disabled:opacity-50">
+              <button onClick={handleBookService} disabled={bookingLoading} className="flex-1 bg-blue-600 py-3 rounded-xl font-bold text-white disabled:opacity-50">
                 {bookingLoading ? 'Booking...' : 'Confirm Booking'}
               </button>
             </div>
           </div>
         </div>
       )}
-
-    </div>
+    </main>
   )
 }
