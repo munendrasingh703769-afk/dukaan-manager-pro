@@ -9,45 +9,31 @@ export default function CustomerSuperAppHome() {
   const router = useRouter();
   const supabase = createClient();
   
-  // Data States
   const [categories, setCategories] = useState<any[]>([]);
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
   
-  // Notifications State
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-
-  // Search State
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. Fetch User Profile
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
         setUserProfile(profile);
         
-        // Fetch Notifications
         const { data: notifs } = await supabase.from('notifications').select('*').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(10);
         if (notifs) setNotifications(notifs);
       }
 
-      // 2. Fetch Shop Categories (Top 7 for the grid + 1 for "More")
       const { data: catData } = await supabase.from('shop_categories').select('*').eq('is_active', true).limit(7);
       if (catData) setCategories(catData);
 
-      // 3. Fetch Recommended Products (Latest 4)
-      const { data: prodData } = await supabase
-        .from('products')
-        .select(`*, businesses!inner(name)`)
-        .gt('stock', 0)
-        .order('created_at', { ascending: false })
-        .limit(4);
+      const { data: prodData } = await supabase.from('products').select(`*, businesses!inner(name)`).gt('stock', 0).order('created_at', { ascending: false }).limit(4);
       if (prodData) setTopProducts(prodData);
     };
-    
     fetchData();
   }, [supabase]);
 
@@ -69,7 +55,7 @@ export default function CustomerSuperAppHome() {
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
       
-      {/* 🔵 TOP HEADER */}
+      {/* TOP HEADER */}
       <header className="bg-blue-600 text-white pt-4 pb-6 px-4 rounded-b-3xl relative shadow-md">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -90,7 +76,6 @@ export default function CustomerSuperAppHome() {
           </div>
         </div>
 
-        {/* 🔍 SEARCH BAR */}
         <form onSubmit={handleSearch} className="bg-white rounded-xl flex items-center p-2 shadow-sm">
           <span className="text-gray-400 pl-2">🔍</span>
           <input 
@@ -106,61 +91,62 @@ export default function CustomerSuperAppHome() {
 
       <div className="px-3 space-y-5 mt-4 max-w-2xl mx-auto">
         
-        {/* 🚀 HERO BANNER */}
+        {/* HERO BANNER */}
         <section>
           <div className="bg-gradient-to-r from-blue-100 to-blue-200 rounded-2xl p-5 relative overflow-hidden flex items-center shadow-sm">
             <div className="relative z-10 w-3/5">
               <h2 className="text-xl font-black text-blue-900 leading-tight">Sab Kuch Ek Hi App Mein</h2>
               <p className="text-sm text-blue-800 font-medium mt-1">Dukaan Manage Karein,<br/>Aur Bhi Aasaan Tarike Se!</p>
-              <button className="bg-blue-900 text-white text-xs font-bold px-4 py-2 rounded-lg mt-3 shadow-md flex items-center gap-1">
+              <Link href="/customer/explore" className="bg-blue-900 text-white text-xs font-bold px-4 py-2 rounded-lg mt-3 shadow-md flex items-center gap-1 w-max">
                 Explore Now →
-              </button>
+              </Link>
             </div>
-            <div className="absolute right-[-10px] bottom-[-10px] text-7xl opacity-90">
-              🏪
-            </div>
+            <div className="absolute right-[-10px] bottom-[-10px] text-7xl opacity-90">🏪</div>
           </div>
         </section>
 
-        {/* ⚡ QUICK ACTIONS */}
+        {/* QUICK ACTIONS (Customer Focused + Explore) */}
         <section>
           <div className="grid grid-cols-4 gap-y-4 gap-x-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
             <Link href="/customer/shop" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
               <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🛒</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Buy<br/>Products</span>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Shop<br/>Now</span>
             </Link>
-            <Link href="/owner/sales" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🧾</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Sales &<br/>Billing</span>
+            
+            {/* 👇 Explore Button */}
+            <Link href="/customer/explore" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl text-blue-600">🧭</div>
+              <span className="text-[10px] font-bold text-blue-700 text-center leading-tight">Explore<br/>Services</span>
             </Link>
-            <Link href="/owner/payments" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🤝</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Udhaar<br/>(Credit)</span>
+
+            <Link href="/customer/rides" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🏍️</div>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Book<br/>Ride</span>
             </Link>
-            <Link href="/owner/payments" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">💳</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Payments</span>
+            <Link href="/customer/rides?type=parcel" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">📦</div>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Send<br/>Parcel</span>
             </Link>
             <Link href="/customer/orders" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
               <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🕒</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Orders &<br/>History</span>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">My<br/>Orders</span>
+            </Link>
+            <Link href="/customer/bookings" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">📅</div>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">My<br/>Bookings</span>
+            </Link>
+            <Link href="/customer/requests" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">📄</div>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">My<br/>Quotes</span>
             </Link>
             <Link href="/customer/support" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
               <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🎧</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Support</span>
-            </Link>
-            <Link href="/customer/profile" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">⚙️</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Settings</span>
-            </Link>
-            <Link href="/customer/profile" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">👤</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">My<br/>Account</span>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Help<br/>Support</span>
             </Link>
           </div>
         </section>
 
-        {/* 📦 SHOP BY CATEGORY (Dynamic from DB) */}
+        {/* SHOP BY CATEGORY */}
         <section>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-base font-black text-gray-800 flex items-center gap-2"><span className="w-1 h-4 bg-blue-600 rounded-full"></span> Shop by Category</h2>
@@ -176,7 +162,6 @@ export default function CustomerSuperAppHome() {
                 <span className="text-[10px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{cat.name}</span>
               </Link>
             ))}
-            {/* More Categories Button */}
             <Link href="/customer/shop" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
               <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-2xl text-blue-600 font-black">
                 •••
@@ -186,7 +171,7 @@ export default function CustomerSuperAppHome() {
           </div>
         </section>
 
-        {/* 🎁 SPECIAL DEALS BANNER */}
+        {/* SPECIAL DEALS */}
         <section>
           <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-4 flex items-center justify-between border border-purple-200 shadow-sm">
             <div>
@@ -197,7 +182,7 @@ export default function CustomerSuperAppHome() {
           </div>
         </section>
 
-        {/* 🛒 RECOMMENDED FOR YOU (Dynamic Products) */}
+        {/* RECOMMENDED FOR YOU */}
         <section>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-base font-black text-gray-800 flex items-center gap-2"><span className="w-1 h-4 bg-blue-600 rounded-full"></span> Recommended for You</h2>
@@ -216,7 +201,6 @@ export default function CustomerSuperAppHome() {
                 return (
                   <div key={prod.id} className="min-w-[140px] w-[140px] bg-white rounded-2xl shadow-sm border border-gray-100 p-2.5 flex flex-col justify-between">
                     <div>
-                      {/* Image Placeholder */}
                       <div className="h-24 bg-gray-50 rounded-xl mb-2 flex items-center justify-center text-3xl text-gray-300 relative">
                         {prod.name.charAt(0)}
                         {discount > 0 && (
@@ -249,7 +233,7 @@ export default function CustomerSuperAppHome() {
 
       </div>
 
-      {/* 📱 BOTTOM NAVIGATION */}
+      {/* BOTTOM NAVIGATION */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
         <Link href="/customer" className="flex flex-col items-center gap-1 text-blue-600">
           <span className="text-xl">🏠</span>
@@ -260,17 +244,15 @@ export default function CustomerSuperAppHome() {
           <span className="text-[10px] font-medium">Shop</span>
         </Link>
         
-        {/* Center Floating Scanner Button */}
         <div className="relative -top-5">
-          <button className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl shadow-lg border-4 border-white">
-            📷
-          </button>
+          <Link href="/customer/explore" className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl shadow-lg border-4 border-white">
+            🧭
+          </Link>
         </div>
 
-        <Link href="/customer/cart" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600 relative">
-          <span className="text-xl">🛒</span>
-          <span className="text-[10px] font-medium">Cart</span>
-          <span className="absolute top-0 right-2 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">1</span>
+        <Link href="/customer/my-rides" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600 relative">
+          <span className="text-xl">🏍️</span>
+          <span className="text-[10px] font-medium">Rides</span>
         </Link>
         <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600">
           <span className="text-xl">👤</span>
@@ -278,7 +260,7 @@ export default function CustomerSuperAppHome() {
         </Link>
       </nav>
 
-      {/* 🔔 NOTIFICATION DROPDOWN (Absolute Positioned) */}
+      {/* NOTIFICATION DROPDOWN */}
       {showNotifications && (
         <div className="absolute top-16 right-4 w-72 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 max-h-96 overflow-y-auto">
           <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl sticky top-0">
