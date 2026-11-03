@@ -17,30 +17,74 @@ export default function CustomerRidesPage() {
   // Auto-calculated Distance & Fare
   const [calculatedKm, setCalculatedKm] = useState<number>(0);
   const [estimatedFare, setEstimatedFare] = useState<number>(0);
+  const [calculating, setCalculating] = useState(false);
 
-  // 🧠 SMART AUTO-DISTANCE LOGIC (Simulating Google Maps API)
+  // 🧠 REAL AUTO-DISTANCE LOGIC (Using OpenStreetMap & OSRM - Free APIs)
   useEffect(() => {
-    if (pickup.length > 3 && drop.length > 3) {
-      // Address ki length aur ek random factor se distance nikal rahe hain (Mock logic)
-      const seed = pickup.length + drop.length;
-      const autoDistance = Math.max(2, Math.min(50, Math.floor(seed % 25) + 2)); 
-      setCalculatedKm(autoDistance);
-
-      // Fare Calculation (Base + Per KM)
-      const km = autoDistance;
-      let fare = 0;
-      switch (rideType) {
-        case 'bike': fare = 20 + (km * 8); break;
-        case 'auto': fare = 30 + (km * 12); break;
-        case 'car': fare = 50 + (km * 18); break;
-        case 'parcel': fare = 40 + (km * 15); break;
-      }
-      setEstimatedFare(fare);
-    } else {
+    // Jab tak address 4 letter ka na ho, calculate mat karo
+    if (pickup.length < 4 || drop.length < 4) {
       setCalculatedKm(0);
       setEstimatedFare(0);
+      return;
     }
-  }, [pickup, drop, rideType]);
+
+    const timer = setTimeout(async () => {
+      setCalculating(true);
+      try {
+        // 1. Pickup Location ka Latitude/Longitude dhundo
+        const p1 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}`).then(r => r.json());
+        // 2. Drop Location ka Latitude/Longitude dhundo
+        const p2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(drop)}`).then(r => r.json());
+
+        if (p1.length > 0 && p2.length > 0) {
+          const lat1 = p1[0].lat; 
+          const lon1 = p1[0].lon;
+          const lat2 = p2[0].lat; 
+          const lon2 = p2[0].lon;
+          
+          // 3. OSRM API se real driving distance nikalo
+          const route = await fetch(`https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`).then(r => r.json());
+          
+          let realKm = 0;
+          if (route.code === 'Ok' && route.routes.length > 0) {
+            realKm = Math.round(route.routes[0].distance / 1000);
+          } else {
+            // Fallback: Agar OSRM fail ho jaye toh seedhi line ka distance (Haversine Formula)
+            const R = 6371; // Earth radius in km
+            const dLat = (Number(lat2) - Number(lat1)) * Math.PI / 180;
+            const dLon = (Number(lon2) - Number(lon1)) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(Number(lat1) * Math.PI / 180) * Math.cos(Number(lat2) * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            realKm = Math.round(R * c);
+          }
+
+          // Ek minimum 2 KM set kar dete hain
+          realKm = Math.max(2, realKm);
+          setCalculatedKm(realKm);
+        }
+      } catch (error) {
+        console.error("Distance calculation error:", error);
+      } finally {
+        setCalculating(false);
+      }
+    }, 1500); // 1.5 second wait karo taaki user type karna complete kare
+
+    return () => clearTimeout(timer);
+  }, [pickup, drop]);
+
+  // Jab distance change ho, toh fare calculate karo
+  useEffect(() => {
+    if (calculatedKm > 0) {
+      let fare = 0;
+      switch (rideType) {
+        case 'bike': fare = 20 + (calculatedKm * 8); break;
+        case 'auto': fare = 30 + (calculatedKm * 12); break;
+        case 'car': fare = 50 + (calculatedKm * 18); break;
+        case 'parcel': fare = 40 + (calculatedKm * 15); break;
+      }
+      setEstimatedFare(Math.round(fare));
+    }
+  }, [calculatedKm, rideType]);
 
   const handleBookRide = async () => {
     if (!pickup || !drop) return alert("Please enter pickup and drop locations");
@@ -92,21 +136,25 @@ export default function CustomerRidesPage() {
             <div className="absolute left-3 top-3 bottom-3 w-0.5 bg-gray-300"></div>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-3 h-3 bg-green-500 rounded-full z-10 border-2 border-white shadow"></div>
-              <input type="text" placeholder="Pickup Location" value={pickup} onChange={e => setPickup(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium" />
+              <input type="text" placeholder="Pickup Location (e.g. Bareilly)" value={pickup} onChange={e => setPickup(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium" />
             </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-red-500 rounded-full z-10 border-2 border-white shadow"></div>
-              <input type="text" placeholder="Drop Location" value={drop} onChange={e => setDrop(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium" />
+              <input type="text" placeholder="Drop Location (e.g. Budaun)" value={drop} onChange={e => setDrop(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium" />
             </div>
           </div>
 
-          {/* Auto Distance Display (No Input needed) */}
-          {calculatedKm > 0 && (
-            <div className="bg-blue-50 text-blue-800 text-sm font-bold p-3 rounded-xl flex justify-between items-center">
-              <span>🛣️ Auto Calculated Distance:</span>
+          {/* Auto Distance Display */}
+          {calculating ? (
+            <div className="bg-blue-50 text-blue-800 text-sm font-bold p-3 rounded-xl flex justify-between items-center animate-pulse">
+              <span>🛣️ Calculating Real Distance...</span>
+            </div>
+          ) : calculatedKm > 0 ? (
+            <div className="bg-green-50 text-green-800 text-sm font-bold p-3 rounded-xl flex justify-between items-center border border-green-200">
+              <span>🛣️ Real Driving Distance:</span>
               <span>{calculatedKm} KM</span>
             </div>
-          )}
+          ) : null}
 
           <div className="mt-4">
             <p className="text-sm font-bold text-gray-700 mb-2">Choose Ride Type</p>
@@ -131,8 +179,8 @@ export default function CustomerRidesPage() {
             <span className="text-2xl font-black text-indigo-600">₹{estimatedFare}</span>
           </div>
 
-          <button onClick={handleBookRide} disabled={loading} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md hover:bg-indigo-700 transition mt-4 disabled:opacity-50">
-            {loading ? 'Searching...' : `Book ${rideType.charAt(0).toUpperCase() + rideType.slice(1)}`}
+          <button onClick={handleBookRide} disabled={loading || calculating || calculatedKm === 0} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md hover:bg-indigo-700 transition mt-4 disabled:opacity-50">
+            {loading ? 'Searching...' : calculating ? 'Wait...' : `Book ${rideType.charAt(0).toUpperCase() + rideType.slice(1)}`}
           </button>
         </div>
       </div>
