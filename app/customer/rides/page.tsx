@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -12,43 +12,55 @@ export default function CustomerRidesPage() {
   const [rideType, setRideType] = useState('bike')
   const [pickup, setPickup] = useState('')
   const [drop, setDrop] = useState('')
-  const [distance, setDistance] = useState<string>('') 
   const [loading, setLoading] = useState(false)
+  
+  // Auto-calculated Distance & Fare
+  const [calculatedKm, setCalculatedKm] = useState<number>(0);
+  const [estimatedFare, setEstimatedFare] = useState<number>(0);
 
-  const calculateFare = (): number => {
-    const km = parseFloat(distance);
-    if (isNaN(km) || km <= 0) return 0;
-    switch (rideType) {
-      case 'bike': return 20 + (km * 8);
-      case 'auto': return 30 + (km * 12);
-      case 'car': return 50 + (km * 18);
-      case 'parcel': return 40 + (km * 15);
-      default: return 0;
+  // 🧠 SMART AUTO-DISTANCE LOGIC (Simulating Google Maps API)
+  useEffect(() => {
+    if (pickup.length > 3 && drop.length > 3) {
+      // Address ki length aur ek random factor se distance nikal rahe hain (Mock logic)
+      const seed = pickup.length + drop.length;
+      const autoDistance = Math.max(2, Math.min(50, Math.floor(seed % 25) + 2)); 
+      setCalculatedKm(autoDistance);
+
+      // Fare Calculation (Base + Per KM)
+      const km = autoDistance;
+      let fare = 0;
+      switch (rideType) {
+        case 'bike': fare = 20 + (km * 8); break;
+        case 'auto': fare = 30 + (km * 12); break;
+        case 'car': fare = 50 + (km * 18); break;
+        case 'parcel': fare = 40 + (km * 15); break;
+      }
+      setEstimatedFare(fare);
+    } else {
+      setCalculatedKm(0);
+      setEstimatedFare(0);
     }
-  };
-
-  const estimatedFare = calculateFare();
+  }, [pickup, drop, rideType]);
 
   const handleBookRide = async () => {
-    if (!pickup || !drop || !distance) return alert("Please fill all details");
-    setLoading(true);
-
-    // 👇 Check karein ki user login hai ya nahi
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (!pickup || !drop) return alert("Please enter pickup and drop locations");
+    if (calculatedKm === 0) return alert("Calculating distance, please wait...");
     
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setLoading(false);
-      return alert("Aap login nahi hain! Ride book karne ke liye pehle login karein.");
+      return alert("Please login first.");
     }
 
     const rideOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
     const { error } = await supabase.from('ride_bookings').insert([{
-      customer_id: user.id, // 👈 Direct user ID
+      customer_id: user.id,
       ride_type: rideType,
       pickup_location: pickup,
       drop_location: drop,
-      distance_km: parseFloat(distance),
+      distance_km: calculatedKm,
       estimated_fare: estimatedFare,
       ride_otp: rideOtp,
       status: 'searching'
@@ -75,6 +87,7 @@ export default function CustomerRidesPage() {
 
       <div className="p-4 max-w-2xl mx-auto mt-4">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+          
           <div className="relative">
             <div className="absolute left-3 top-3 bottom-3 w-0.5 bg-gray-300"></div>
             <div className="flex items-center gap-3 mb-3">
@@ -87,25 +100,28 @@ export default function CustomerRidesPage() {
             </div>
           </div>
 
-          <div>
-            <label className="text-sm font-bold text-gray-700">Distance (in KM) *</label>
-            <input type="number" placeholder="e.g. 5" value={distance} onChange={e => setDistance(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium mt-1" />
-          </div>
+          {/* Auto Distance Display (No Input needed) */}
+          {calculatedKm > 0 && (
+            <div className="bg-blue-50 text-blue-800 text-sm font-bold p-3 rounded-xl flex justify-between items-center">
+              <span>🛣️ Auto Calculated Distance:</span>
+              <span>{calculatedKm} KM</span>
+            </div>
+          )}
 
           <div className="mt-4">
             <p className="text-sm font-bold text-gray-700 mb-2">Choose Ride Type</p>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setRideType('bike')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'bike' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🏍️</span><span className="text-xs font-bold">Bike (₹20 + ₹8/km)</span>
+                <span className="text-2xl">🏍️</span><span className="text-xs font-bold">Bike</span>
               </button>
               <button onClick={() => setRideType('auto')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'auto' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🛺</span><span className="text-xs font-bold">Auto (₹30 + ₹12/km)</span>
+                <span className="text-2xl">🛺</span><span className="text-xs font-bold">Auto</span>
               </button>
               <button onClick={() => setRideType('car')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'car' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🚗</span><span className="text-xs font-bold">Car (₹50 + ₹18/km)</span>
+                <span className="text-2xl">🚗</span><span className="text-xs font-bold">Car</span>
               </button>
               <button onClick={() => setRideType('parcel')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'parcel' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">📦</span><span className="text-xs font-bold">Parcel (₹40 + ₹15/km)</span>
+                <span className="text-2xl">📦</span><span className="text-xs font-bold">Parcel</span>
               </button>
             </div>
           </div>
@@ -116,7 +132,7 @@ export default function CustomerRidesPage() {
           </div>
 
           <button onClick={handleBookRide} disabled={loading} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md hover:bg-indigo-700 transition mt-4 disabled:opacity-50">
-            {loading ? 'Processing...' : `Book ${rideType.charAt(0).toUpperCase() + rideType.slice(1)}`}
+            {loading ? 'Searching...' : `Book ${rideType.charAt(0).toUpperCase() + rideType.slice(1)}`}
           </button>
         </div>
       </div>
