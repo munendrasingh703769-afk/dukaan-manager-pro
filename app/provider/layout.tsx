@@ -134,64 +134,65 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
       {/* MOBILE OVERLAY */}
       {isMobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>}
 
-      {/* MAIN CONTENT AREA */}
+          {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* HEADER */}
-        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-10">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600 text-2xl">☰</button>
-            <h1 className="text-lg font-bold text-gray-800 hidden md:block">Provider Workspace</h1>
-          </div>
-          
-          <div className="flex items-center gap-4">
+        {/* 👇 SIRF RIDES PAGE PAR HEADER HIDE KARNE KI CONDITION */}
+        {pathname !== '/provider/rides' && (
+          <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-10">
+            <div className="flex items-center gap-4">
+              <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600 text-2xl">☰</button>
+              <h1 className="text-lg font-bold text-gray-800 hidden md:block">Provider Workspace</h1>
+            </div>
             
-            {/* NOTIFICATION BELL */}
-            <div className="relative">
-              <button 
-                onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} 
-                className="relative p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition"
-              >
-                <span className="text-xl">🔔</span>
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+            <div className="flex items-center gap-4">
+              {/* 🔔 NOTIFICATION BELL */}
+              <div className="relative">
+                <button 
+                  onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} 
+                  className="relative p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition"
+                >
+                  <span className="text-xl">🔔</span>
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+                  )}
+                </button>
+
+                {/* Notification Dropdown */}
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-96 overflow-y-auto">
+                    <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                      <h3 className="font-bold text-sm text-gray-800">Notifications</h3>
+                      <button onClick={() => setShowNotifications(false)} className="text-xs font-bold text-blue-600">Close</button>
+                    </div>
+                    {notifications.length === 0 ? (
+                      <p className="p-4 text-center text-sm text-gray-500">No new notifications.</p>
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} className={`p-3 border-b border-gray-50 text-sm ${n.is_read ? 'bg-white' : 'bg-blue-50'}`}>
+                          <p className="font-bold text-gray-800">{n.title}</p>
+                          <p className="text-xs text-gray-600 mt-1">{n.message}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleTimeString()}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 )}
+              </div>
+
+              {/* ONLINE / OFFLINE TOGGLE */}
+              <button onClick={toggleOnline} className={`flex items-center gap-2 border px-3 py-1.5 rounded-full transition ${isOnline ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-300'}`}>
+                <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+                <span className={`text-xs font-bold ${isOnline ? 'text-green-700' : 'text-gray-600'}`}>{isOnline ? 'Online' : 'Offline'}</span>
               </button>
 
-              {/* Notification Dropdown */}
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-96 overflow-y-auto">
-                  <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
-                    <h3 className="font-bold text-sm text-gray-800">Notifications</h3>
-                    <button onClick={() => setShowNotifications(false)} className="text-xs font-bold text-blue-600">Close</button>
-                  </div>
-                  {notifications.length === 0 ? (
-                    <p className="p-4 text-center text-sm text-gray-500">No new notifications.</p>
-                  ) : (
-                    notifications.map(n => (
-                      <div key={n.id} className={`p-3 border-b border-gray-50 text-sm ${n.is_read ? 'bg-white' : 'bg-blue-50'}`}>
-                        <p className="font-bold text-gray-800">{n.title}</p>
-                        <p className="text-xs text-gray-600 mt-1">{n.message}</p>
-                        <p className="text-[10px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleTimeString()}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
+              {/* PROFILE AVATAR */}
+              <Link href="/provider/profile" className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold overflow-hidden border border-blue-200">
+                {profile.photo ? <img src={profile.photo} alt="P" className="w-full h-full object-cover" /> : profile.name.charAt(0).toUpperCase()}
+              </Link>
             </div>
-
-            {/* ONLINE / OFFLINE TOGGLE */}
-            <button onClick={toggleOnline} className={`flex items-center gap-2 border px-3 py-1.5 rounded-full transition ${isOnline ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-300'}`}>
-              <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
-              <span className={`text-xs font-bold ${isOnline ? 'text-green-700' : 'text-gray-600'}`}>{isOnline ? 'Online' : 'Offline'}</span>
-            </button>
-
-            {/* PROFILE AVATAR */}
-            <Link href="/provider/profile" className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold overflow-hidden border border-blue-200">
-              {profile.photo ? <img src={profile.photo} alt="P" className="w-full h-full object-cover" /> : profile.name.charAt(0).toUpperCase()}
-            </Link>
-          </div>
-        </header>
+          </header>
+        )}
 
         {/* PAGE CONTENT */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
