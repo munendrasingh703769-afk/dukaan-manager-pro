@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
 
@@ -12,7 +14,7 @@ type Ride = {
   drop_location: string;
   distance_km: number;
   estimated_fare: number;
-  status: string; // searching, accepted, arrived, in_progress, completed
+  status: string;
   created_at: string;
   ride_otp: string;
   provider_business_id: string | null;
@@ -22,11 +24,18 @@ type Ride = {
 
 export default function ProviderRidesPage() {
   const supabase = createClient();
+  const router = useRouter();
   const activeId = getCurrentBusinessId();
 
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'new' | 'accepted' | 'ongoing' | 'completed'>('all');
+
+  // Profile & Notifications State
+  const [providerName, setProviderName] = useState('Driver');
+  const [providerLogo, setProviderLogo] = useState('');
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // OTP Modal States
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
@@ -34,10 +43,30 @@ export default function ProviderRidesPage() {
   const [otpInput, setOtpInput] = useState('');
   const [otpAction, setOtpAction] = useState<'start' | 'complete'>('start');
 
-  // --- 1. FETCH RIDES (Searching OR Accepted by Me) ---
+  // --- FETCH PROVIDER PROFILE & NOTIFICATIONS ---
+  const fetchUserData = async () => {
+    if (!activeId) return;
+    
+    // 1. Profile
+    const { data: biz } = await supabase.from('businesses').select('name, logo_url').eq('id', activeId).single();
+    if (biz) {
+      setProviderName(biz.name);
+      setProviderLogo(biz.logo_url || '');
+    }
+
+    // 2. Notifications
+    const { data: notifs } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('business_id', activeId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (notifs) setNotifications(notifs);
+  };
+
+  // --- FETCH RIDES ---
   const fetchRides = async () => {
     setLoading(true);
-    // Get searching rides OR rides accepted by this provider
     const { data, error } = await supabase
       .from('ride_bookings')
       .select(`*`)
@@ -45,7 +74,6 @@ export default function ProviderRidesPage() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      // Fetch customer profiles manually to avoid join errors
       const ridesWithCustomers = await Promise.all(
         data.map(async (ride: any) => {
           if (ride.customer_id) {
@@ -61,13 +89,24 @@ export default function ProviderRidesPage() {
   };
 
   useEffect(() => {
+    fetchUserData();
     fetchRides();
-    // Auto-refresh every 15 seconds for new requests
-    const interval = setInterval(fetchRides, 15000);
+    const interval = setInterval(() => {
+      fetchRides();
+      fetchUserData();
+    }, 15000);
     return () => clearInterval(interval);
   }, [activeId]);
 
-  // --- 2. STATS CALCULATION (Dynamic) ---
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const markAsRead = async () => {
+    if (unreadCount === 0 || !activeId) return;
+    await supabase.from('notifications').update({ is_read: true }).eq('business_id', activeId).eq('is_read', false);
+    setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+  };
+
+  // --- STATS ---
   const stats = useMemo(() => {
     const myRides = rides.filter(r => r.provider_business_id === activeId);
     const completed = myRides.filter(r => r.status === 'completed');
@@ -76,32 +115,22 @@ export default function ProviderRidesPage() {
     const today = new Date().toISOString().split('T')[0];
     const todayEarnings = completed
       .filter(r => r.created_at.startsWith(today))
-      .reduce((acc, curr) => acc + (curr.estimated_fare * 0.9), 0); // Assuming 10% platform fee
-    
-    const totalDistance = completed.reduce((acc, curr) => acc + Number(curr.distance_km || 0), 0);
+      .reduce((acc, curr) => acc + (curr.estimated_fare * 0.9), 0);
 
     return {
       todayEarnings: Math.round(todayEarnings),
       completedRides: completed.length,
       pendingRequests: pending.length,
-      totalDistance: totalDistance.toFixed(1),
-      rating: 4.8 // Placeholder for future logic
+      rating: 4.8
     };
   }, [rides, activeId]);
 
-  // --- 3. ATOMIC ACCEPT RIDE ---
+  // --- ACTIONS ---
   const acceptRide = async (rideId: string) => {
-    // Generate random vehicle number for realism
     const vehicleNo = `UP-${Math.floor(10 + Math.random() * 89)}-AB-${Math.floor(1000 + Math.random() * 9000)}`;
-    
-    // ATOMIC UPDATE: Only update if status is still 'searching'
     const { data, error } = await supabase
       .from('ride_bookings')
-      .update({ 
-        status: 'accepted', 
-        provider_business_id: activeId,
-        driver_vehicle_no: vehicleNo 
-      })
+      .update({ status: 'accepted', provider_business_id: activeId, driver_vehicle_no: vehicleNo })
       .eq('id', rideId)
       .eq('status', 'searching')
       .select();
@@ -111,18 +140,27 @@ export default function ProviderRidesPage() {
       fetchRides();
       return;
     }
-    
-    alert("Ride Accepted Successfully! Navigate to pickup.");
+    alert("Ride Accepted Successfully!");
     fetchRides();
   };
 
-  // --- 4. UPDATE STATUS (Arrived) ---
+  const rejectRide = async (rideId: string) => {
+    const confirmReject = confirm("Are you sure you want to reject this ride?");
+    if (!confirmReject) return;
+
+    const { error } = await supabase.from('ride_bookings').update({ status: 'cancelled' }).eq('id', rideId);
+    if (!error) {
+      fetchRides(); // Refresh list (it will disappear)
+    } else {
+      alert("Error rejecting ride: " + error.message);
+    }
+  };
+
   const markArrived = async (rideId: string) => {
     const { error } = await supabase.from('ride_bookings').update({ status: 'arrived' }).eq('id', rideId);
     if (!error) fetchRides();
   };
 
-  // --- 5. OPEN OTP MODAL ---
   const openOtpModal = (ride: Ride, action: 'start' | 'complete') => {
     setSelectedRide(ride);
     setOtpAction(action);
@@ -130,15 +168,12 @@ export default function ProviderRidesPage() {
     setIsOtpModalOpen(true);
   };
 
-  // --- 6. VERIFY OTP & UPDATE STATUS ---
   const handleVerifyOtp = async () => {
     if (!selectedRide) return;
     if (otpInput !== selectedRide.ride_otp) {
       return alert("Invalid OTP! Please ask customer again.");
     }
-
     const newStatus = otpAction === 'start' ? 'in_progress' : 'completed';
-    
     const { error } = await supabase.from('ride_bookings').update({ status: newStatus }).eq('id', selectedRide.id);
     
     if (!error) {
@@ -148,7 +183,6 @@ export default function ProviderRidesPage() {
     }
   };
 
-  // --- 7. FILTER LOGIC ---
   const filteredRides = rides.filter(ride => {
     if (activeTab === 'all') return true;
     if (activeTab === 'new') return ride.status === 'searching';
@@ -157,6 +191,7 @@ export default function ProviderRidesPage() {
     if (activeTab === 'completed') return ride.status === 'completed';
     return true;
   });
+
   return (
     <div className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
       
@@ -167,11 +202,11 @@ export default function ProviderRidesPage() {
         <div className="px-5 pt-12 pb-6 relative z-10">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white text-blue-600 rounded-full flex items-center justify-center font-black text-xl shadow-inner">
-                P
-              </div>
+              <Link href="/provider/profile" className="w-12 h-12 bg-white text-blue-600 rounded-full flex items-center justify-center font-black text-xl shadow-inner overflow-hidden border-2 border-white">
+                {providerLogo ? <img src={providerLogo} alt="P" className="w-full h-full object-cover" /> : providerName.charAt(0)}
+              </Link>
               <div>
-                <h1 className="text-lg font-bold">Welcome, Driver</h1>
+                <h1 className="text-lg font-bold">Welcome, {providerName}</h1>
                 <div className="flex items-center gap-2 text-blue-100 text-xs mt-0.5">
                   <span className="flex items-center gap-1">⭐ {stats.rating}</span>
                   <span>•</span>
@@ -179,10 +214,39 @@ export default function ProviderRidesPage() {
                 </div>
               </div>
             </div>
-            <button className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center relative">
-              🔔
-              <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-blue-600"></span>
-            </button>
+            
+            {/* 🔔 NOTIFICATION BELL */}
+            <div className="relative">
+              <button 
+                onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} 
+                className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center relative"
+              >
+                🔔
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-blue-600"></span>
+                )}
+              </button>
+
+              {/* Notification Dropdown */}
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 max-h-96 overflow-y-auto text-gray-800">
+                  <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl sticky top-0">
+                    <h3 className="font-bold text-sm">Notifications</h3>
+                    <button onClick={() => setShowNotifications(false)} className="text-xs font-bold text-blue-600">Close</button>
+                  </div>
+                  {notifications.length === 0 ? (
+                    <p className="p-4 text-center text-sm text-gray-500">No new notifications.</p>
+                  ) : (
+                    notifications.map(n => (
+                      <div key={n.id} className={`p-3 border-b border-gray-50 text-sm ${n.is_read ? 'bg-white' : 'bg-blue-50'}`}>
+                        <p className="font-bold text-gray-800">{n.title}</p>
+                        <p className="text-xs text-gray-600 mt-1">{n.message}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 📊 EARNINGS SUMMARY CARD */}
@@ -238,13 +302,11 @@ export default function ProviderRidesPage() {
           <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300 mt-4">
             <div className="text-5xl mb-3">🛵</div>
             <p className="text-gray-800 font-bold text-lg">No rides found in this category.</p>
-            <p className="text-gray-500 text-sm mt-1">Wait for new requests...</p>
           </div>
         ) : (
           filteredRides.map((ride) => (
             <div key={ride.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               
-              {/* Card Header */}
               <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
@@ -265,7 +327,6 @@ export default function ProviderRidesPage() {
                 </span>
               </div>
 
-              {/* Customer Info */}
               <div className="p-4 space-y-4">
                 <div className="flex justify-between items-start">
                   <div>
@@ -282,7 +343,6 @@ export default function ProviderRidesPage() {
                   </div>
                 </div>
 
-                {/* Route */}
                 <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 relative">
                   <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-gray-300"></div>
                   <div className="flex items-center gap-3 mb-2 relative z-10">
@@ -300,12 +360,11 @@ export default function ProviderRidesPage() {
                   <span>Payment: Cash</span>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex gap-2 pt-2">
                   {ride.status === 'searching' && (
                     <>
-                      <button onClick={() => alert('Rejected')} className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold border border-red-100">Reject</button>
-                      <button onClick={() => acceptRide(ride.id)} className="flex-[2] bg-blue-600 text-white py-3 rounded-xl font-bold shadow-md">Accept Ride</button>
+                      <button onClick={() => rejectRide(ride.id)} className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold border border-red-100 hover:bg-red-100 transition">Reject</button>
+                      <button onClick={() => acceptRide(ride.id)} className="flex-[2] bg-blue-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 transition">Accept Ride</button>
                     </>
                   )}
                   {ride.status === 'accepted' && (
@@ -327,44 +386,39 @@ export default function ProviderRidesPage() {
         )}
       </div>
 
-      {/* 📱 BOTTOM NAVIGATION */}
+      {/* 📱 BOTTOM NAVIGATION (Fixed with Links) */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
-        <div className="flex flex-col items-center gap-1 text-blue-600">
+        <Link href="/provider" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600 transition">
           <span className="text-xl">🏠</span>
-          <span className="text-[10px] font-bold">Home</span>
-        </div>
-        <div className="flex flex-col items-center gap-1 text-gray-400">
+          <span className="text-[10px] font-medium">Home</span>
+        </Link>
+        <Link href="/provider/rides" className="flex flex-col items-center gap-1 text-blue-600">
           <span className="text-xl">🛵</span>
-          <span className="text-[10px] font-medium">Requests</span>
-        </div>
-        <div className="flex flex-col items-center gap-1 text-gray-400">
+          <span className="text-[10px] font-bold">Requests</span>
+        </Link>
+        <Link href="/provider/earnings" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600 transition">
           <span className="text-xl">💰</span>
           <span className="text-[10px] font-medium">Earnings</span>
-        </div>
-        <div className="flex flex-col items-center gap-1 text-gray-400">
+        </Link>
+        <Link href="/provider/rides" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600 transition">
           <span className="text-xl">📜</span>
           <span className="text-[10px] font-medium">History</span>
-        </div>
-        <div className="flex flex-col items-center gap-1 text-gray-400">
+        </Link>
+        <Link href="/provider/profile" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600 transition">
           <span className="text-xl">👤</span>
           <span className="text-[10px] font-medium">Profile</span>
-        </div>
+        </Link>
       </nav>
 
-      {/* ================= OTP VERIFICATION MODAL ================= */}
+      {/* OTP MODAL */}
       {isOtpModalOpen && selectedRide && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end justify-center z-[60] sm:items-center p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-6">
             <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 shadow-inner">
-                🔐
-              </div>
-              <h2 className="text-xl font-bold text-gray-800">
-                {otpAction === 'start' ? 'Start Ride' : 'Complete Ride'}
-              </h2>
+              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 shadow-inner">🔐</div>
+              <h2 className="text-xl font-bold text-gray-800">{otpAction === 'start' ? 'Start Ride' : 'Complete Ride'}</h2>
               <p className="text-sm text-gray-500 mt-1">Ask customer for their 4-digit OTP</p>
             </div>
-            
             <input 
               type="text" 
               placeholder="• • • •" 
@@ -373,7 +427,6 @@ export default function ProviderRidesPage() {
               maxLength={4}
               className="w-full p-4 border-2 border-gray-300 rounded-2xl outline-none focus:border-blue-500 text-center text-3xl font-black tracking-[0.5em]"
             />
-
             <div className="flex gap-3">
               <button onClick={() => setIsOtpModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700">Cancel</button>
               <button onClick={handleVerifyOtp} className="flex-1 bg-blue-600 py-3 rounded-xl font-bold text-white shadow-md">Verify</button>
