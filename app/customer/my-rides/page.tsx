@@ -17,21 +17,41 @@ export default function CustomerMyRidesPage() {
   const fetchMyRides = async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    
+    let query = supabase.from('ride_bookings').select('*').order('created_at', { ascending: false });
+    
+    // Agar user login hai toh uski rides, nahi toh sabhi searching rides dikhao (Testing ke liye)
+    if (user) {
+      query = query.eq('customer_id', user.id);
+    } else {
+      query = query.eq('status', 'searching');
+    }
+
+    const { data: rideData, error } = await query;
+
+    if (error) {
+      console.error(error);
       setLoading(false);
       return;
     }
 
-    const { data: rideData } = await supabase
-      .from('ride_bookings')
-      .select(`
-        *,
-        businesses:provider_business_id (name, phone, logo_url)
-      `)
-      .eq('customer_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (rideData) setRides(rideData);
+    if (rideData) {
+      // Manual Join for Driver Details (No Join errors)
+      const ridesWithProviders = await Promise.all(
+        rideData.map(async (ride) => {
+          if (ride.provider_business_id) {
+            const { data: biz } = await supabase
+              .from('businesses')
+              .select('name, phone, logo_url')
+              .eq('id', ride.provider_business_id)
+              .single();
+            return { ...ride, businesses: biz };
+          }
+          return { ...ride, businesses: null };
+        })
+      );
+      setRides(ridesWithProviders);
+    }
     setLoading(false);
   };
 
@@ -45,11 +65,10 @@ export default function CustomerMyRidesPage() {
   // 🎯 FILTER LOGIC (Fixed: Searching is now in Active)
   const filteredRides = rides.filter(ride => {
     if (activeTab === 'active') {
-      // Searching, accepted, arrived, in_progress sab active hain
       return ['searching', 'accepted', 'arrived', 'in_progress'].includes(ride.status);
     }
     if (activeTab === 'upcoming') {
-      return false; // Future scheduled rides (agar add karein toh)
+      return false; 
     }
     if (activeTab === 'history') {
       return ['completed', 'cancelled'].includes(ride.status);
@@ -57,7 +76,7 @@ export default function CustomerMyRidesPage() {
     return true;
   });
 
-  // Cancel Ride Function (Agar searching me hai)
+  // Cancel Ride Function
   const handleCancelRide = async (rideId: string) => {
     if (!confirm("Are you sure you want to cancel this ride request?")) return;
     const { error } = await supabase.from('ride_bookings').update({ status: 'cancelled' }).eq('id', rideId);
@@ -140,24 +159,20 @@ export default function CustomerMyRidesPage() {
                 <div className="relative h-48 bg-[#E5E9F0] w-full overflow-hidden border-b border-gray-100">
                   <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#9CA3AF 1px, transparent 1px), linear-gradient(90deg, #9CA3AF 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
                   
-                  {/* Route Line */}
                   <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
                     <path d="M 50 120 Q 150 50, 250 80 T 350 40" fill="none" stroke="#3B82F6" strokeWidth="4" strokeDasharray="8 4" />
                   </svg>
 
-                  {/* Pickup Marker */}
                   <div className="absolute left-8 bottom-10 flex flex-col items-center">
                     <div className="bg-white px-2 py-1 rounded shadow-md text-[10px] font-bold mb-1 border border-gray-200">Pickup</div>
                     <div className="w-6 h-6 bg-green-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white text-xs">📍</div>
                   </div>
 
-                  {/* Drop Marker */}
                   <div className="absolute right-8 top-8 flex flex-col items-center">
                     <div className="bg-white px-2 py-1 rounded shadow-md text-[10px] font-bold mb-1 border border-gray-200">Drop</div>
                     <div className="w-6 h-6 bg-red-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white text-xs">🏁</div>
                   </div>
 
-                  {/* Driver Marker (Simulated moving) */}
                   {ride.status === 'in_progress' && (
                     <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-bounce">
                       <div className="w-8 h-8 bg-blue-600 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white text-sm">🏍️</div>
@@ -166,7 +181,7 @@ export default function CustomerMyRidesPage() {
                 </div>
               )}
 
-              {/* 👨‍✈️ DRIVER INFO (Only show if accepted/in-progress) */}
+              {/* 👨‍✈️ DRIVER INFO */}
               {ride.businesses && ride.status !== 'searching' && ride.status !== 'cancelled' && (
                 <div className="p-4 flex items-center justify-between border-b border-gray-100 bg-blue-50/50">
                   <div className="flex items-center gap-3">
@@ -218,7 +233,7 @@ export default function CustomerMyRidesPage() {
                   </div>
                 </div>
 
-                {/* 🔐 OTP DISPLAY (Only if arrived or in_progress) */}
+                {/* OTP DISPLAY */}
                 {['arrived', 'in_progress'].includes(ride.status) && ride.ride_otp && (
                   <div className="mb-4 bg-orange-50 border border-orange-200 p-3 rounded-xl text-center">
                     <p className="text-[10px] text-orange-800 font-bold uppercase mb-1">Share OTP with Driver</p>
@@ -226,36 +241,7 @@ export default function CustomerMyRidesPage() {
                   </div>
                 )}
 
-                {/* Progress Stepper */}
-                {ride.status !== 'searching' && ride.status !== 'cancelled' && (
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex justify-between items-center relative">
-                      <div className="absolute left-0 right-0 top-3 h-1 bg-gray-200 -z-10"></div>
-                      <div className={`absolute left-0 top-3 h-1 -z-10 bg-blue-600 transition-all ${
-                        ride.status === 'accepted' ? 'w-0' : ride.status === 'arrived' ? 'w-1/3' : ride.status === 'in_progress' ? 'w-2/3' : 'w-full'
-                      }`}></div>
-
-                      <div className="flex flex-col items-center gap-1 bg-white px-1">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${['accepted', 'arrived', 'in_progress', 'completed'].includes(ride.status) ? 'bg-blue-600' : 'bg-gray-300'}`}>✓</div>
-                        <span className="text-[9px] font-bold text-gray-600">Accepted</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1 bg-white px-1">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${['arrived', 'in_progress', 'completed'].includes(ride.status) ? 'bg-blue-600' : 'bg-gray-300'}`}>🏍️</div>
-                        <span className="text-[9px] font-bold text-gray-600 text-center">On the<br/>Way</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1 bg-white px-1">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${['in_progress', 'completed'].includes(ride.status) ? 'bg-blue-600' : 'bg-gray-300'}`}>📍</div>
-                        <span className="text-[9px] font-bold text-gray-600 text-center">Arrived</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1 bg-white px-1">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${ride.status === 'completed' ? 'bg-green-500' : 'bg-gray-300'}`}>🏁</div>
-                        <span className="text-[9px] font-bold text-gray-600">Complete</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Cancel Button (Only if searching) */}
+                {/* Cancel Button */}
                 {ride.status === 'searching' && (
                   <button onClick={() => handleCancelRide(ride.id)} className="w-full mt-4 bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-bold hover:bg-red-100 transition">
                     Cancel Ride Request
