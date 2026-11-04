@@ -13,30 +13,29 @@ export default function CustomerMyRidesPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'upcoming' | 'history'>('active');
 
+  // Review Modal States
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewRide, setReviewRide] = useState<any>(null);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, text: '', name: '' });
+
   // Fetch rides with Provider (Driver) details
   const fetchMyRides = async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    
-    let query = supabase.from('ride_bookings').select('*').order('created_at', { ascending: false });
-    
-    // Agar user login hai toh uski rides, nahi toh sabhi searching rides dikhao (Testing ke liye)
-    if (user) {
-      query = query.eq('customer_id', user.id);
-    } else {
-      query = query.eq('status', 'searching');
-    }
-
-    const { data: rideData, error } = await query;
-
-    if (error) {
-      console.error(error);
+    if (!user) {
       setLoading(false);
       return;
     }
 
+    // Fetch bookings for this customer
+    const { data: rideData } = await supabase
+      .from('ride_bookings')
+      .select('*')
+      .eq('customer_id', user.id)
+      .order('created_at', { ascending: false });
+
     if (rideData) {
-      // Manual Join for Driver Details (No Join errors)
+      // Manual Join for Provider details to avoid errors
       const ridesWithProviders = await Promise.all(
         rideData.map(async (ride) => {
           if (ride.provider_business_id) {
@@ -62,7 +61,7 @@ export default function CustomerMyRidesPage() {
     return () => clearInterval(interval);
   }, [supabase]);
 
-  // 🎯 FILTER LOGIC (Fixed: Searching is now in Active)
+  // 🎯 FILTER LOGIC
   const filteredRides = rides.filter(ride => {
     if (activeTab === 'active') {
       return ['searching', 'accepted', 'arrived', 'in_progress'].includes(ride.status);
@@ -83,6 +82,37 @@ export default function CustomerMyRidesPage() {
     if (!error) fetchMyRides();
   };
 
+  // --- SUBMIT REVIEW LOGIC ---
+  const handleSubmitReview = async () => {
+    if (!reviewRide || !reviewRide.provider_business_id) {
+      return alert("Provider details missing, cannot review.");
+    }
+    if (!reviewForm.name) {
+      return alert("Please enter your name.");
+    }
+
+    const { error } = await supabase.from('reviews').insert([{
+      provider_business_id: reviewRide.provider_business_id,
+      customer_name: reviewForm.name,
+      rating: reviewForm.rating,
+      review_text: reviewForm.text
+    }]);
+
+    if (!error) {
+      alert("Thank you for your feedback! ⭐");
+      setIsReviewModalOpen(false);
+      setReviewForm({ rating: 5, text: '', name: '' });
+    } else {
+      alert("Error submitting review: " + error.message);
+    }
+  };
+
+  // Open Review Modal
+  const openReviewModal = (ride: any) => {
+    setReviewRide(ride);
+    setReviewForm({ rating: 5, text: '', name: '' });
+    setIsReviewModalOpen(true);
+  };
   return (
     <div className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
       
@@ -228,8 +258,18 @@ export default function CustomerMyRidesPage() {
                   
                   <div className="text-right border-l border-gray-100 pl-4">
                     <p className="text-[10px] text-gray-500 font-bold uppercase">Trip Fare</p>
-                    <h3 className="text-xl font-black text-gray-900">₹{ride.estimated_fare}</h3>
-                    <p className="text-[10px] text-green-600 font-bold bg-green-50 px-1.5 py-0.5 rounded mt-1">CASH</p>
+                    {ride.discount_amount > 0 ? (
+                      <>
+                        <p className="text-xs text-gray-400 line-through">₹{ride.estimated_fare}</p>
+                        <h3 className="text-xl font-black text-green-600">₹{ride.accepted_fare}</h3>
+                        <p className="text-[10px] text-white bg-green-500 px-1.5 py-0.5 rounded mt-1 font-bold">OFFER APPLIED 🎉</p>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="text-xl font-black text-gray-900">₹{ride.accepted_fare || ride.estimated_fare}</h3>
+                        <p className="text-[10px] text-green-600 font-bold bg-green-50 px-1.5 py-0.5 rounded mt-1">CASH</p>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -241,10 +281,49 @@ export default function CustomerMyRidesPage() {
                   </div>
                 )}
 
-                {/* Cancel Button */}
+                {/* Progress Stepper (Only if not searching/cancelled) */}
+                {ride.status !== 'searching' && ride.status !== 'cancelled' && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="flex justify-between items-center relative">
+                      <div className="absolute left-0 right-0 top-3 h-1 bg-gray-200 -z-10"></div>
+                      <div className={`absolute left-0 top-3 h-1 -z-10 bg-blue-600 transition-all ${
+                        ride.status === 'accepted' ? 'w-0' : ride.status === 'arrived' ? 'w-1/3' : ride.status === 'in_progress' ? 'w-2/3' : 'w-full'
+                      }`}></div>
+
+                      <div className="flex flex-col items-center gap-1 bg-white px-1">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${['accepted', 'arrived', 'in_progress', 'completed'].includes(ride.status) ? 'bg-blue-600' : 'bg-gray-300'}`}>✓</div>
+                        <span className="text-[9px] font-bold text-gray-600">Accepted</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 bg-white px-1">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${['arrived', 'in_progress', 'completed'].includes(ride.status) ? 'bg-blue-600' : 'bg-gray-300'}`}>🏍️</div>
+                        <span className="text-[9px] font-bold text-gray-600 text-center">On the<br/>Way</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 bg-white px-1">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${['in_progress', 'completed'].includes(ride.status) ? 'bg-blue-600' : 'bg-gray-300'}`}>📍</div>
+                        <span className="text-[9px] font-bold text-gray-600 text-center">Arrived</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 bg-white px-1">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${ride.status === 'completed' ? 'bg-green-500' : 'bg-gray-300'}`}>🏁</div>
+                        <span className="text-[9px] font-bold text-gray-600">Complete</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cancel Button (Only if searching) */}
                 {ride.status === 'searching' && (
                   <button onClick={() => handleCancelRide(ride.id)} className="w-full mt-4 bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-bold hover:bg-red-100 transition">
                     Cancel Ride Request
+                  </button>
+                )}
+
+                {/* 👇 RATE RIDE BUTTON (Only if completed) */}
+                {ride.status === 'completed' && (
+                  <button 
+                    onClick={() => openReviewModal(ride)} 
+                    className="w-full mt-4 bg-yellow-400 text-yellow-900 border border-yellow-500 py-3 rounded-xl font-bold shadow-md hover:bg-yellow-500 transition flex items-center justify-center gap-2"
+                  >
+                    ⭐ Rate Your Ride
                   </button>
                 )}
               </div>
@@ -278,6 +357,63 @@ export default function CustomerMyRidesPage() {
           <span className="text-[10px] font-medium">Profile</span>
         </Link>
       </nav>
+
+      {/* ================= REVIEW MODAL ================= */}
+      {isReviewModalOpen && reviewRide && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end justify-center z-[60] sm:items-center p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-5">
+            
+            <div className="text-center">
+              <div className="w-16 h-16 bg-yellow-100 text-yellow-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 shadow-inner">⭐</div>
+              <h2 className="text-xl font-black text-gray-800">Rate Your Ride</h2>
+              <p className="text-sm text-gray-500 mt-1">How was your experience with {reviewRide.businesses?.name || 'the driver'}?</p>
+            </div>
+
+            {/* Star Rating Selection */}
+            <div className="flex justify-center gap-2 text-4xl cursor-pointer">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <span 
+                  key={star} 
+                  onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                  className={`transition-colors ${star <= reviewForm.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                >
+                  ★
+                </span>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-gray-600">Your Name *</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter your name" 
+                  value={reviewForm.name} 
+                  onChange={e => setReviewForm({...reviewForm, name: e.target.value})} 
+                  className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-medium" 
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600">Write a Review (Optional)</label>
+                <textarea 
+                  placeholder="Driver kaisa tha? Ride kaisi rahi?" 
+                  value={reviewForm.text} 
+                  onChange={e => setReviewForm({...reviewForm, text: e.target.value})} 
+                  className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-yellow-400 text-sm" 
+                  rows={3}
+                ></textarea>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setIsReviewModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700">Cancel</button>
+              <button onClick={handleSubmitReview} className="flex-1 bg-yellow-500 text-white py-3 rounded-xl font-bold shadow-md hover:bg-yellow-600 transition">
+                Submit Review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
