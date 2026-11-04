@@ -192,12 +192,13 @@ export default function ProviderServicesPage() {
         </div>
       )}
 
-      {/* ================= ADD/EDIT SERVICE MODAL ================= */}
+            {/* ================= ADD/EDIT SERVICE MODAL ================= */}
       {isServiceModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-gray-800">{editingServiceId ? 'Edit Service' : 'Add New Service'}</h2>
             
+            {/* 1. Category Select */}
             <div>
               <label className="text-sm font-bold text-gray-700">Category *</label>
               <select 
@@ -210,6 +211,7 @@ export default function ProviderServicesPage() {
               </select>
             </div>
 
+            {/* 2. Subcategory Select */}
             {newService.category_id && (
               <div>
                 <label className="text-sm font-bold text-gray-700">Subcategory (Optional)</label>
@@ -222,23 +224,36 @@ export default function ProviderServicesPage() {
                   {subcategories.filter(s => s.category_id === newService.category_id).map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
+                  {/* Agar koi subcategory nahi hai */}
+                  {subcategories.filter(s => s.category_id === newService.category_id).length === 0 && (
+                    <option value="" disabled>No subcategories found</option>
+                  )}
                 </select>
               </div>
             )}
 
+            {/* 3. Service Name */}
             <div>
-              <label className="text-sm font-bold text-gray-700">Service Name *</label>
-              <input type="text" placeholder="e.g. AC Gas Filling" value={newService.name} onChange={e => setNewService({...newService, name: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="text-sm font-bold text-gray-700">Service / Plan Name *</label>
+              <input type="text" placeholder="e.g. Airtel Fiber 100Mbps" value={newService.name} onChange={e => setNewService({...newService, name: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             
+            {/* 4. Charges */}
             <div>
               <label className="text-sm font-bold text-gray-700">Charges (₹) *</label>
-              <input type="number" placeholder="e.g. 500" value={newService.price} onChange={e => setNewService({...newService, price: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="number" placeholder="e.g. 1500" value={newService.price} onChange={e => setNewService({...newService, price: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             
+            {/* 5. Plan Details / Description (Naya) */}
             <div>
-              <label className="text-sm font-bold text-gray-700">Description (Optional)</label>
-              <textarea placeholder="Details about the service..." value={newService.description} onChange={e => setNewService({...newService, description: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" rows={2}></textarea>
+              <label className="text-sm font-bold text-gray-700">Plan Details / Features (Optional)</label>
+              <textarea 
+                placeholder="e.g. 100 Mbps speed, 3 Months validity, Free Router, Unlimited Data..." 
+                value={newService.description} 
+                onChange={e => setNewService({...newService, description: e.target.value})} 
+                className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" 
+                rows={3}
+              ></textarea>
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -250,34 +265,3 @@ export default function ProviderServicesPage() {
           </div>
         </div>
       )}
-
-      {/* ================= CUSTOM SERVICE REQUEST MODAL ================= */}
-      {isCustomModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-            <h2 className="text-xl font-bold text-gray-800">Request Custom Service</h2>
-            <p className="text-xs text-gray-500 mb-2">Agar aapki service list me nahi hai, toh yahan request bhejein. Admin approve karenge.</p>
-            
-            <div>
-              <label className="text-sm font-bold text-gray-700">Service Name *</label>
-              <input type="text" placeholder="e.g. Server Rack Installation" value={customReq.requested_name} onChange={e => setCustomReq({...customReq, requested_name: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-orange-500" />
-            </div>
-            
-            <div>
-              <label className="text-sm font-bold text-gray-700">Description / Details</label>
-              <textarea placeholder="Describe what you will do..." value={customReq.description} onChange={e => setCustomReq({...customReq, description: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-orange-500" rows={3}></textarea>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => setIsCustomModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700 hover:bg-gray-200 transition">Cancel</button>
-              <button onClick={handleRequestCustom} disabled={saving} className="flex-1 bg-orange-500 py-3 rounded-xl font-bold text-white hover:bg-orange-600 shadow-md transition disabled:opacity-50">
-                {saving ? 'Sending...' : 'Send Request'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
