@@ -21,8 +21,6 @@ export default function ProviderServicesPage() {
   // Modals
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
-  
-  // Edit State
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
 
   // Form States
@@ -35,15 +33,12 @@ export default function ProviderServicesPage() {
     if (!activeId) return;
     setLoading(true);
 
-    // 1. Fetch Services
     const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId).order('created_at', { ascending: false });
     if (servData) setServices(servData);
 
-    // 2. Fetch Main Categories
     const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true).order('name');
     if (catData) setCategories(catData);
 
-    // 3. Fetch Subcategories
     const { data: subData } = await supabase.from('service_subcategories').select('*').eq('is_active', true).order('name');
     if (subData) setSubcategories(subData);
 
@@ -52,7 +47,48 @@ export default function ProviderServicesPage() {
 
   useEffect(() => { fetchData(); }, [activeId]);
 
-  // --- OPEN EDIT MODAL ---
+  // 🧠 SMART PLACEHOLDER LOGIC
+  const getPlaceholders = () => {
+    const selectedCat = categories.find(c => c.id === newService.category_id);
+    const catName = selectedCat ? selectedCat.name.toLowerCase() : '';
+
+    if (catName.includes('wi-fi') || catName.includes('internet') || catName.includes('telecom')) {
+      return {
+        name: 'e.g. Airtel Fiber 100Mbps',
+        price: 'e.g. 1500',
+        desc: 'e.g. 100 Mbps speed, 3 Months validity, Free Router, Unlimited Data...'
+      };
+    } else if (catName.includes('ac') || catName.includes('appliance')) {
+      return {
+        name: 'e.g. AC Gas Filling / Split AC Repair',
+        price: 'e.g. 500',
+        desc: 'e.g. 1.5 Ton Split AC, Gas included, 1 month warranty...'
+      };
+    } else if (catName.includes('plumb')) {
+      return {
+        name: 'e.g. Tap Repair / Pipe Fitting',
+        price: 'e.g. 200',
+        desc: 'e.g. Visit charge included, material extra...'
+      };
+    } else if (catName.includes('clean')) {
+      return {
+        name: 'e.g. Deep Home Cleaning',
+        price: 'e.g. 1500',
+        desc: 'e.g. 2BHK, includes bathroom and kitchen cleaning...'
+      };
+    } else {
+      // Default
+      return {
+        name: 'e.g. Service or Plan Name',
+        price: 'e.g. 500',
+        desc: 'e.g. Details about the service, what is included, warranty etc...'
+      };
+    }
+  };
+  
+  const placeholders = getPlaceholders();
+
+  // --- OPEN MODALS ---
   const openEditModal = (service: Service) => {
     setEditingServiceId(service.id);
     setNewService({
@@ -65,14 +101,13 @@ export default function ProviderServicesPage() {
     setIsServiceModalOpen(true);
   };
 
-  // --- OPEN ADD MODAL ---
   const openAddModal = () => {
     setEditingServiceId(null);
     setNewService({ name: '', price: '', description: '', category_id: '', subcategory_id: '' });
     setIsServiceModalOpen(true);
   };
 
-  // --- SAVE SERVICE (ADD or EDIT) ---
+  // --- SAVE SERVICE ---
   const handleSaveService = async () => {
     if (!newService.name || !newService.price || !newService.category_id) return alert("Name, Price, and Category are required");
     
@@ -86,14 +121,12 @@ export default function ProviderServicesPage() {
     };
 
     if (editingServiceId) {
-      // Update
       const { error } = await supabase.from('services').update(payload).eq('id', editingServiceId);
       if (!error) {
         setIsServiceModalOpen(false);
         fetchData();
       } else alert("Error updating: " + error.message);
     } else {
-      // Insert
       const { error } = await supabase.from('services').insert([{ ...payload, business_id: activeId, is_active: true }]);
       if (!error) {
         setIsServiceModalOpen(false);
@@ -103,7 +136,6 @@ export default function ProviderServicesPage() {
     setSaving(false);
   };
 
-  // --- TOGGLE STATUS (Pause/Activate) ---
   const toggleServiceStatus = async (id: string, currentStatus: boolean) => {
     const { error } = await supabase.from('services').update({ is_active: !currentStatus }).eq('id', id);
     if (!error) {
@@ -113,7 +145,6 @@ export default function ProviderServicesPage() {
     }
   };
 
-  // --- REQUEST CUSTOM SERVICE ---
   const handleRequestCustom = async () => {
     if (!customReq.requested_name) return alert("Service name required");
     setSaving(true);
@@ -180,7 +211,6 @@ export default function ProviderServicesPage() {
                   </p>
                   <p className="text-2xl font-black text-purple-600 mt-2">₹{service.price}</p>
                   
-                  {/* Plan Details / Description */}
                   {service.description && (
                     <div className="mt-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
                       <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Plan Details:</p>
@@ -189,7 +219,6 @@ export default function ProviderServicesPage() {
                   )}
                 </div>
                 
-                {/* ACTION BUTTONS */}
                 <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
                   <button onClick={() => openEditModal(service)} className="flex-1 bg-gray-50 text-gray-700 py-2 rounded-lg text-xs font-bold border border-gray-200 hover:bg-gray-100 transition">✏️ Edit</button>
                   <button onClick={() => toggleServiceStatus(service.id, service.is_active)} className={`flex-1 py-2 rounded-lg text-xs font-bold border transition ${service.is_active ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}>
@@ -208,7 +237,7 @@ export default function ProviderServicesPage() {
           <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-gray-800">{editingServiceId ? 'Edit Service / Plan' : 'Add New Service / Plan'}</h2>
             
-            {/* 1. Category */}
+            {/* Category */}
             <div>
               <label className="text-sm font-bold text-gray-700">Category *</label>
               <select 
@@ -221,7 +250,7 @@ export default function ProviderServicesPage() {
               </select>
             </div>
 
-            {/* 2. Subcategory (Only if category selected) */}
+            {/* Subcategory */}
             {newService.category_id && (
               <div>
                 <label className="text-sm font-bold text-gray-700">Subcategory (Optional)</label>
@@ -234,7 +263,6 @@ export default function ProviderServicesPage() {
                   {subcategories.filter(s => s.category_id === newService.category_id).map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
-                  {/* If no subcategories exist for this category */}
                   {subcategories.filter(s => s.category_id === newService.category_id).length === 0 && (
                     <option value="" disabled className="text-gray-400">No subcategories available</option>
                   )}
@@ -242,23 +270,35 @@ export default function ProviderServicesPage() {
               </div>
             )}
 
-            {/* 3. Service Name */}
+            {/* Service Name */}
             <div>
               <label className="text-sm font-bold text-gray-700">Service / Plan Name *</label>
-              <input type="text" placeholder="e.g. Airtel Fiber 100Mbps" value={newService.name} onChange={e => setNewService({...newService, name: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
+              <input 
+                type="text" 
+                placeholder={placeholders.name} // 👈 Dynamic Placeholder
+                value={newService.name} 
+                onChange={e => setNewService({...newService, name: e.target.value})} 
+                className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" 
+              />
             </div>
             
-            {/* 4. Charges */}
+            {/* Charges */}
             <div>
               <label className="text-sm font-bold text-gray-700">Charges (₹) *</label>
-              <input type="number" placeholder="e.g. 1500" value={newService.price} onChange={e => setNewService({...newService, price: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" />
+              <input 
+                type="number" 
+                placeholder={placeholders.price} // 👈 Dynamic Placeholder
+                value={newService.price} 
+                onChange={e => setNewService({...newService, price: e.target.value})} 
+                className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" 
+              />
             </div>
             
-            {/* 5. Plan Details (Naya) */}
+            {/* Plan Details */}
             <div>
               <label className="text-sm font-bold text-gray-700">Plan Details / Features</label>
               <textarea 
-                placeholder="e.g. 100 Mbps speed, 3 Months validity, Free Router, Unlimited Data..." 
+                placeholder={placeholders.desc} // 👈 Dynamic Placeholder
                 value={newService.description} 
                 onChange={e => setNewService({...newService, description: e.target.value})} 
                 className="w-full p-3 border border-gray-300 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-blue-500" 
