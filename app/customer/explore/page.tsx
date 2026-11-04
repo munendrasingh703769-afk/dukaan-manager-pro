@@ -27,7 +27,6 @@ export default function CustomerExplorePage() {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
 
-  // 🎯 FIXED FETCH LOGIC (No Join Errors)
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -36,27 +35,25 @@ export default function CustomerExplorePage() {
       const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true);
       if (catData) setCategories(catData);
 
-      // 2. Fetch Services (Without Join)
-      const { data: servData, error: servError } = await supabase
+      // 2. Fetch Services
+      const { data: servData } = await supabase
         .from('services')
         .select('*')
         .eq('is_active', true);
         
-      if (servError) console.error("Error fetching services:", servError);
-
       if (servData) {
-        // 3. Manually fetch Business details
+        // 3. Manually fetch Business details (Name, City, Phone)
         const servicesWithBusiness = await Promise.all(
           servData.map(async (service) => {
             if (service.business_id) {
               const { data: biz } = await supabase
                 .from('businesses')
-                .select('name, city, logo_url')
+                .select('name, city, logo_url, phone')
                 .eq('id', service.business_id)
                 .single();
-              return { ...service, businesses: biz || { name: 'Provider', city: '' } };
+              return { ...service, businesses: biz || { name: 'Provider', city: '', phone: '' } };
             }
-            return { ...service, businesses: { name: 'Provider', city: '' } };
+            return { ...service, businesses: { name: 'Provider', city: '', phone: '' } };
           })
         );
         setServices(servicesWithBusiness);
@@ -82,15 +79,12 @@ export default function CustomerExplorePage() {
     filteredServices = [...filteredServices].sort((a, b) => b.price - a.price);
   }
 
-  // 🧠 SMART ROUTING LOGIC
   const handleCategoryClick = (id: string, name: string) => {
     const lowerName = name.toLowerCase();
-    
     if (lowerName.includes('bike') || lowerName.includes('taxi') || lowerName.includes('parcel') || lowerName.includes('car') || lowerName.includes('auto')) {
       router.push(`/customer/rides?type=${lowerName.includes('bike') ? 'bike' : lowerName.includes('car') ? 'car' : lowerName.includes('parcel') ? 'parcel' : 'auto'}`);
       return;
     }
-
     setSelectedCategory(id);
     setSelectedCategoryName(name);
     setSearchQuery('');
@@ -110,6 +104,7 @@ export default function CustomerExplorePage() {
     setBookingLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
 
+    // 1. Insert Booking
     const payload = {
       service_id: selectedService.id,
       provider_business_id: selectedService.business_id,
@@ -125,12 +120,24 @@ export default function CustomerExplorePage() {
     const { error } = await supabase.from('service_bookings').insert([payload]);
     
     if (!error) {
+      // 2. Send Notification to Provider
       await supabase.from('notifications').insert([{
         business_id: selectedService.business_id,
         title: 'New Booking Received! 🎉',
         message: `${bookingForm.name} booked ${selectedService.name} for ₹${selectedService.price}.`,
         type: 'booking'
       }]);
+
+      // 3. Send Notification to Customer (Confirmation)
+      if (user) {
+        await supabase.from('notifications').insert([{
+          customer_id: user.id,
+          title: 'Booking Confirmed ✅',
+          message: `You successfully booked ${selectedService.name}. Provider will contact you soon.`,
+          type: 'booking_update'
+        }]);
+      }
+
       alert("Booking Successful! Provider will contact you.");
       setIsBookingModalOpen(false);
       router.push('/customer/bookings');
@@ -140,6 +147,7 @@ export default function CustomerExplorePage() {
     setBookingLoading(false);
   };
 
+  // Group Categories Logic
   const getGroupedCategories = () => {
     const groups: { [key: string]: any[] } = {
       '🏠 Home & Repair Services': [],
@@ -308,21 +316,59 @@ export default function CustomerExplorePage() {
               </div>
             ) : (
               filteredServices.map(service => (
-                <div key={service.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center active:scale-95 transition">
-                  <div className="flex gap-3">
-                    <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl">🛠️</div>
-                    <div>
-                      <h4 className="font-bold text-gray-800">{service.name}</h4>
-                      <p className="text-[11px] text-gray-500 font-medium">{service.businesses?.name}</p>
-                      <p className="text-blue-600 font-black mt-1">₹{service.price}</p>
+                <div key={service.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-95 transition">
+                  
+                  {/* Top Section */}
+                  <div className="flex justify-between items-start">
+                    <div className="flex gap-3">
+                      <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl shadow-inner">
+                        🛠️
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-800 text-lg">{service.name}</h4>
+                        <p className="text-[12px] text-gray-500 font-medium">By {service.businesses?.name} ({service.businesses?.city})</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">Price</p>
+                      <p className="text-xl font-black text-blue-700">₹{service.price}</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => { setSelectedService(service); setIsBookingModalOpen(true); }} 
-                    className="bg-blue-50 text-blue-700 border border-blue-100 px-4 py-2 rounded-xl font-bold text-xs shadow-sm"
-                  >
-                    Book
-                  </button>
+
+                  {/* Middle Section: Plan Details */}
+                  {service.description && (
+                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Plan / Service Details</p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-4">{service.description}</p>
+                    </div>
+                  )}
+
+                  {/* Bottom Section: Actions */}
+                  <div className="flex gap-2 pt-2 border-t border-gray-100 mt-1">
+                    <a 
+                      href={`tel:${service.businesses?.phone || ''}`} 
+                      className="flex-1 bg-green-50 text-green-700 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1 border border-green-100 active:bg-green-100 transition"
+                    >
+                      📞 Call
+                    </a>
+                    
+                    <a 
+                      href={`https://wa.me/91${service.businesses?.phone || ''}?text=Hi, I want to know more about ${service.name}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex-1 bg-indigo-50 text-indigo-700 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1 border border-indigo-100 active:bg-indigo-100 transition"
+                    >
+                      💬 Chat
+                    </a>
+
+                    <button 
+                      onClick={() => { setSelectedService(service); setIsBookingModalOpen(true); }} 
+                      className="flex-[1.5] bg-blue-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-md active:scale-95 transition"
+                    >
+                      Book Now
+                    </button>
+                  </div>
+
                 </div>
               ))
             )}
@@ -341,14 +387,12 @@ export default function CustomerExplorePage() {
           <span className="text-xl">🛍️</span>
           <span className="text-[10px] font-medium">Shop</span>
         </Link>
-        
         <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-blue-600">
           <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl shadow-md border-2 border-white -mt-4">
             🧭
           </div>
           <span className="text-[10px] font-bold mt-0.5">Services</span>
         </Link>
-
         <Link href="/customer/orders" className="flex flex-col items-center gap-1 text-gray-500">
           <span className="text-xl">📦</span>
           <span className="text-[10px] font-medium">Orders</span>
