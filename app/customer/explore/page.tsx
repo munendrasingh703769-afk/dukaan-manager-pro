@@ -27,17 +27,40 @@ export default function CustomerExplorePage() {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
 
+  // 🎯 FIXED FETCH LOGIC (No Join Errors)
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      
+      // 1. Fetch Categories
       const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true);
       if (catData) setCategories(catData);
 
-      const { data: servData } = await supabase
+      // 2. Fetch Services (Without Join)
+      const { data: servData, error: servError } = await supabase
         .from('services')
-        .select(`*, businesses!inner (name, city, logo_url)`)
+        .select('*')
         .eq('is_active', true);
-      if (servData) setServices(servData);
+        
+      if (servError) console.error("Error fetching services:", servError);
+
+      if (servData) {
+        // 3. Manually fetch Business details
+        const servicesWithBusiness = await Promise.all(
+          servData.map(async (service) => {
+            if (service.business_id) {
+              const { data: biz } = await supabase
+                .from('businesses')
+                .select('name, city, logo_url')
+                .eq('id', service.business_id)
+                .single();
+              return { ...service, businesses: biz || { name: 'Provider', city: '' } };
+            }
+            return { ...service, businesses: { name: 'Provider', city: '' } };
+          })
+        );
+        setServices(servicesWithBusiness);
+      }
       
       setLoading(false);
     };
@@ -63,13 +86,11 @@ export default function CustomerExplorePage() {
   const handleCategoryClick = (id: string, name: string) => {
     const lowerName = name.toLowerCase();
     
-    // Agar category Ride/Transport ki hai, toh direct Rides page par bhejo
     if (lowerName.includes('bike') || lowerName.includes('taxi') || lowerName.includes('parcel') || lowerName.includes('car') || lowerName.includes('auto')) {
       router.push(`/customer/rides?type=${lowerName.includes('bike') ? 'bike' : lowerName.includes('car') ? 'car' : lowerName.includes('parcel') ? 'parcel' : 'auto'}`);
       return;
     }
 
-    // Agar normal service hai (Plumber, AC, etc.), toh list filter karo
     setSelectedCategory(id);
     setSelectedCategoryName(name);
     setSearchQuery('');
