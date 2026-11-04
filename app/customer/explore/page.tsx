@@ -13,17 +13,13 @@ export default function CustomerExplorePage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Location State
-  const [userLocation, setUserLocation] = useState('Bareilly, UP');
-
-  // Search & Filter States
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); 
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null); 
+  
   const [sortOrder, setSortOrder] = useState<'none' | 'low-high' | 'high-low'>('none');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
-  // Booking Modal States
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<any>(null);
   const [bookingForm, setBookingForm] = useState({
@@ -48,7 +44,6 @@ export default function CustomerExplorePage() {
     fetchData();
   }, [supabase]);
 
-  // 🎯 Filter & Sort Logic
   let filteredServices = services.filter(service => {
     const matchesSearch = searchQuery 
       ? service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -64,7 +59,17 @@ export default function CustomerExplorePage() {
     filteredServices = [...filteredServices].sort((a, b) => b.price - a.price);
   }
 
+  // 🧠 SMART ROUTING LOGIC
   const handleCategoryClick = (id: string, name: string) => {
+    const lowerName = name.toLowerCase();
+    
+    // Agar category Ride/Transport ki hai, toh direct Rides page par bhejo
+    if (lowerName.includes('bike') || lowerName.includes('taxi') || lowerName.includes('parcel') || lowerName.includes('car') || lowerName.includes('auto')) {
+      router.push(`/customer/rides?type=${lowerName.includes('bike') ? 'bike' : lowerName.includes('car') ? 'car' : lowerName.includes('parcel') ? 'parcel' : 'auto'}`);
+      return;
+    }
+
+    // Agar normal service hai (Plumber, AC, etc.), toh list filter karo
     setSelectedCategory(id);
     setSelectedCategoryName(name);
     setSearchQuery('');
@@ -77,12 +82,6 @@ export default function CustomerExplorePage() {
     setSearchQuery('');
   };
 
-  const handleLocationClick = () => {
-    const newLoc = prompt("Enter your City (e.g. Bareilly, UP):", userLocation);
-    if (newLoc) setUserLocation(newLoc);
-  };
-
-  // --- SUBMIT SERVICE BOOKING ---
   const handleBookService = async () => {
     if (!bookingForm.name || !bookingForm.phone) return alert("Name and Phone required");
     if (!selectedService) return;
@@ -111,7 +110,7 @@ export default function CustomerExplorePage() {
         message: `${bookingForm.name} booked ${selectedService.name} for ₹${selectedService.price}.`,
         type: 'booking'
       }]);
-      alert("Booking Successful!");
+      alert("Booking Successful! Provider will contact you.");
       setIsBookingModalOpen(false);
       router.push('/customer/bookings');
     } else {
@@ -120,7 +119,6 @@ export default function CustomerExplorePage() {
     setBookingLoading(false);
   };
 
-  // Group Categories Logic
   const getGroupedCategories = () => {
     const groups: { [key: string]: any[] } = {
       '🏠 Home & Repair Services': [],
@@ -180,11 +178,8 @@ export default function CustomerExplorePage() {
         </div>
 
         <div className="space-y-3">
-          <div 
-            onClick={handleLocationClick}
-            className="flex items-center gap-1 text-sm font-medium text-blue-100 bg-blue-600/50 w-max px-3 py-1.5 rounded-full cursor-pointer hover:bg-blue-600 transition"
-          >
-            📍 <span>{userLocation}</span> <span className="text-[10px]">▼</span>
+          <div className="flex items-center gap-1 text-sm font-medium text-blue-100 bg-blue-600/50 w-max px-3 py-1.5 rounded-full cursor-pointer hover:bg-blue-600 transition">
+            📍 <span>Bareilly, UP</span> <span className="text-[10px]">▼</span>
           </div>
           
           <div className="flex gap-2">
@@ -229,7 +224,7 @@ export default function CustomerExplorePage() {
           </section>
         )}
 
-        {/* 🎯 VIEW 1: CATEGORIES (Horizontal Scroll) */}
+        {/* VIEW 1: CATEGORIES (Horizontal Scroll) */}
         {!selectedCategory && !searchQuery && (
           <div className="space-y-6">
             {Object.keys(groupedCategories).map((groupName) => {
@@ -271,7 +266,8 @@ export default function CustomerExplorePage() {
             })}
           </div>
         )}
-        {/* 🎯 VIEW 2: SERVICES LIST */}
+
+        {/* VIEW 2: SERVICES LIST */}
         {(selectedCategory || searchQuery) && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 mb-2">
@@ -342,7 +338,7 @@ export default function CustomerExplorePage() {
         </Link>
       </nav>
 
-      {/* ================= FILTER MODAL ================= */}
+      {/* FILTER MODAL */}
       {isFilterModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end justify-center z-[60] sm:items-center">
           <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-6">
