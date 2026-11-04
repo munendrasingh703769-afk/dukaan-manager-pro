@@ -13,14 +13,14 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const activeId = getCurrentBusinessId();
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(false);
   const [profile, setProfile] = useState({ name: 'Provider', photo: '' });
   
   // Notifications State
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // 1. Fetch Notifications
+  // 1. Fetch Notifications (Har 10 second me check karega)
   useEffect(() => {
     if (!activeId) return;
 
@@ -35,7 +35,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     };
 
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000); // Har 10 sec me check
+    const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
   }, [activeId, supabase]);
 
@@ -47,14 +47,14 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     setNotifications(notifications.map(n => ({ ...n, is_read: true })));
   };
 
-  // 2. Fetch Online Status & Profile
+  // 2. Fetch Business Profile & Online Status
   useEffect(() => {
     if (!activeId) return;
 
     const fetchStatus = async () => {
       const { data } = await supabase.from('businesses').select('name, is_online, logo_url').eq('id', activeId).single();
       if (data) {
-        setIsOnline(data.is_online ?? true);
+        setIsOnline(data.is_online ?? false);
         setProfile({ name: data.name || 'Provider', photo: data.logo_url || '' });
       }
     };
@@ -74,7 +74,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     router.push('/login');
   };
 
-  // 3. Sidebar Menu Items (Sabhi commas perfect hain)
+  // 3. Sidebar Menu Items
   const menuItems = [
     { name: 'Dashboard', path: '/provider', icon: '🏠' },
     { name: 'Bookings', path: '/provider/bookings', icon: '📅' },
@@ -82,7 +82,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     { name: 'Team / Workers', path: '/provider/team', icon: '👥' },
     { name: 'Inventory', path: '/provider/inventory', icon: '📦' },
     { name: 'Shop Orders', path: '/provider/orders', icon: '🛍️' },
-    { name: 'Ride Requests', path: '/provider/rides', icon: '🏍️' },
+    { name: 'Ride Requests', path: '/provider/rides', icon: '🏍️' }, 
     { name: 'My Services', path: '/provider/services', icon: '🛠️' },
     { name: 'Sales', path: '/provider/sales', icon: '🧾' },
     { name: 'Expenses', path: '/provider/expenses', icon: '💸' },
@@ -93,7 +93,6 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     { name: 'Plans & Upgrade', path: '/provider/plans', icon: '🚀' },
     { name: 'Settings', path: '/provider/settings', icon: '⚙️' },
     { name: 'My Profile', path: '/provider/profile', icon: '👤' },
-{ name: 'Support Tickets', path: '/provider/support', icon: '🎧' },
   ];
 
   return (
@@ -134,10 +133,10 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
       {/* MOBILE OVERLAY */}
       {isMobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>}
 
-          {/* MAIN CONTENT AREA */}
+      {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* 👇 SIRF RIDES PAGE PAR HEADER HIDE KARNE KI CONDITION */}
+        {/* 🚨 CONDITIONAL HEADER: Rides page par ye header hide ho jayega */}
         {pathname !== '/provider/rides' && (
           <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-10">
             <div className="flex items-center gap-4">
@@ -146,6 +145,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
             </div>
             
             <div className="flex items-center gap-4">
+              
               {/* 🔔 NOTIFICATION BELL */}
               <div className="relative">
                 <button 
@@ -195,10 +195,8 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         )}
 
         {/* PAGE CONTENT */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">
-            {children}
-          </div>
+        <main className="flex-1 overflow-y-auto">
+          {children}
         </main>
       </div>
     </div>
