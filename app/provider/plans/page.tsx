@@ -6,7 +6,7 @@ import { getCurrentBusinessId } from '@/lib/business'
 
 type Plan = {
   id: string; plan_code: string; plan_name: string; price: number;
-  duration_days: number; max_workers: number; features: any; // 👈 type 'any' kiya taaki object/array dono chal sake
+  duration_days: number; max_workers: number; features: any; // features ko any rakha hai
 }
 
 export default function ProviderPlansPage() {
@@ -30,7 +30,6 @@ export default function ProviderPlansPage() {
     setErrorMsg('');
 
     try {
-      // 1. Fetch all available plans
       const { data: planData, error: planError } = await supabase
         .from('subscription_plans')
         .select('*')
@@ -40,7 +39,6 @@ export default function ProviderPlansPage() {
       if (planError) throw new Error(planError.message);
       if (planData) setPlans(planData);
 
-      // 2. Fetch current subscription
       const { data: subData, error: subError } = await supabase
         .from('subscriptions')
         .select('*')
@@ -51,7 +49,6 @@ export default function ProviderPlansPage() {
 
       if (subError) console.error("Subscription fetch error:", subError.message);
 
-      // 3. Fetch trial details from business
       const { data: bizData, error: bizError } = await supabase
         .from('businesses')
         .select('trial_start_date, trial_ends_at')
@@ -84,7 +81,8 @@ export default function ProviderPlansPage() {
     endDate.setDate(endDate.getDate() + plan.duration_days);
 
     try {
-      const { error } = await supabase.from('subscriptions').insert([{
+      // 👇 UPSERT FIX: Duplicate key error ko hatane ke liye onConflict use kiya hai
+      const { error } = await supabase.from('subscriptions').upsert([{
         business_id: activeId,
         plan_code: plan.plan_code,
         status: 'active',
@@ -93,7 +91,7 @@ export default function ProviderPlansPage() {
         amount_paid: plan.price,
         payment_method: 'manual',
         payment_ref: `TXN-${Date.now()}`
-      }]);
+      }], { onConflict: 'business_id' });
 
       if (error) throw new Error(error.message);
       
@@ -114,15 +112,13 @@ export default function ProviderPlansPage() {
     return days > 0 ? days : 0;
   };
 
-  // 🧠 HELPER: Convert Features Object to Array
+  // 👇 SMART FEATURES LOGIC
   const getFeaturesList = (features: any) => {
     let list: string[] = [];
     
     if (features && typeof features === 'object' && !Array.isArray(features)) {
-      // Agar object hai (jaise {"reports": true, "ca_panel": false})
       Object.entries(features).forEach(([key, value]) => {
         if (value === true) {
-          // "ca_panel" ko "Ca Panel" me convert karega
           const formattedKey = key.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
           list.push(formattedKey);
         }
@@ -151,9 +147,8 @@ export default function ProviderPlansPage() {
 
   const isTrial = currentPlan?.plan_code === 'trial' || !currentPlan;
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto pb-10">
       
-      {/* HEADER & CURRENT STATUS */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Subscription & Plans</h1>
@@ -171,13 +166,10 @@ export default function ProviderPlansPage() {
         </div>
       </div>
 
-      {/* PLANS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan) => {
           const isActive = currentPlan?.plan_code === plan.plan_code;
           const isPro = plan.plan_code === 'pro';
-          
-          // 👇 Smart Features List nikalna
           const featuresList = getFeaturesList(plan.features);
 
           return (
@@ -198,13 +190,11 @@ export default function ProviderPlansPage() {
               </div>
 
               <ul className="space-y-3 flex-1 mb-6">
-                {/* Features Render */}
                 {featuresList.map((feature, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
                     <span className="text-green-500 font-bold mt-0.5">✓</span> {feature}
                   </li>
                 ))}
-                
                 <li className="flex items-start gap-2 text-sm text-gray-600">
                   <span className="text-green-500 font-bold mt-0.5">✓</span> Max {plan.max_workers} Worker(s)
                 </li>
@@ -227,7 +217,6 @@ export default function ProviderPlansPage() {
           );
         })}
       </div>
-
     </div>
   );
 }
