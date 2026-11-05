@@ -72,6 +72,7 @@ export default function CustomerQuotationsPage() {
       alert("Error updating quotation: " + error.message);
     }
   };
+
   return (
     <div className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
       
