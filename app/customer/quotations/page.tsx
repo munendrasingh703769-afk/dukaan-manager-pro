@@ -12,7 +12,6 @@ export default function CustomerQuotationsPage() {
   const [quotations, setQuotations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch Quotations Data
   const fetchQuotations = async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -22,7 +21,6 @@ export default function CustomerQuotationsPage() {
       return;
     }
 
-    // Fetch quotations for this specific customer
     const { data: quoteData, error } = await supabase
       .from('quotations')
       .select('*')
@@ -36,7 +34,6 @@ export default function CustomerQuotationsPage() {
     }
 
     if (quoteData) {
-      // Manually fetch provider names to avoid join errors
       const quotesWithProvider = await Promise.all(
         quoteData.map(async (quote) => {
           if (quote.provider_business_id) {
@@ -59,7 +56,6 @@ export default function CustomerQuotationsPage() {
     fetchQuotations();
   }, [supabase]);
 
-  // Accept / Reject Quote Logic
   const handleUpdateQuote = async (quoteId: string, newStatus: string) => {
     const confirmAction = confirm(`Are you sure you want to ${newStatus} this quotation?`);
     if (!confirmAction) return;
@@ -71,7 +67,7 @@ export default function CustomerQuotationsPage() {
 
     if (!error) {
       alert(`Quotation ${newStatus} successfully!`);
-      fetchQuotations(); // Refresh list to show updated status
+      fetchQuotations(); 
     } else {
       alert("Error updating quotation: " + error.message);
     }
@@ -79,7 +75,6 @@ export default function CustomerQuotationsPage() {
   return (
     <div className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
       
-      {/* Header */}
       <header className="bg-blue-600 text-white pt-6 pb-6 px-4 rounded-b-3xl shadow-md flex items-center justify-between sticky top-0 z-20">
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/customer')} className="w-10 h-10 bg-white text-blue-600 rounded-full flex items-center justify-center font-bold text-lg shadow-sm active:scale-95 transition">
@@ -112,7 +107,6 @@ export default function CustomerQuotationsPage() {
           quotations.map((quote) => (
             <div key={quote.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               
-              {/* Card Header */}
               <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                 <div className="flex items-center gap-2">
                   <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border uppercase ${
@@ -130,17 +124,14 @@ export default function CustomerQuotationsPage() {
                 )}
               </div>
 
-              {/* Requirement Details */}
               <div className="p-4">
                 <h3 className="font-bold text-lg text-gray-800 mb-1">{quote.requirement}</h3>
                 {quote.details && <p className="text-xs text-gray-500 mb-3">{quote.details}</p>}
 
-                {/* Provider's Quote Box */}
                 {quote.status === 'quoted' && (
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 space-y-3 mb-4">
                     <p className="text-xs font-bold text-blue-800 uppercase mb-2">Provider's Estimate:</p>
                     
-                    {/* Items Breakdown if available */}
                     {quote.items && quote.items.length > 0 && (
                       <div className="space-y-1 border-b border-blue-200 pb-2 mb-2">
                         {quote.items.map((item: any, idx: number) => (
@@ -168,7 +159,6 @@ export default function CustomerQuotationsPage() {
                   </div>
                 )}
 
-                {/* Status Messages */}
                 {quote.status === 'pending' && (
                   <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-center mb-4">
                     <p className="text-sm font-bold text-yellow-800">Waiting for provider to send quote...</p>
@@ -187,7 +177,6 @@ export default function CustomerQuotationsPage() {
                   </div>
                 )}
 
-                {/* Action Buttons (Only if quoted) */}
                 {quote.status === 'quoted' && (
                   <div className="flex gap-3 pt-2">
                     <button 
