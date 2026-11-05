@@ -16,43 +16,61 @@ export default function ProviderPlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
   const [upgrading, setUpgrading] = useState(false);
 
   const fetchData = async () => {
-    if (!activeId) return;
-    setLoading(true);
-
-    // 1. Fetch all available plans
-    const { data: planData } = await supabase
-      .from('subscription_plans')
-      .select('*')
-      .eq('is_active', true)
-      .order('price', { ascending: true });
-    if (planData) setPlans(planData);
-
-    // 2. Fetch current subscription
-    const { data: subData } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('business_id', activeId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    // 3. Fetch trial details from business
-    const { data: bizData } = await supabase
-      .from('businesses')
-      .select('trial_start_date, trial_ends_at')
-      .eq('id', activeId)
-      .single();
-
-    if (subData) {
-      setCurrentPlan({ ...subData, trial_ends_at: bizData?.trial_ends_at });
-    } else if (bizData) {
-      setCurrentPlan({ plan_code: 'trial', trial_ends_at: bizData.trial_ends_at });
+    if (!activeId) {
+      setErrorMsg("Aapka account login nahi hai. Kripya logout karke dobara login karein.");
+      setLoading(false);
+      return;
     }
+    
+    setLoading(true);
+    setErrorMsg('');
 
-    setLoading(false);
+    try {
+      // 1. Fetch all available plans
+      const { data: planData, error: planError } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('price', { ascending: true });
+        
+      if (planError) throw new Error(planError.message);
+      if (planData) setPlans(planData);
+
+      // 2. Fetch current subscription
+      const { data: subData, error: subError } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('business_id', activeId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(); // maybeSingle use kiya taaki error na aaye agar data na ho
+
+      if (subError) console.error("Subscription fetch error:", subError.message);
+
+      // 3. Fetch trial details from business
+      const { data: bizData, error: bizError } = await supabase
+        .from('businesses')
+        .select('trial_start_date, trial_ends_at')
+        .eq('id', activeId)
+        .single();
+
+      if (bizError) console.error("Business fetch error:", bizError.message);
+
+      if (subData) {
+        setCurrentPlan({ ...subData, trial_ends_at: bizData?.trial_ends_at });
+      } else if (bizData) {
+        setCurrentPlan({ plan_code: 'trial', trial_ends_at: bizData.trial_ends_at });
+      }
+
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to load plans. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, [activeId]);
@@ -65,25 +83,27 @@ export default function ProviderPlansPage() {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + plan.duration_days);
 
-    // Update or Insert Subscription
-    const { error } = await supabase.from('subscriptions').insert([{
-      business_id: activeId,
-      plan_code: plan.plan_code,
-      status: 'active',
-      current_period_start: new Date().toISOString(),
-      current_period_end: endDate.toISOString(),
-      amount_paid: plan.price,
-      payment_method: 'manual', // Baad me isko Razorpay se link karenge
-      payment_ref: `TXN-${Date.now()}`
-    }]);
+    try {
+      const { error } = await supabase.from('subscriptions').insert([{
+        business_id: activeId,
+        plan_code: plan.plan_code,
+        status: 'active',
+        current_period_start: new Date().toISOString(),
+        current_period_end: endDate.toISOString(),
+        amount_paid: plan.price,
+        payment_method: 'manual',
+        payment_ref: `TXN-${Date.now()}`
+      }]);
 
-    if (!error) {
+      if (error) throw new Error(error.message);
+      
       alert("Plan Upgraded Successfully! (Demo payment successful)");
       fetchData();
-    } else {
-      alert("Error upgrading: " + error.message);
+    } catch (err: any) {
+      alert("Error upgrading: " + err.message);
+    } finally {
+      setUpgrading(false);
     }
-    setUpgrading(false);
   };
 
   // Calculate Trial Days Left
@@ -97,8 +117,18 @@ export default function ProviderPlansPage() {
 
   if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading Plans...</div>;
 
-  const isTrial = currentPlan?.plan_code === 'trial' || !currentPlan;
+  if (errorMsg) {
+    return (
+      <div className="text-center py-20 bg-red-50 rounded-2xl border border-red-200">
+        <span className="text-5xl mb-4">⚠️</span>
+        <h2 className="text-xl font-bold text-red-800 mb-2">Oops! Kuch galat ho gaya.</h2>
+        <p className="text-red-600 font-medium max-w-md mx-auto">{errorMsg}</p>
+        <button onClick={() => window.location.reload()} className="mt-6 bg-red-600 text-white px-6 py-2 rounded-xl font-bold">Try Again</button>
+      </div>
+    );
+  }
 
+  const isTrial = currentPlan?.plan_code === 'trial' || !currentPlan;
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       
