@@ -20,6 +20,7 @@ export default function CustomerProfilePage() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user) {
+      // 1. Fetch Profile Data
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
       if (data) {
         setProfile({
@@ -30,6 +31,7 @@ export default function CustomerProfilePage() {
         });
       }
 
+      // 2. Fetch Counts for Activities
       const { count: orderCount } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('customer_id', user.id);
       const { count: rideCount } = await supabase.from('ride_bookings').select('*', { count: 'exact', head: true }).eq('customer_id', user.id);
       const { count: bookingCount } = await supabase.from('service_bookings').select('*', { count: 'exact', head: true }).eq('customer_id', user.id);
@@ -70,16 +72,14 @@ export default function CustomerProfilePage() {
   };
 
   if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading Profile...</div>;
-
   return (
-    // 👇 pb-28 lagaya hai taaki bottom nav content ko na dhake
     <div className="min-h-screen bg-gray-50 pb-28">
       
       {/* Header */}
       <div className="bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 rounded-b-[2.5rem] pt-12 pb-16 px-6 shadow-xl relative">
         <div className="flex justify-between items-center mb-6 relative z-10">
           <h1 className="text-xl font-bold text-white">My Profile</h1>
-          <button onClick={handleLogout} className="bg-white/10 text-white border border-white/20 px-4 py-2 rounded-lg text-xs font-bold">Logout</button>
+          <button onClick={handleLogout} className="bg-white/10 text-white border border-white/20 px-4 py-2 rounded-lg text-xs font-bold hover:bg-white/20 transition">Logout</button>
         </div>
         
         <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2">
@@ -113,12 +113,13 @@ export default function CustomerProfilePage() {
           </button>
         </div>
 
-        {/* My Activities */}
+        {/* My Activities Hub */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <h2 className="text-lg font-bold text-gray-800 border-b p-5">My Activities</h2>
           
           <div className="divide-y divide-gray-100">
             
+            {/* My Orders */}
             <Link href="/customer/orders" className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center text-xl">🛍️</div>
@@ -133,6 +134,7 @@ export default function CustomerProfilePage() {
               </div>
             </Link>
 
+            {/* My Rides */}
             <Link href="/customer/my-rides" className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl">🏍️</div>
@@ -147,6 +149,7 @@ export default function CustomerProfilePage() {
               </div>
             </Link>
 
+            {/* My Service Bookings */}
             <Link href="/customer/bookings" className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-xl">🛠️</div>
@@ -161,7 +164,8 @@ export default function CustomerProfilePage() {
               </div>
             </Link>
 
-            <Link href="/customer/requests" className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
+            {/* 👇 YAHAN 404 ERROR FIX HUA HAI (Link changed to /customer/quotations) */}
+            <Link href="/customer/quotations" className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-xl">📄</div>
                 <div>
@@ -174,7 +178,7 @@ export default function CustomerProfilePage() {
               </div>
             </Link>
 
-            {/* Help & Support Link */}
+            {/* Help & Support */}
             <Link href="/customer/support" className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center text-xl">🎧</div>
@@ -193,21 +197,21 @@ export default function CustomerProfilePage() {
 
       </div>
 
-      {/* Bottom Navigation (Sirf 5 Items) */}
-      <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
-        <Link href="/customer" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
+      {/* 📱 BOTTOM NAVIGATION */}
+      <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
+        <Link href="/customer" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600">
           <span className="text-xl">🏠</span>
           <span className="text-[10px] font-medium">Home</span>
         </Link>
-        <Link href="/customer/shop" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
-          <span className="text-xl">🛒</span>
+        <Link href="/customer/shop" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600">
+          <span className="text-xl">🛍️</span>
           <span className="text-[10px] font-medium">Shop</span>
         </Link>
-        <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
+        <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600">
           <span className="text-xl">🛠️</span>
           <span className="text-[10px] font-medium">Services</span>
         </Link>
-        <Link href="/customer/my-rides" className="flex flex-col items-center gap-1 text-gray-400 hover:text-indigo-600">
+        <Link href="/customer/my-rides" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600">
           <span className="text-xl">🏍️</span>
           <span className="text-[10px] font-medium">Rides</span>
         </Link>
