@@ -6,7 +6,7 @@ import { getCurrentBusinessId } from '@/lib/business'
 
 type Plan = {
   id: string; plan_code: string; plan_name: string; price: number;
-  duration_days: number; max_workers: number; features: string[];
+  duration_days: number; max_workers: number; features: any; // 👈 type 'any' kiya taaki object/array dono chal sake
 }
 
 export default function ProviderPlansPage() {
@@ -47,7 +47,7 @@ export default function ProviderPlansPage() {
         .eq('business_id', activeId)
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle(); // maybeSingle use kiya taaki error na aaye agar data na ho
+        .maybeSingle();
 
       if (subError) console.error("Subscription fetch error:", subError.message);
 
@@ -106,13 +106,34 @@ export default function ProviderPlansPage() {
     }
   };
 
-  // Calculate Trial Days Left
   const getTrialDaysLeft = () => {
     if (!currentPlan?.trial_ends_at) return 0;
     const end = new Date(currentPlan.trial_ends_at).getTime();
     const now = new Date().getTime();
     const days = Math.ceil((end - now) / (1000 * 3600 * 24));
     return days > 0 ? days : 0;
+  };
+
+  // 🧠 HELPER: Convert Features Object to Array
+  const getFeaturesList = (features: any) => {
+    let list: string[] = [];
+    
+    if (features && typeof features === 'object' && !Array.isArray(features)) {
+      // Agar object hai (jaise {"reports": true, "ca_panel": false})
+      Object.entries(features).forEach(([key, value]) => {
+        if (value === true) {
+          // "ca_panel" ko "Ca Panel" me convert karega
+          const formattedKey = key.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+          list.push(formattedKey);
+        }
+      });
+    } else if (Array.isArray(features)) {
+      list = features;
+    } else if (typeof features === 'string') {
+      list = [features];
+    }
+
+    return list;
   };
 
   if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading Plans...</div>;
@@ -155,6 +176,9 @@ export default function ProviderPlansPage() {
         {plans.map((plan) => {
           const isActive = currentPlan?.plan_code === plan.plan_code;
           const isPro = plan.plan_code === 'pro';
+          
+          // 👇 Smart Features List nikalna
+          const featuresList = getFeaturesList(plan.features);
 
           return (
             <div key={plan.id} className={`bg-white rounded-3xl p-6 border-2 transition-all relative flex flex-col ${isPro ? 'border-blue-600 shadow-xl scale-105 z-10' : 'border-gray-100 shadow-sm hover:border-blue-200'}`}>
@@ -174,11 +198,13 @@ export default function ProviderPlansPage() {
               </div>
 
               <ul className="space-y-3 flex-1 mb-6">
-                {(plan.features as string[]).map((feature, i) => (
+                {/* Features Render */}
+                {featuresList.map((feature, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
                     <span className="text-green-500 font-bold mt-0.5">✓</span> {feature}
                   </li>
                 ))}
+                
                 <li className="flex items-start gap-2 text-sm text-gray-600">
                   <span className="text-green-500 font-bold mt-0.5">✓</span> Max {plan.max_workers} Worker(s)
                 </li>
