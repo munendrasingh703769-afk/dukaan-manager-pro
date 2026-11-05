@@ -16,24 +16,20 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const [isOnline, setIsOnline] = useState(false);
   const [profile, setProfile] = useState({ name: 'Provider', photo: '' });
   
-  // Notifications State
+  // Trial States
+  const [isTrialExpired, setIsTrialExpired] = useState(false);
+  const [isCheckingSub, setIsCheckingSub] = useState(true);
+
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // 1. Fetch Notifications (Har 10 second me check karega)
+  // 1. Fetch Notifications
   useEffect(() => {
     if (!activeId) return;
-
     const fetchNotifications = async () => {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('business_id', activeId)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      const { data } = await supabase.from('notifications').select('*').eq('business_id', activeId).order('created_at', { ascending: false }).limit(10);
       if (data) setNotifications(data);
     };
-
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
@@ -47,18 +43,37 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     setNotifications(notifications.map(n => ({ ...n, is_read: true })));
   };
 
-  // 2. Fetch Business Profile & Online Status
+  // 2. Fetch Business Status & Check Subscription/Trial
   useEffect(() => {
     if (!activeId) return;
 
-    const fetchStatus = async () => {
-      const { data } = await supabase.from('businesses').select('name, is_online, logo_url').eq('id', activeId).single();
+    const checkStatusAndSubscription = async () => {
+      // Fetch Profile
+      const { data } = await supabase.from('businesses').select('name, is_online, logo_url, trial_ends_at').eq('id', activeId).single();
       if (data) {
         setIsOnline(data.is_online ?? false);
         setProfile({ name: data.name || 'Provider', photo: data.logo_url || '' });
+        
+        // Check Trial & Subscription
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('business_id', activeId)
+          .eq('status', 'active')
+          .gt('current_period_end', new Date().toISOString())
+          .maybeSingle();
+
+        if (!sub && data.trial_ends_at) {
+          const trialEnd = new Date(data.trial_ends_at).getTime();
+          const now = new Date().getTime();
+          if (now > trialEnd) {
+            setIsTrialExpired(true);
+          }
+        }
       }
+      setIsCheckingSub(false);
     };
-    fetchStatus();
+    checkStatusAndSubscription();
   }, [activeId, supabase]);
 
   const toggleOnline = async () => {
@@ -74,7 +89,6 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     router.push('/login');
   };
 
-  // 3. Sidebar Menu Items
   const menuItems = [
     { name: 'Dashboard', path: '/provider', icon: '🏠' },
     { name: 'Bookings', path: '/provider/bookings', icon: '📅' },
@@ -82,7 +96,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     { name: 'Team / Workers', path: '/provider/team', icon: '👥' },
     { name: 'Inventory', path: '/provider/inventory', icon: '📦' },
     { name: 'Shop Orders', path: '/provider/orders', icon: '🛍️' },
-    { name: 'Ride Requests', path: '/provider/rides', icon: '🏍️' }, 
+    { name: 'Ride Requests', path: '/provider/rides', icon: '🏍️' },
     { name: 'My Services', path: '/provider/services', icon: '🛠️' },
     { name: 'Sales', path: '/provider/sales', icon: '🧾' },
     { name: 'Expenses', path: '/provider/expenses', icon: '💸' },
@@ -94,7 +108,6 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     { name: 'Settings', path: '/provider/settings', icon: '⚙️' },
     { name: 'My Profile', path: '/provider/profile', icon: '👤' },
   ];
-
   return (
     <div className="flex h-screen bg-[#F8F9FB] font-sans overflow-hidden">
       
@@ -136,7 +149,6 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* 🚨 CONDITIONAL HEADER: Rides page par ye header hide ho jayega */}
         {pathname !== '/provider/rides' && (
           <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-10">
             <div className="flex items-center gap-4">
@@ -145,20 +157,11 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
             </div>
             
             <div className="flex items-center gap-4">
-              
-              {/* 🔔 NOTIFICATION BELL */}
               <div className="relative">
-                <button 
-                  onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} 
-                  className="relative p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition"
-                >
+                <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} className="relative p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition">
                   <span className="text-xl">🔔</span>
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
-                  )}
+                  {unreadCount > 0 && <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
                 </button>
-
-                {/* Notification Dropdown */}
                 {showNotifications && (
                   <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-96 overflow-y-auto">
                     <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
@@ -172,7 +175,6 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
                         <div key={n.id} className={`p-3 border-b border-gray-50 text-sm ${n.is_read ? 'bg-white' : 'bg-blue-50'}`}>
                           <p className="font-bold text-gray-800">{n.title}</p>
                           <p className="text-xs text-gray-600 mt-1">{n.message}</p>
-                          <p className="text-[10px] text-gray-400 mt-1">{new Date(n.created_at).toLocaleTimeString()}</p>
                         </div>
                       ))
                     )}
@@ -180,13 +182,11 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
                 )}
               </div>
 
-              {/* ONLINE / OFFLINE TOGGLE */}
               <button onClick={toggleOnline} className={`flex items-center gap-2 border px-3 py-1.5 rounded-full transition ${isOnline ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-300'}`}>
                 <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
                 <span className={`text-xs font-bold ${isOnline ? 'text-green-700' : 'text-gray-600'}`}>{isOnline ? 'Online' : 'Offline'}</span>
               </button>
 
-              {/* PROFILE AVATAR */}
               <Link href="/provider/profile" className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold overflow-hidden border border-blue-200">
                 {profile.photo ? <img src={profile.photo} alt="P" className="w-full h-full object-cover" /> : profile.name.charAt(0).toUpperCase()}
               </Link>
@@ -194,11 +194,32 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
           </header>
         )}
 
-        {/* PAGE CONTENT */}
-        <main className="flex-1 overflow-y-auto">
+        {/* 👇 BLUR LOGIC APPLIED HERE */}
+        <main className={`flex-1 overflow-y-auto p-4 md:p-8 ${isTrialExpired ? 'pointer-events-none blur-md opacity-50 select-none' : ''}`}>
           {children}
         </main>
       </div>
+
+      {/* 👇 TRIAL EXPIRED MODAL */}
+      {isTrialExpired && (
+        <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl relative">
+            <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4">
+              ⏰
+            </div>
+            <h2 className="text-2xl font-black text-gray-800 mb-2">Aapka Free Trial Khatam Ho Gaya Hai!</h2>
+            <p className="text-gray-500 text-sm mb-6">
+              Aapne 15 din ka free trial use kar liya hai. Aage kaam karne ke liye kripya apna koi plan select karein.
+            </p>
+            <Link 
+              href="/provider/plans" 
+              className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-md hover:bg-blue-700 transition block"
+            >
+              View Plans & Upgrade
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
