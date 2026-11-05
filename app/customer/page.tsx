@@ -19,6 +19,7 @@ export default function CustomerSuperAppHome() {
 
   useEffect(() => {
     const fetchData = async () => {
+      // 1. Fetch User Profile & Notifications
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
@@ -28,9 +29,11 @@ export default function CustomerSuperAppHome() {
         if (notifs) setNotifications(notifs);
       }
 
+      // 2. Fetch Shop Categories
       const { data: catData } = await supabase.from('shop_categories').select('*').eq('is_active', true).limit(7);
       if (catData) setCategories(catData);
 
+      // 3. Fetch Products (Recommended)
       const { data: prodData } = await supabase.from('products').select(`*, businesses!inner(name)`).gt('stock', 0).order('created_at', { ascending: false }).limit(4);
       if (prodData) setTopProducts(prodData);
     };
@@ -51,7 +54,6 @@ export default function CustomerSuperAppHome() {
     e.preventDefault();
     if (searchQuery.trim()) router.push(`/customer/explore?search=${searchQuery}`);
   };
-
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
       
@@ -105,7 +107,7 @@ export default function CustomerSuperAppHome() {
           </div>
         </section>
 
-        {/* QUICK ACTIONS (Customer Focused + Explore) */}
+        {/* QUICK ACTIONS */}
         <section>
           <div className="grid grid-cols-4 gap-y-4 gap-x-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
             <Link href="/customer/shop" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
@@ -113,7 +115,6 @@ export default function CustomerSuperAppHome() {
               <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Shop<br/>Now</span>
             </Link>
             
-            {/* 👇 Explore Button */}
             <Link href="/customer/explore" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
               <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl text-blue-600">🧭</div>
               <span className="text-[10px] font-bold text-blue-700 text-center leading-tight">Explore<br/>Services</span>
@@ -135,38 +136,15 @@ export default function CustomerSuperAppHome() {
               <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">📅</div>
               <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">My<br/>Bookings</span>
             </Link>
-            <Link href="/customer/requests" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+            
+            {/* 👇 404 ERROR YAHAN FIX HUA HAI (Link changed to /customer/quotations) */}
+            <Link href="/customer/quotations" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
               <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">📄</div>
               <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">My<br/>Quotes</span>
             </Link>
             <Link href="/customer/support" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
               <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🎧</div>
               <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Help<br/>Support</span>
-            </Link>
-          </div>
-        </section>
-
-        {/* SHOP BY CATEGORY */}
-        <section>
-          <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-base font-black text-gray-800 flex items-center gap-2"><span className="w-1 h-4 bg-blue-600 rounded-full"></span> Shop by Category</h2>
-            <Link href="/customer/shop" className="text-xs font-bold text-blue-600">View All ›</Link>
-          </div>
-          
-          <div className="grid grid-cols-4 gap-3 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-            {categories.map((cat) => (
-              <Link href={`/customer/shop?cat=${cat.name}`} key={cat.id} className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-                <div className="w-14 h-14 bg-gray-50 rounded-xl flex items-center justify-center text-3xl">
-                  {cat.icon || '📦'}
-                </div>
-                <span className="text-[10px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{cat.name}</span>
-              </Link>
-            ))}
-            <Link href="/customer/shop" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-2xl text-blue-600 font-black">
-                •••
-              </div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">More<br/>Categories</span>
             </Link>
           </div>
         </section>
@@ -233,28 +211,28 @@ export default function CustomerSuperAppHome() {
 
       </div>
 
-            {/* 📱 BOTTOM NAVIGATION */}
+      {/* BOTTOM NAVIGATION */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
         <Link href="/customer" className="flex flex-col items-center gap-1 text-blue-600">
           <span className="text-xl">🏠</span>
           <span className="text-[10px] font-bold">Home</span>
         </Link>
-        <Link href="/customer/shop" className="flex flex-col items-center gap-1 text-gray-500 hover:text-blue-600">
+        <Link href="/customer/shop" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600">
           <span className="text-xl">🛍️</span>
           <span className="text-[10px] font-medium">Shop</span>
         </Link>
         
-        {/* Services Tab (Center) */}
-        <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-gray-500 hover:text-blue-600">
-          <span className="text-xl">🧭</span>
-          <span className="text-[10px] font-medium">Services</span>
-        </Link>
+        <div className="relative -top-5">
+          <Link href="/customer/explore" className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl shadow-lg border-4 border-white">
+            🧭
+          </Link>
+        </div>
 
-        <Link href="/customer/orders" className="flex flex-col items-center gap-1 text-gray-500 hover:text-blue-600">
-          <span className="text-xl">📦</span>
-          <span className="text-[10px] font-medium">Orders</span>
+        <Link href="/customer/my-rides" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600 relative">
+          <span className="text-xl">🏍️</span>
+          <span className="text-[10px] font-medium">Rides</span>
         </Link>
-        <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-gray-500 hover:text-blue-600">
+        <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-gray-400 hover:text-blue-600">
           <span className="text-xl">👤</span>
           <span className="text-[10px] font-medium">Profile</span>
         </Link>
