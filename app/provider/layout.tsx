@@ -18,6 +18,8 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   
   // Trial States
   const [isTrialExpired, setIsTrialExpired] = useState(false);
+  const [trialDaysLeft, setTrialDaysLeft] = useState(0);
+  const [hasActiveSub, setHasActiveSub] = useState(true);
   const [isCheckingSub, setIsCheckingSub] = useState(true);
 
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -43,18 +45,17 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     setNotifications(notifications.map(n => ({ ...n, is_read: true })));
   };
 
-  // 2. Fetch Business Status & Check Subscription/Trial
+  // 2. Fetch Status, Trial and Subscription
   useEffect(() => {
     if (!activeId) return;
 
     const checkStatusAndSubscription = async () => {
-      // Fetch Profile
       const { data } = await supabase.from('businesses').select('name, is_online, logo_url, trial_ends_at').eq('id', activeId).single();
       if (data) {
         setIsOnline(data.is_online ?? false);
         setProfile({ name: data.name || 'Provider', photo: data.logo_url || '' });
         
-        // Check Trial & Subscription
+        // Fetch active subscription
         const { data: sub } = await supabase
           .from('subscriptions')
           .select('*')
@@ -63,10 +64,23 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
           .gt('current_period_end', new Date().toISOString())
           .maybeSingle();
 
-        if (!sub && data.trial_ends_at) {
-          const trialEnd = new Date(data.trial_ends_at).getTime();
-          const now = new Date().getTime();
-          if (now > trialEnd) {
+        if (sub) {
+          setHasActiveSub(true);
+        } else {
+          setHasActiveSub(false);
+          // Check trial days
+          if (data.trial_ends_at) {
+            const trialEnd = new Date(data.trial_ends_at).getTime();
+            const now = new Date().getTime();
+            const days = Math.ceil((trialEnd - now) / (1000 * 3600 * 24));
+            
+            if (days > 0) {
+              setTrialDaysLeft(days);
+            } else {
+              setIsTrialExpired(true);
+            }
+          } else {
+            // Agar trial date set hi nahi hai, toh expired maan lo
             setIsTrialExpired(true);
           }
         }
@@ -147,24 +161,28 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
       {isMobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>}
 
       {/* MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
         
+        {/* HEADER */}
         {pathname !== '/provider/rides' && (
-          <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-10">
+          <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-20">
             <div className="flex items-center gap-4">
               <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600 text-2xl">☰</button>
               <h1 className="text-lg font-bold text-gray-800 hidden md:block">Provider Workspace</h1>
             </div>
             
             <div className="flex items-center gap-4">
+              {/* 🔔 NOTIFICATION FIXED */}
               <div className="relative">
                 <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} className="relative p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition">
                   <span className="text-xl">🔔</span>
                   {unreadCount > 0 && <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
                 </button>
+                
+                {/* Fixed position lagaya hai taaki screen se bahar na jaye */}
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-96 overflow-y-auto">
-                    <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+                  <div className="fixed top-16 right-4 md:right-8 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-100 z-[999] max-h-96 overflow-y-auto">
+                    <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl sticky top-0">
                       <h3 className="font-bold text-sm text-gray-800">Notifications</h3>
                       <button onClick={() => setShowNotifications(false)} className="text-xs font-bold text-blue-600">Close</button>
                     </div>
@@ -194,7 +212,23 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
           </header>
         )}
 
-        {/* 👇 BLUR LOGIC APPLIED HERE */}
+        {/* 👇 TRIAL UPGRADE BANNER */}
+        {!hasActiveSub && !isTrialExpired && trialDaysLeft > 0 && (
+          <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white p-3 flex justify-between items-center shadow-md z-10">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⏰</span>
+              <div>
+                <p className="text-sm font-bold">Free Trial Active</p>
+                <p className="text-[10px] text-orange-100">{trialDaysLeft} days remaining</p>
+              </div>
+            </div>
+            <Link href="/provider/plans" className="bg-white text-red-600 px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-gray-50 transition active:scale-95">
+              Upgrade Now
+            </Link>
+          </div>
+        )}
+
+        {/* PAGE CONTENT */}
         <main className={`flex-1 overflow-y-auto p-4 md:p-8 ${isTrialExpired ? 'pointer-events-none blur-md opacity-50 select-none' : ''}`}>
           {children}
         </main>
