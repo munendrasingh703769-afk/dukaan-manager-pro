@@ -45,7 +45,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     setNotifications(notifications.map(n => ({ ...n, is_read: true })));
   };
 
-  // 2. Fetch Status, Trial and Subscription
+  // 2. Fetch Status & Subscription
   useEffect(() => {
     if (!activeId) return;
 
@@ -55,20 +55,19 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         setIsOnline(data.is_online ?? false);
         setProfile({ name: data.name || 'Provider', photo: data.logo_url || '' });
         
-        // Fetch active subscription
         const { data: sub } = await supabase
           .from('subscriptions')
           .select('*')
           .eq('business_id', activeId)
-          .eq('status', 'active')
+          .eq('status', 'active') // Sirf active plan count hoga
           .gt('current_period_end', new Date().toISOString())
           .maybeSingle();
 
         if (sub) {
           setHasActiveSub(true);
+          setIsTrialExpired(false);
         } else {
           setHasActiveSub(false);
-          // Check trial days
           if (data.trial_ends_at) {
             const trialEnd = new Date(data.trial_ends_at).getTime();
             const now = new Date().getTime();
@@ -80,7 +79,6 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
               setIsTrialExpired(true);
             }
           } else {
-            // Agar trial date set hi nahi hai, toh expired maan lo
             setIsTrialExpired(true);
           }
         }
@@ -89,6 +87,13 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     };
     checkStatusAndSubscription();
   }, [activeId, supabase]);
+
+  // 👇 STRICT REDIRECT LOGIC (Agar trial khatam, toh sirf plans page khule)
+  useEffect(() => {
+    if (!isCheckingSub && isTrialExpired && pathname !== '/provider/plans') {
+      router.push('/provider/plans');
+    }
+  }, [isTrialExpired, isCheckingSub, pathname, router]);
 
   const toggleOnline = async () => {
     const newStatus = !isOnline;
@@ -105,7 +110,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
 
   const menuItems = [
     { name: 'Dashboard', path: '/provider', icon: '🏠' },
-    { name: 'Bookings', path: '/provider/bookings', icon: '📅' },
+    { name: 'Bookings', path: '/provider/bookings', icon: '🗓️' },
     { name: 'Quotations', path: '/provider/quotations', icon: '📄' },
     { name: 'Team / Workers', path: '/provider/team', icon: '👥' },
     { name: 'Inventory', path: '/provider/inventory', icon: '📦' },
@@ -172,14 +177,12 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
             </div>
             
             <div className="flex items-center gap-4">
-              {/* 🔔 NOTIFICATION FIXED */}
               <div className="relative">
                 <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} className="relative p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition">
                   <span className="text-xl">🔔</span>
                   {unreadCount > 0 && <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
                 </button>
                 
-                {/* Fixed position lagaya hai taaki screen se bahar na jaye */}
                 {showNotifications && (
                   <div className="fixed top-16 right-4 md:right-8 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-100 z-[999] max-h-96 overflow-y-auto">
                     <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl sticky top-0">
@@ -212,7 +215,14 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
           </header>
         )}
 
-        {/* 👇 TRIAL UPGRADE BANNER */}
+        {/* 👇 TRIAL EXPIRED BANNER (Only on plans page) */}
+        {isTrialExpired && pathname === '/provider/plans' && (
+          <div className="bg-red-500 text-white p-3 text-center shadow-md z-10">
+            <p className="text-sm font-bold">Your trial has expired. Please upgrade to a plan to continue using the app.</p>
+          </div>
+        )}
+
+        {/* 👇 TRIAL ACTIVE BANNER (For other pages) */}
         {!hasActiveSub && !isTrialExpired && trialDaysLeft > 0 && (
           <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white p-3 flex justify-between items-center shadow-md z-10">
             <div className="flex items-center gap-2">
@@ -229,31 +239,11 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         )}
 
         {/* PAGE CONTENT */}
-        <main className={`flex-1 overflow-y-auto p-4 md:p-8 ${isTrialExpired ? 'pointer-events-none blur-md opacity-50 select-none' : ''}`}>
+        <main className={`flex-1 overflow-y-auto p-4 md:p-8`}>
           {children}
         </main>
       </div>
 
-      {/* 👇 TRIAL EXPIRED MODAL */}
-      {isTrialExpired && (
-        <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl relative">
-            <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4">
-              ⏰
-            </div>
-            <h2 className="text-2xl font-black text-gray-800 mb-2">Aapka Free Trial Khatam Ho Gaya Hai!</h2>
-            <p className="text-gray-500 text-sm mb-6">
-              Aapne 15 din ka free trial use kar liya hai. Aage kaam karne ke liye kripya apna koi plan select karein.
-            </p>
-            <Link 
-              href="/provider/plans" 
-              className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-md hover:bg-blue-700 transition block"
-            >
-              View Plans & Upgrade
-            </Link>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
