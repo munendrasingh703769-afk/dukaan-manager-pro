@@ -6,7 +6,7 @@ import { getCurrentBusinessId } from '@/lib/business'
 
 type Plan = {
   id: string; plan_code: string; plan_name: string; price: number;
-  duration_days: number; max_workers: number; features: any; // features ko any rakha hai
+  duration_days: number; max_workers: number; features: any; 
 }
 
 export default function ProviderPlansPage() {
@@ -30,6 +30,7 @@ export default function ProviderPlansPage() {
     setErrorMsg('');
 
     try {
+      // 1. Fetch all available plans
       const { data: planData, error: planError } = await supabase
         .from('subscription_plans')
         .select('*')
@@ -39,6 +40,7 @@ export default function ProviderPlansPage() {
       if (planError) throw new Error(planError.message);
       if (planData) setPlans(planData);
 
+      // 2. Fetch current subscription
       const { data: subData, error: subError } = await supabase
         .from('subscriptions')
         .select('*')
@@ -49,6 +51,7 @@ export default function ProviderPlansPage() {
 
       if (subError) console.error("Subscription fetch error:", subError.message);
 
+      // 3. Fetch trial details from business
       const { data: bizData, error: bizError } = await supabase
         .from('businesses')
         .select('trial_start_date, trial_ends_at')
@@ -81,7 +84,7 @@ export default function ProviderPlansPage() {
     endDate.setDate(endDate.getDate() + plan.duration_days);
 
     try {
-      // 👇 UPSERT FIX: Duplicate key error ko hatane ke liye onConflict use kiya hai
+      // UPSERT Fix for duplicate key error
       const { error } = await supabase.from('subscriptions').upsert([{
         business_id: activeId,
         plan_code: plan.plan_code,
@@ -95,8 +98,11 @@ export default function ProviderPlansPage() {
 
       if (error) throw new Error(error.message);
       
-      alert("Plan Upgraded Successfully! (Demo payment successful)");
-      fetchData();
+      alert("Payment Successful! Aapka plan activate ho gaya hai.");
+      
+      // 👇 REDIRECT TO DASHBOARD (Taaki blur turant hat jaye)
+      window.location.href = '/provider'; 
+
     } catch (err: any) {
       alert("Error upgrading: " + err.message);
     } finally {
@@ -112,7 +118,7 @@ export default function ProviderPlansPage() {
     return days > 0 ? days : 0;
   };
 
-  // 👇 SMART FEATURES LOGIC
+  // SMART FEATURES LOGIC (Object to Array conversion)
   const getFeaturesList = (features: any) => {
     let list: string[] = [];
     
@@ -149,6 +155,7 @@ export default function ProviderPlansPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
       
+      {/* HEADER & CURRENT STATUS */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Subscription & Plans</h1>
@@ -166,7 +173,33 @@ export default function ProviderPlansPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* 👇 MANUAL PAYMENT INFO BANNER (Yahan UPI ID hai) */}
+      <div className="bg-yellow-50 border-2 border-yellow-300 p-5 rounded-2xl mb-4 shadow-sm">
+        <h3 className="font-bold text-yellow-900 text-lg mb-2 flex items-center gap-2">
+          <span>💳</span> Manual Payment Details
+        </h3>
+        <p className="text-yellow-800 text-sm mb-3">
+          Plan activate karne ke liye neeche di gayi UPI ID par payment karein. Payment ke baad apna <b>Business Code</b> Admin ko WhatsApp karein.
+        </p>
+        <div className="flex flex-col md:flex-row items-center gap-3">
+          <div className="bg-white border border-yellow-300 px-4 py-3 rounded-xl w-full md:w-auto">
+            <p className="text-xs text-gray-500 font-bold uppercase mb-1">Pay to UPI ID:</p>
+            <p className="font-mono text-xl font-black text-gray-800 select-all">9808651905@ybl</p>
+          </div>
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText("9808651905@ybl");
+              alert("UPI ID Copied!");
+            }}
+            className="bg-yellow-500 text-white px-6 py-3 rounded-xl font-bold shadow-md hover:bg-yellow-600 transition w-full md:w-auto"
+          >
+            Copy UPI ID
+          </button>
+        </div>
+      </div>
+
+      {/* PLANS GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
         {plans.map((plan) => {
           const isActive = currentPlan?.plan_code === plan.plan_code;
           const isPro = plan.plan_code === 'pro';
@@ -211,12 +244,13 @@ export default function ProviderPlansPage() {
                       : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                 }`}
               >
-                {isActive ? 'Current Plan' : upgrading ? 'Processing...' : 'Upgrade Now'}
+                {isActive ? 'Current Plan' : upgrading ? 'Processing...' : 'Activate Plan (Demo)'}
               </button>
             </div>
           );
         })}
       </div>
+
     </div>
   );
 }
