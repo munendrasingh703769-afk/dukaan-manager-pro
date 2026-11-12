@@ -356,13 +356,12 @@ export default function ProviderInventoryPage() {
               return (
                 <div key={product.id} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
                   
-                  {/* Edit & Online Toggle Buttons */}
-                  <div className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition">
-                    <button onClick={() => handleEditClick(product)} className="bg-white/90 border shadow-sm p-1.5 rounded-lg text-blue-600 hover:bg-blue-50" title="Edit Product">
-                      ✏️
+                                    {/* Edit & Online Toggle Buttons */}
+                  <div className="absolute top-2 left-2 z-10">
+                    <button onClick={() => handleEditClick(product)} className="bg-blue-50 border border-blue-200 shadow-sm px-2 py-1 rounded-lg text-blue-700 font-bold text-[10px] flex items-center gap-1">
+                      ✏️ Edit
                     </button>
-                  </div>
-                  <div className="absolute top-2 right-2 z-10">
+                  </div> className="absolute top-2 right-2 z-10">
                     <button onClick={() => toggleOnlineStatus(product.id, product.is_online)} className={`w-8 h-4 rounded-full relative transition-colors ${product.is_online ? 'bg-green-500' : 'bg-gray-300'}`}>
                       <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${product.is_online ? 'right-0.5' : 'left-0.5'}`}></span>
                     </button>
