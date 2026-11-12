@@ -226,7 +226,12 @@ export default function ProviderInventoryPage() {
           <button onClick={() => setActiveTab('purchases')} className={`flex-1 md:px-8 py-2 font-bold rounded-lg text-sm transition ${activeTab === 'purchases' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Purchases</button>
         </div>
       </div>
-
+            {/* 👇 STOCK MOVEMENT BUTTON */}
+      <div className="flex justify-end mb-2">
+        <Link href="/provider/inventory/stock-movement" className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 transition flex items-center gap-2">
+          📊 View Stock History & Transfer
+        </Link>
+      </div>
       {/* ================= TAB: INVENTORY ================= */}
       {activeTab === 'inventory' && (
         <>
