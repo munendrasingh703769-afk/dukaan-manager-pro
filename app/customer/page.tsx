@@ -77,9 +77,8 @@ export default function CustomerSuperAppHome() {
   const router = useRouter();
   const supabase = createClient();
   
-  // 🌐 Language State (Default English)
   const [lang, setLang] = useState<'en' | 'hi'>('en');
-  const t = translations[lang]; // Shortcut for translations
+  const t = translations[lang];
 
   const [categories, setCategories] = useState<any[]>([]);
   const [topProducts, setTopProducts] = useState<any[]>([]);
@@ -89,7 +88,6 @@ export default function CustomerSuperAppHome() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Toggle Language Function
   const toggleLanguage = () => {
     setLang(lang === 'en' ? 'hi' : 'en');
   };
@@ -108,6 +106,7 @@ export default function CustomerSuperAppHome() {
       const { data: catData } = await supabase.from('shop_categories').select('*').eq('is_active', true).limit(7);
       if (catData) setCategories(catData);
 
+      // 👇 Yahan humne image_urls bhi fetch kar liya hai
       const { data: prodData } = await supabase.from('products').select(`*, businesses!inner(name)`).gt('stock', 0).order('created_at', { ascending: false }).limit(4);
       if (prodData) setTopProducts(prodData);
     };
@@ -131,7 +130,6 @@ export default function CustomerSuperAppHome() {
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
       
-      {/* TOP HEADER */}
       <header className="bg-blue-600 text-white pt-4 pb-6 px-4 rounded-b-3xl relative shadow-md">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -141,16 +139,10 @@ export default function CustomerSuperAppHome() {
               <p className="text-blue-100 text-[11px] font-medium">{t.tagline}</p>
             </div>
           </div>
-          
           <div className="flex items-center gap-3">
-            {/* 🌐 LANGUAGE TOGGLE BUTTON */}
-            <button 
-              onClick={toggleLanguage}
-              className="bg-blue-700 text-white border border-blue-500 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm"
-            >
+            <button onClick={toggleLanguage} className="bg-blue-700 text-white border border-blue-500 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">
               {lang === 'en' ? 'हिंदी' : 'EN'}
             </button>
-
             <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} className="relative p-1">
               <span className="text-3xl">🔔</span>
               {unreadCount > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-blue-600"></span>}
@@ -161,16 +153,9 @@ export default function CustomerSuperAppHome() {
           </div>
         </div>
 
-        {/* Search */}
         <form onSubmit={handleSearch} className="bg-white rounded-xl flex items-center p-2 shadow-sm">
           <span className="text-gray-400 pl-2 text-xl">🔍</span>
-          <input 
-            type="text" 
-            placeholder={t.searchPlaceholder} 
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-transparent outline-none text-sm px-3 text-gray-700 font-medium" 
-          />
+          <input type="text" placeholder={t.searchPlaceholder} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-transparent outline-none text-sm px-3 text-gray-700 font-medium" />
           <button type="button" className="text-blue-600 text-2xl px-2">🎤</button>
           <button type="button" className="text-blue-600 text-2xl pr-2">📷</button>
         </form>
@@ -178,21 +163,17 @@ export default function CustomerSuperAppHome() {
 
       <div className="px-3 space-y-5 mt-4 max-w-2xl mx-auto">
         
-        {/* HERO BANNER */}
         <section>
           <div className="bg-gradient-to-r from-blue-100 to-blue-200 rounded-2xl p-5 relative overflow-hidden flex items-center shadow-sm">
             <div className="relative z-10 w-3/5">
               <h2 className="text-xl font-black text-blue-900 leading-tight">{t.heroTitle}</h2>
               <p className="text-sm text-blue-800 font-medium mt-1">{t.heroDesc}</p>
-              <Link href="/customer/explore" className="bg-blue-900 text-white text-xs font-bold px-5 py-2.5 rounded-lg mt-3 shadow-md flex items-center gap-1 w-max">
-                {t.exploreBtn}
-              </Link>
+              <Link href="/customer/explore" className="bg-blue-900 text-white text-xs font-bold px-5 py-2.5 rounded-lg mt-3 shadow-md flex items-center gap-1 w-max">{t.exploreBtn}</Link>
             </div>
             <div className="absolute right-[-10px] bottom-[-10px] text-7xl opacity-90">🛍️</div>
           </div>
         </section>
 
-        {/* QUICK ACTIONS */}
         <section>
           <div className="grid grid-cols-4 gap-y-5 gap-x-2 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
             <Link href="/customer/shop" className="flex flex-col items-center gap-2 active:scale-95 transition">
@@ -237,7 +218,6 @@ export default function CustomerSuperAppHome() {
           </div>
         </section>
 
-        {/* SHOP BY CATEGORY */}
         <section>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-lg font-black text-gray-800 flex items-center gap-2"><span className="w-1.5 h-5 bg-blue-600 rounded-full"></span> {t.shopByCat}</h2>
@@ -258,7 +238,6 @@ export default function CustomerSuperAppHome() {
           </div>
         </section>
 
-        {/* SPECIAL DEALS */}
         <section>
           <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-5 flex items-center justify-between border border-purple-200 shadow-sm">
             <div>
@@ -269,7 +248,6 @@ export default function CustomerSuperAppHome() {
           </div>
         </section>
 
-        {/* RECOMMENDED FOR YOU */}
         <section>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-lg font-black text-gray-800 flex items-center gap-2"><span className="w-1.5 h-5 bg-blue-600 rounded-full"></span> {t.recommended}</h2>
@@ -284,14 +262,23 @@ export default function CustomerSuperAppHome() {
                 const discount = prod.mrp && prod.mrp > prod.selling_price 
                   ? Math.round(((prod.mrp - prod.selling_price) / prod.mrp) * 100) 
                   : 0;
+                
+                // 👇 IMAGE FIX LOGIC HERE
+                const coverImage = prod.image_urls && prod.image_urls.length > 0 ? prod.image_urls[0] : null;
 
                 return (
                   <div key={prod.id} className="min-w-[150px] w-[150px] bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-col justify-between">
                     <div>
-                      <div className="h-28 bg-gray-50 rounded-xl mb-2 flex items-center justify-center text-4xl text-gray-300 relative font-black">
-                        {prod.name.charAt(0)}
+                      <div className="h-28 bg-gray-50 rounded-xl mb-2 flex items-center justify-center overflow-hidden relative">
+                        {/* 👇 Yahan image check lagaya hai */}
+                        {coverImage ? (
+                          <img src={coverImage} alt={prod.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-4xl text-gray-300 font-black">{prod.name.charAt(0)}</span>
+                        )}
+
                         {discount > 0 && (
-                          <span className="absolute top-1 left-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                          <span className="absolute top-1 left-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded z-10">
                             {discount}% OFF
                           </span>
                         )}
@@ -320,7 +307,6 @@ export default function CustomerSuperAppHome() {
 
       </div>
 
-      {/* BOTTOM NAVIGATION */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
         <Link href="/customer" className="flex flex-col items-center gap-1 text-blue-600">
           <span className="text-2xl">🏠</span>
@@ -347,7 +333,6 @@ export default function CustomerSuperAppHome() {
         </Link>
       </nav>
 
-      {/* NOTIFICATION DROPDOWN */}
       {showNotifications && (
         <div className="absolute top-20 right-4 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-100 z-[999] max-h-96 overflow-y-auto">
           <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl sticky top-0">
