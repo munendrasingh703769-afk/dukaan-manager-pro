@@ -25,7 +25,7 @@ export default function ProviderInventoryPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<'inventory' | 'purchases'>('inventory');
-  const [filterType, setFilterType] = useState<'all' | 'low_stock'>('all'); // Filter state for stats
+  const [filterType, setFilterType] = useState<'all' | 'low_stock'>('all');
 
   // --- INVENTORY STATES ---
   const [products, setProducts] = useState<Product[]>([]);
@@ -37,9 +37,9 @@ export default function ProviderInventoryPage() {
   const [savingItem, setSavingItem] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Edit Mode State
+  // Edit Mode States
   const [editProductId, setEditProductId] = useState<string | null>(null);
-  const [oldStockInWh, setOldStockInWh] = useState<number>(0); // For delta calculation
+  const [oldStockInWh, setOldStockInWh] = useState<number>(0);
 
   const [newProduct, setNewProduct] = useState({
     name: '', sku: '', brand: '', category: '', purchase_price: '', selling_price: '', mrp: '', stock: '', 
@@ -62,14 +62,12 @@ export default function ProviderInventoryPage() {
     if (!activeId) return;
     setLoading(true);
 
-    // 1. Fetch Warehouses (Auto-create if empty to fix 0 bug)
+    // 1. Fetch/Create Warehouses
     let { data: whData } = await supabase.from('warehouses').select('*').eq('business_id', activeId);
-    
     if (!whData || whData.length === 0) {
       const { data: newWh } = await supabase.from('warehouses').insert([{ business_id: activeId, name: 'Main Store', is_default: true }]).select();
       if (newWh) whData = newWh;
     }
-
     if (whData) {
       setWarehouses(whData);
       if (whData.length > 0) {
@@ -102,7 +100,6 @@ export default function ProviderInventoryPage() {
 
   useEffect(() => { fetchData(); }, [activeId]);
 
-  // --- OPEN EDIT MODAL ---
   const handleEditClick = (prod: Product) => {
     const stockRecord = prod.inventory_stock.find(s => s.warehouse_id === warehouses[0]?.id);
     const currentStock = stockRecord ? stockRecord.quantity : 0;
@@ -120,7 +117,6 @@ export default function ProviderInventoryPage() {
     setIsItemModalOpen(true);
   };
 
-  // --- OPEN ADD MODAL ---
   const handleAddClick = () => {
     setEditProductId(null);
     setOldStockInWh(0);
@@ -132,7 +128,6 @@ export default function ProviderInventoryPage() {
     setIsItemModalOpen(true);
   };
 
-  // --- SAVE (ADD OR UPDATE) PRODUCT ---
   const handleSaveProduct = async () => {
     if (!newProduct.name || !newProduct.selling_price || !newProduct.warehouse_id) return alert("Name, Selling Price, and Warehouse required.");
     setSavingItem(true);
@@ -147,11 +142,9 @@ export default function ProviderInventoryPage() {
       };
 
       if (editProductId) {
-        // 1. UPDATE PRODUCT
         const { error: prodError } = await supabase.from('products').update(payload).eq('id', editProductId);
         if (prodError) throw prodError;
 
-        // 2. ADJUST STOCK IF CHANGED (Delta Logic)
         const newStock = Number(newProduct.stock);
         const delta = newStock - oldStockInWh;
         
@@ -162,11 +155,9 @@ export default function ProviderInventoryPage() {
           });
         }
       } else {
-        // 1. INSERT NEW PRODUCT
         const { data: prodData, error: prodError } = await supabase.from('products').insert([payload]).select().single();
         if (prodError) throw prodError;
 
-        // 2. ADD INITIAL STOCK
         if (Number(newProduct.stock) > 0) {
           await supabase.rpc('adjust_stock', {
             p_business_id: activeId, p_product_id: prodData.id, p_warehouse_id: newProduct.warehouse_id,
@@ -174,13 +165,12 @@ export default function ProviderInventoryPage() {
           });
         }
       }
-
       setIsItemModalOpen(false);
       fetchData();
     } catch (error: any) { alert("Error: " + error.message); } finally { setSavingItem(false); }
   };
 
-  // ... (Image upload, toggle status, purchase functions remain same as before) ...
+  // (Baaki functions: image upload, toggle online, purchase logic etc. same rahenge)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0 || !activeId) return;
@@ -268,7 +258,6 @@ export default function ProviderInventoryPage() {
     } catch (error: any) { alert("Error: " + error.message); }
   };
 
-  // Calculate Stats
   const stats = useMemo(() => {
     let totalStockValue = 0; let lowStockCount = 0;
     products.forEach(p => {
@@ -279,13 +268,11 @@ export default function ProviderInventoryPage() {
     return { totalStockValue, lowStockCount, totalItems: products.length };
   }, [products]);
 
-  // Filter Logic based on Clicked Stat
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku?.toLowerCase().includes(searchQuery.toLowerCase());
     const totalQty = p.inventory_stock?.reduce((acc, curr) => acc + curr.quantity, 0) || 0;
-    
     if (filterType === 'low_stock') return matchesSearch && totalQty > 0 && totalQty <= p.min_stock;
-    return matchesSearch; // 'all'
+    return matchesSearch;
   });
 
   if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading...</div>;
@@ -301,7 +288,6 @@ export default function ProviderInventoryPage() {
         </div>
       </div>
 
-      {/* STOCK MOVEMENT LINK */}
       <div className="flex justify-end">
         <Link href="/provider/inventory/stock-movement" className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 transition flex items-center gap-2">
           📊 View Stock History & Transfer
@@ -311,7 +297,6 @@ export default function ProviderInventoryPage() {
       {/* ================= TAB: INVENTORY ================= */}
       {activeTab === 'inventory' && (
         <>
-          {/* 👇 CLICKABLE STATS CARDS */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div onClick={() => setFilterType('all')} className={`cursor-pointer transition p-4 rounded-2xl border ${filterType === 'all' ? 'bg-blue-100 border-blue-300' : 'bg-blue-50 border-blue-100 hover:bg-blue-100'}`}>
               <p className="text-xs text-blue-600 font-bold uppercase mb-1">Total Stock Value</p>
@@ -337,7 +322,6 @@ export default function ProviderInventoryPage() {
             </div>
           </div>
 
-          {/* Toolbar */}
           <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1 bg-white p-2 rounded-xl border border-gray-200 flex items-center shadow-sm">
               <span className="text-gray-400 pl-2">🔍</span>
@@ -346,7 +330,6 @@ export default function ProviderInventoryPage() {
             <button onClick={handleAddClick} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 transition">+ Add New Item</button>
           </div>
 
-          {/* Product Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredProducts.map((product) => {
               const totalQty = product.inventory_stock?.reduce((acc, curr) => acc + curr.quantity, 0) || 0;
@@ -354,20 +337,23 @@ export default function ProviderInventoryPage() {
               const coverImage = product.image_urls?.[0];
 
               return (
-                <div key={product.id} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
+                <div key={product.id} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
                   
-                                    {/* Edit & Online Toggle Buttons */}
+                  {/* 👇 EDIT BUTTON (Always Visible Now) */}
                   <div className="absolute top-2 left-2 z-10">
                     <button onClick={() => handleEditClick(product)} className="bg-blue-50 border border-blue-200 shadow-sm px-2 py-1 rounded-lg text-blue-700 font-bold text-[10px] flex items-center gap-1">
                       ✏️ Edit
                     </button>
-                  </div> className="absolute top-2 right-2 z-10">
+                  </div>
+                  
+                  {/* Online Toggle */}
+                  <div className="absolute top-2 right-2 z-10">
                     <button onClick={() => toggleOnlineStatus(product.id, product.is_online)} className={`w-8 h-4 rounded-full relative transition-colors ${product.is_online ? 'bg-green-500' : 'bg-gray-300'}`}>
                       <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${product.is_online ? 'right-0.5' : 'left-0.5'}`}></span>
                     </button>
                   </div>
 
-                  <div className="h-32 bg-gray-50 rounded-xl mb-3 flex items-center justify-center overflow-hidden border relative">
+                  <div className="h-32 bg-gray-50 rounded-xl mb-3 flex items-center justify-center overflow-hidden border relative mt-4">
                     {coverImage ? <img src={coverImage} alt={product.name} className="w-full h-full object-cover" /> : <span className="text-4xl text-gray-300 font-black">{product.name.charAt(0)}</span>}
                     {product.sku && <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded font-mono">{product.sku}</span>}
                   </div>
@@ -389,7 +375,6 @@ export default function ProviderInventoryPage() {
       {/* ================= TAB: PURCHASES ================= */}
       {activeTab === 'purchases' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form */}
           <div className="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-gray-100 h-fit space-y-4">
             <h2 className="text-lg font-bold text-blue-800 border-b pb-2">Create New Purchase</h2>
             <div>
@@ -435,7 +420,6 @@ export default function ProviderInventoryPage() {
             </button>
           </div>
 
-          {/* History */}
           <div className="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">Purchase History</h2>
             <div className="space-y-3">
