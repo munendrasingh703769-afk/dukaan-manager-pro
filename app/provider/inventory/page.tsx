@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
 
@@ -23,8 +24,8 @@ export default function ProviderInventoryPage() {
   const activeId = getCurrentBusinessId();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Active Tab State
   const [activeTab, setActiveTab] = useState<'inventory' | 'purchases'>('inventory');
+  const [filterType, setFilterType] = useState<'all' | 'low_stock'>('all'); // Filter state for stats
 
   // --- INVENTORY STATES ---
   const [products, setProducts] = useState<Product[]>([]);
@@ -36,6 +37,10 @@ export default function ProviderInventoryPage() {
   const [savingItem, setSavingItem] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Edit Mode State
+  const [editProductId, setEditProductId] = useState<string | null>(null);
+  const [oldStockInWh, setOldStockInWh] = useState<number>(0); // For delta calculation
+
   const [newProduct, setNewProduct] = useState({
     name: '', sku: '', brand: '', category: '', purchase_price: '', selling_price: '', mrp: '', stock: '', 
     tax_percentage: 18, uom: 'Pcs', min_stock: 5, image_urls: [] as string[], is_online: true, warehouse_id: ''
@@ -53,12 +58,18 @@ export default function ProviderInventoryPage() {
   const [discount, setDiscount] = useState(0);
   const [cashPaid, setCashPaid] = useState(0);
 
-  // Fetch All Data
   const fetchData = async () => {
     if (!activeId) return;
     setLoading(true);
 
-    const { data: whData } = await supabase.from('warehouses').select('*').eq('business_id', activeId);
+    // 1. Fetch Warehouses (Auto-create if empty to fix 0 bug)
+    let { data: whData } = await supabase.from('warehouses').select('*').eq('business_id', activeId);
+    
+    if (!whData || whData.length === 0) {
+      const { data: newWh } = await supabase.from('warehouses').insert([{ business_id: activeId, name: 'Main Store', is_default: true }]).select();
+      if (newWh) whData = newWh;
+    }
+
     if (whData) {
       setWarehouses(whData);
       if (whData.length > 0) {
@@ -67,18 +78,22 @@ export default function ProviderInventoryPage() {
       }
     }
 
+    // 2. Fetch Categories
     const { data: catData } = await supabase.from('shop_categories').select('*').eq('is_active', true);
     if (catData && catData.length > 0) {
       setCategories(catData);
       if (!newProduct.category) setNewProduct(prev => ({ ...prev, category: catData[0].name }));
     }
 
+    // 3. Fetch Suppliers
     const { data: supData } = await supabase.from('suppliers').select('id, name').eq('business_id', activeId);
     if (supData) setSuppliers(supData);
 
+    // 4. Fetch Products
     const { data: prodData } = await supabase.from('products').select(`*, inventory_stock(quantity, warehouse_id)`).eq('business_id', activeId).order('created_at', { ascending: false });
     if (prodData) setProducts(prodData as any);
 
+    // 5. Fetch Purchases
     const { data: purData } = await supabase.from('purchases').select(`*, purchase_items(*), warehouses(name)`).eq('business_id', activeId).order('created_at', { ascending: false });
     if (purData) setPurchases(purData);
 
@@ -87,7 +102,85 @@ export default function ProviderInventoryPage() {
 
   useEffect(() => { fetchData(); }, [activeId]);
 
-  // === INVENTORY ACTIONS ===
+  // --- OPEN EDIT MODAL ---
+  const handleEditClick = (prod: Product) => {
+    const stockRecord = prod.inventory_stock.find(s => s.warehouse_id === warehouses[0]?.id);
+    const currentStock = stockRecord ? stockRecord.quantity : 0;
+
+    setEditProductId(prod.id);
+    setOldStockInWh(currentStock);
+    setNewProduct({
+      name: prod.name, sku: prod.sku || '', brand: prod.brand || '', category: prod.category,
+      purchase_price: prod.purchase_price.toString(), selling_price: prod.selling_price.toString(),
+      mrp: prod.mrp ? prod.mrp.toString() : '', stock: currentStock.toString(),
+      tax_percentage: prod.tax_percentage, uom: prod.uom, min_stock: prod.min_stock,
+      image_urls: prod.image_urls || [], is_online: prod.is_online, 
+      warehouse_id: warehouses[0]?.id || ''
+    });
+    setIsItemModalOpen(true);
+  };
+
+  // --- OPEN ADD MODAL ---
+  const handleAddClick = () => {
+    setEditProductId(null);
+    setOldStockInWh(0);
+    setNewProduct({
+      name: '', sku: '', brand: '', category: categories[0]?.name || '', purchase_price: '', selling_price: '', 
+      mrp: '', stock: '', tax_percentage: 18, uom: 'Pcs', min_stock: 5, image_urls: [], is_online: true, 
+      warehouse_id: warehouses[0]?.id || ''
+    });
+    setIsItemModalOpen(true);
+  };
+
+  // --- SAVE (ADD OR UPDATE) PRODUCT ---
+  const handleSaveProduct = async () => {
+    if (!newProduct.name || !newProduct.selling_price || !newProduct.warehouse_id) return alert("Name, Selling Price, and Warehouse required.");
+    setSavingItem(true);
+    
+    try {
+      const payload = {
+        business_id: activeId, name: newProduct.name, sku: newProduct.sku, brand: newProduct.brand,
+        category: newProduct.category, purchase_price: Number(newProduct.purchase_price) || 0,
+        selling_price: Number(newProduct.selling_price), mrp: Number(newProduct.mrp) || null,
+        tax_percentage: Number(newProduct.tax_percentage), uom: newProduct.uom,
+        min_stock: Number(newProduct.min_stock), image_urls: newProduct.image_urls, is_online: newProduct.is_online,
+      };
+
+      if (editProductId) {
+        // 1. UPDATE PRODUCT
+        const { error: prodError } = await supabase.from('products').update(payload).eq('id', editProductId);
+        if (prodError) throw prodError;
+
+        // 2. ADJUST STOCK IF CHANGED (Delta Logic)
+        const newStock = Number(newProduct.stock);
+        const delta = newStock - oldStockInWh;
+        
+        if (delta !== 0) {
+          await supabase.rpc('adjust_stock', {
+            p_business_id: activeId, p_product_id: editProductId, p_warehouse_id: newProduct.warehouse_id,
+            p_quantity: delta, p_movement_type: 'MANUAL_EDIT', p_notes: 'Stock adjusted from edit form'
+          });
+        }
+      } else {
+        // 1. INSERT NEW PRODUCT
+        const { data: prodData, error: prodError } = await supabase.from('products').insert([payload]).select().single();
+        if (prodError) throw prodError;
+
+        // 2. ADD INITIAL STOCK
+        if (Number(newProduct.stock) > 0) {
+          await supabase.rpc('adjust_stock', {
+            p_business_id: activeId, p_product_id: prodData.id, p_warehouse_id: newProduct.warehouse_id,
+            p_quantity: Number(newProduct.stock), p_movement_type: 'INITIAL_STOCK'
+          });
+        }
+      }
+
+      setIsItemModalOpen(false);
+      fetchData();
+    } catch (error: any) { alert("Error: " + error.message); } finally { setSavingItem(false); }
+  };
+
+  // ... (Image upload, toggle status, purchase functions remain same as before) ...
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0 || !activeId) return;
@@ -112,32 +205,6 @@ export default function ProviderInventoryPage() {
     await supabase.from('products').update({ is_online: !currentStatus }).eq('id', id);
   };
 
-  const handleAddProduct = async () => {
-    if (!newProduct.name || !newProduct.selling_price || !newProduct.warehouse_id) return alert("Name, Selling Price, and Warehouse required.");
-    setSavingItem(true);
-    try {
-      const { data: prodData, error: prodError } = await supabase.from('products').insert([{
-        business_id: activeId, name: newProduct.name, sku: newProduct.sku, brand: newProduct.brand,
-        category: newProduct.category, purchase_price: Number(newProduct.purchase_price) || 0,
-        selling_price: Number(newProduct.selling_price), mrp: Number(newProduct.mrp) || null,
-        tax_percentage: Number(newProduct.tax_percentage), uom: newProduct.uom,
-        min_stock: Number(newProduct.min_stock), image_urls: newProduct.image_urls, is_online: newProduct.is_online,
-      }]).select().single();
-      if (prodError) throw prodError;
-
-      if (Number(newProduct.stock) > 0) {
-        await supabase.rpc('adjust_stock', {
-          p_business_id: activeId, p_product_id: prodData.id, p_warehouse_id: newProduct.warehouse_id,
-          p_quantity: Number(newProduct.stock), p_movement_type: 'INITIAL_STOCK'
-        });
-      }
-      setIsItemModalOpen(false);
-      setNewProduct({ name: '', sku: '', brand: '', category: categories[0]?.name || '', purchase_price: '', selling_price: '', mrp: '', stock: '', tax_percentage: 18, uom: 'Pcs', min_stock: 5, image_urls: [], is_online: true, warehouse_id: warehouses[0]?.id || '' });
-      fetchData();
-    } catch (error: any) { alert("Error: " + error.message); } finally { setSavingItem(false); }
-  };
-
-  // === PURCHASE ACTIONS ===
   const handleAddPurchaseItem = (productId: string) => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
@@ -201,7 +268,7 @@ export default function ProviderInventoryPage() {
     } catch (error: any) { alert("Error: " + error.message); }
   };
 
-  // Calculations
+  // Calculate Stats
   const stats = useMemo(() => {
     let totalStockValue = 0; let lowStockCount = 0;
     products.forEach(p => {
@@ -212,13 +279,20 @@ export default function ProviderInventoryPage() {
     return { totalStockValue, lowStockCount, totalItems: products.length };
   }, [products]);
 
-  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku?.toLowerCase().includes(searchQuery.toLowerCase()));
+  // Filter Logic based on Clicked Stat
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku?.toLowerCase().includes(searchQuery.toLowerCase());
+    const totalQty = p.inventory_stock?.reduce((acc, curr) => acc + curr.quantity, 0) || 0;
+    
+    if (filterType === 'low_stock') return matchesSearch && totalQty > 0 && totalQty <= p.min_stock;
+    return matchesSearch; // 'all'
+  });
 
   if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading...</div>;
   return (
     <div className="space-y-6 pb-20 max-w-6xl mx-auto">
       
-      {/* 1. HEADER & TABS */}
+      {/* HEADER & TABS */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-100 gap-4">
         <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2"><span className="text-blue-600">📦</span> Universal Inventory</h1>
         <div className="flex bg-gray-100 p-1 rounded-xl w-full md:w-auto">
@@ -226,30 +300,35 @@ export default function ProviderInventoryPage() {
           <button onClick={() => setActiveTab('purchases')} className={`flex-1 md:px-8 py-2 font-bold rounded-lg text-sm transition ${activeTab === 'purchases' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}>Purchases</button>
         </div>
       </div>
-            {/* 👇 STOCK MOVEMENT BUTTON */}
-      <div className="flex justify-end mb-2">
+
+      {/* STOCK MOVEMENT LINK */}
+      <div className="flex justify-end">
         <Link href="/provider/inventory/stock-movement" className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 transition flex items-center gap-2">
           📊 View Stock History & Transfer
         </Link>
       </div>
+
       {/* ================= TAB: INVENTORY ================= */}
       {activeTab === 'inventory' && (
         <>
-          {/* Stats */}
+          {/* 👇 CLICKABLE STATS CARDS */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+            <div onClick={() => setFilterType('all')} className={`cursor-pointer transition p-4 rounded-2xl border ${filterType === 'all' ? 'bg-blue-100 border-blue-300' : 'bg-blue-50 border-blue-100 hover:bg-blue-100'}`}>
               <p className="text-xs text-blue-600 font-bold uppercase mb-1">Total Stock Value</p>
               <h3 className="text-2xl font-black text-blue-900">₹{stats.totalStockValue.toLocaleString('en-IN')}</h3>
             </div>
-            <div className="bg-green-50 p-4 rounded-2xl border border-green-100">
+            
+            <div onClick={() => setFilterType('all')} className={`cursor-pointer transition p-4 rounded-2xl border ${filterType === 'all' ? 'bg-green-100 border-green-300' : 'bg-green-50 border-green-100 hover:bg-green-100'}`}>
               <p className="text-xs text-green-600 font-bold uppercase mb-1">Active Items</p>
               <h3 className="text-2xl font-black text-green-900">{stats.totalItems}</h3>
             </div>
-            <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
+
+            <div onClick={() => setFilterType('low_stock')} className={`cursor-pointer transition p-4 rounded-2xl border ${filterType === 'low_stock' ? 'bg-red-100 border-red-300' : 'bg-red-50 border-red-100 hover:bg-red-100'}`}>
               <p className="text-xs text-red-600 font-bold uppercase mb-1">Low Stock Alerts</p>
               <h3 className="text-2xl font-black text-red-900">{stats.lowStockCount}</h3>
             </div>
-            <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 flex items-center justify-between">
+
+            <div onClick={() => alert(`Your Warehouses:\n${warehouses.map(w => w.name).join(', ')}`)} className="cursor-pointer transition p-4 rounded-2xl border bg-purple-50 border-purple-100 hover:bg-purple-100 flex items-center justify-between">
               <div>
                 <p className="text-xs text-purple-600 font-bold uppercase mb-1">Warehouses</p>
                 <h3 className="text-2xl font-black text-purple-900">{warehouses.length}</h3>
@@ -264,7 +343,7 @@ export default function ProviderInventoryPage() {
               <span className="text-gray-400 pl-2">🔍</span>
               <input type="text" placeholder="Search by name or SKU..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-transparent outline-none text-sm px-3 text-gray-700" />
             </div>
-            <button onClick={() => setIsItemModalOpen(true)} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 transition">+ Add New Item</button>
+            <button onClick={handleAddClick} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 transition">+ Add New Item</button>
           </div>
 
           {/* Product Grid */}
@@ -275,12 +354,20 @@ export default function ProviderInventoryPage() {
               const coverImage = product.image_urls?.[0];
 
               return (
-                <div key={product.id} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
+                <div key={product.id} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
+                  
+                  {/* Edit & Online Toggle Buttons */}
+                  <div className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition">
+                    <button onClick={() => handleEditClick(product)} className="bg-white/90 border shadow-sm p-1.5 rounded-lg text-blue-600 hover:bg-blue-50" title="Edit Product">
+                      ✏️
+                    </button>
+                  </div>
                   <div className="absolute top-2 right-2 z-10">
                     <button onClick={() => toggleOnlineStatus(product.id, product.is_online)} className={`w-8 h-4 rounded-full relative transition-colors ${product.is_online ? 'bg-green-500' : 'bg-gray-300'}`}>
                       <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${product.is_online ? 'right-0.5' : 'left-0.5'}`}></span>
                     </button>
                   </div>
+
                   <div className="h-32 bg-gray-50 rounded-xl mb-3 flex items-center justify-center overflow-hidden border relative">
                     {coverImage ? <img src={coverImage} alt={product.name} className="w-full h-full object-cover" /> : <span className="text-4xl text-gray-300 font-black">{product.name.charAt(0)}</span>}
                     {product.sku && <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded font-mono">{product.sku}</span>}
@@ -300,15 +387,12 @@ export default function ProviderInventoryPage() {
           </div>
         </>
       )}
-
       {/* ================= TAB: PURCHASES ================= */}
       {activeTab === 'purchases' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           {/* Form */}
           <div className="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-gray-100 h-fit space-y-4">
             <h2 className="text-lg font-bold text-blue-800 border-b pb-2">Create New Purchase</h2>
-            
             <div>
               <label className="text-xs font-bold text-gray-600">Supplier</label>
               <select value={selectedSupplier} onChange={e => setSelectedSupplier(e.target.value)} className="w-full p-2 border rounded-lg mt-1 bg-gray-50">
@@ -316,19 +400,16 @@ export default function ProviderInventoryPage() {
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
-
             <div>
               <label className="text-xs font-bold text-gray-600">Receiving Godown (Warehouse)</label>
               <select value={selectedWarehouse} onChange={e => setSelectedWarehouse(e.target.value)} className="w-full p-2 border rounded-lg mt-1 bg-blue-50 text-blue-800 font-bold">
                 {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
             </div>
-
             <div>
               <label className="text-xs font-bold text-gray-600">Bill No (Optional)</label>
               <input type="text" value={billNo} onChange={e => setBillNo(e.target.value)} placeholder="Auto-generated if empty" className="w-full p-2 border rounded-lg mt-1 text-sm" />
             </div>
-
             <div className="border-t pt-3">
               <label className="text-xs font-bold text-gray-600 mb-1 block">Add Items</label>
               <select onChange={(e) => { handleAddPurchaseItem(e.target.value); e.target.value = ""; }} className="w-full p-2 border rounded-lg bg-gray-50 text-sm">
@@ -336,7 +417,6 @@ export default function ProviderInventoryPage() {
                 {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
-
             <div className="space-y-2 mt-2 max-h-48 overflow-y-auto">
               {purchaseItems.map((item, idx) => (
                 <div key={idx} className="flex gap-2 items-center bg-gray-50 p-2 rounded border">
@@ -347,18 +427,10 @@ export default function ProviderInventoryPage() {
                 </div>
               ))}
             </div>
-
             <div className="border-t pt-3 grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] font-bold text-gray-500 uppercase">Discount (₹)</label>
-                <input type="number" value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} className="w-full p-2 border rounded-lg mt-1" />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-gray-500 uppercase">Cash Paid (₹)</label>
-                <input type="number" value={cashPaid || ''} onChange={e => setCashPaid(Number(e.target.value))} className="w-full p-2 border rounded-lg mt-1" />
-              </div>
+              <div><label className="text-[10px] font-bold text-gray-500 uppercase">Discount (₹)</label><input type="number" value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} className="w-full p-2 border rounded-lg mt-1" /></div>
+              <div><label className="text-[10px] font-bold text-gray-500 uppercase">Cash Paid (₹)</label><input type="number" value={cashPaid || ''} onChange={e => setCashPaid(Number(e.target.value))} className="w-full p-2 border rounded-lg mt-1" /></div>
             </div>
-
             <button onClick={handleSavePurchase} disabled={savingPurchase} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 transition disabled:opacity-50">
               {savingPurchase ? 'Saving...' : 'Save Bill (Pending)'}
             </button>
@@ -393,12 +465,12 @@ export default function ProviderInventoryPage() {
         </div>
       )}
 
-      {/* ================= ADD ITEM MODAL (Inventory Tab) ================= */}
+      {/* ================= ADD / EDIT ITEM MODAL ================= */}
       {isItemModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
           <div className="bg-white rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[95vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
-              <h2 className="text-xl font-black text-gray-800">Create Item</h2>
+              <h2 className="text-xl font-black text-gray-800">{editProductId ? 'Edit Item' : 'Create Item'}</h2>
               <button onClick={() => setIsItemModalOpen(false)} className="text-gray-400 hover:text-red-500 font-bold text-2xl">&times;</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -441,7 +513,9 @@ export default function ProviderInventoryPage() {
             </div>
             <div className="flex gap-3 pt-6 mt-6 border-t">
               <button onClick={() => setIsItemModalOpen(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold text-gray-700">Cancel</button>
-              <button onClick={handleAddProduct} disabled={savingItem || uploading} className="flex-[2] bg-blue-600 py-3 rounded-xl font-bold text-white shadow-md disabled:opacity-50">{savingItem ? 'Saving...' : 'Save Item'}</button>
+              <button onClick={handleSaveProduct} disabled={savingItem || uploading} className="flex-[2] bg-blue-600 py-3 rounded-xl font-bold text-white shadow-md disabled:opacity-50">
+                {savingItem ? 'Saving...' : (editProductId ? 'Update Item' : 'Save Item')}
+              </button>
             </div>
           </div>
         </div>
