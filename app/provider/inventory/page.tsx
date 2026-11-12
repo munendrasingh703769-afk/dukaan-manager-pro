@@ -13,8 +13,8 @@ type Supplier = { id: string; name: string; }
 type Product = {
   id: string; name: string; sku: string | null; brand: string | null;
   category: string; purchase_price: number; selling_price: number;
-  mrp: number | null; tax_percentage: number; uom: string;
-  min_stock: number; image_urls: string[] | null; is_online: boolean;
+  mrp: number | null; tax_percentage: number | null; uom: string;
+  min_stock: number | null; image_urls: string[] | null; is_online: boolean;
   inventory_stock: { quantity: number; warehouse_id: string }[];
 }
 type PurchaseItem = { product_id: string; product_name: string; qty: number; rate: number; total: number; }
@@ -32,18 +32,23 @@ export default function ProviderInventoryPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Edit Mode States
   const [editProductId, setEditProductId] = useState<string | null>(null);
   const [oldStockInWh, setOldStockInWh] = useState<number>(0);
 
+  // No Hardcoding - Defaults are explicitly numbers or empty
   const [newProduct, setNewProduct] = useState({
-    name: '', sku: '', brand: '', category: '', purchase_price: '', selling_price: '', mrp: '', stock: '', 
-    tax_percentage: 18, uom: 'Pcs', min_stock: 5, image_urls: [] as string[], is_online: true, warehouse_id: ''
+    name: '', sku: '', brand: '', category: '', 
+    purchase_price: '', selling_price: '', mrp: '', stock: '', 
+    tax_percentage: '' as string | number, // Empty initially
+    uom: 'Pcs', 
+    min_stock: '' as string | number,     // Empty initially
+    image_urls: [] as string[], is_online: true, warehouse_id: ''
   });
 
   // --- PURCHASE STATES ---
@@ -62,40 +67,53 @@ export default function ProviderInventoryPage() {
     if (!activeId) return;
     setLoading(true);
 
-    // 1. Fetch/Create Warehouses
-    let { data: whData } = await supabase.from('warehouses').select('*').eq('business_id', activeId);
-    if (!whData || whData.length === 0) {
-      const { data: newWh } = await supabase.from('warehouses').insert([{ business_id: activeId, name: 'Main Store', is_default: true }]).select();
-      if (newWh) whData = newWh;
-    }
-    if (whData) {
-      setWarehouses(whData);
-      if (whData.length > 0) {
-        setSelectedWarehouse(whData[0].id);
-        if (!newProduct.warehouse_id) setNewProduct(prev => ({ ...prev, warehouse_id: whData[0].id }));
+    try {
+      // 1. Fetch Warehouses (Auto-create if empty)
+      let { data: whData } = await supabase.from('warehouses').select('*').eq('business_id', activeId);
+      
+      if (!whData || whData.length === 0) {
+        // Create default warehouse
+        const { data: newWh, error: whError } = await supabase.from('warehouses').insert([{ 
+          business_id: activeId, name: 'Main Store', is_default: true 
+        }]).select();
+        
+        if (whError) throw new Error("Could not create warehouse: " + whError.message);
+        whData = newWh;
       }
+
+      if (whData && whData.length > 0) {
+        setWarehouses(whData);
+        setSelectedWarehouse(whData[0].id);
+        setNewProduct(prev => ({ ...prev, warehouse_id: whData[0].id }));
+      }
+
+      // 2. Fetch Categories
+      const { data: catData } = await supabase.from('shop_categories').select('*').eq('is_active', true);
+      if (catData && catData.length > 0) {
+        setCategories(catData);
+        setNewProduct(prev => {
+          if (!prev.category) return { ...prev, category: catData[0].name };
+          return prev;
+        });
+      }
+
+      // 3. Fetch Suppliers
+      const { data: supData } = await supabase.from('suppliers').select('id, name').eq('business_id', activeId);
+      if (supData) setSuppliers(supData);
+
+      // 4. Fetch Products
+      const { data: prodData } = await supabase.from('products').select(`*, inventory_stock(quantity, warehouse_id)`).eq('business_id', activeId).order('created_at', { ascending: false });
+      if (prodData) setProducts(prodData as any);
+
+      // 5. Fetch Purchases
+      const { data: purData } = await supabase.from('purchases').select(`*, purchase_items(*), warehouses(name)`).eq('business_id', activeId).order('created_at', { ascending: false });
+      if (purData) setPurchases(purData);
+
+    } catch (err: any) {
+      alert("Fetch Error: " + err.message);
+    } finally {
+      setLoading(false);
     }
-
-    // 2. Fetch Categories
-    const { data: catData } = await supabase.from('shop_categories').select('*').eq('is_active', true);
-    if (catData && catData.length > 0) {
-      setCategories(catData);
-      if (!newProduct.category) setNewProduct(prev => ({ ...prev, category: catData[0].name }));
-    }
-
-    // 3. Fetch Suppliers
-    const { data: supData } = await supabase.from('suppliers').select('id, name').eq('business_id', activeId);
-    if (supData) setSuppliers(supData);
-
-    // 4. Fetch Products
-    const { data: prodData } = await supabase.from('products').select(`*, inventory_stock(quantity, warehouse_id)`).eq('business_id', activeId).order('created_at', { ascending: false });
-    if (prodData) setProducts(prodData as any);
-
-    // 5. Fetch Purchases
-    const { data: purData } = await supabase.from('purchases').select(`*, purchase_items(*), warehouses(name)`).eq('business_id', activeId).order('created_at', { ascending: false });
-    if (purData) setPurchases(purData);
-
-    setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, [activeId]);
@@ -107,11 +125,19 @@ export default function ProviderInventoryPage() {
     setEditProductId(prod.id);
     setOldStockInWh(currentStock);
     setNewProduct({
-      name: prod.name, sku: prod.sku || '', brand: prod.brand || '', category: prod.category,
-      purchase_price: prod.purchase_price.toString(), selling_price: prod.selling_price.toString(),
-      mrp: prod.mrp ? prod.mrp.toString() : '', stock: currentStock.toString(),
-      tax_percentage: prod.tax_percentage, uom: prod.uom, min_stock: prod.min_stock,
-      image_urls: prod.image_urls || [], is_online: prod.is_online, 
+      name: prod.name, 
+      sku: prod.sku || '', 
+      brand: prod.brand || '', 
+      category: prod.category,
+      purchase_price: prod.purchase_price.toString(), 
+      selling_price: prod.selling_price.toString(),
+      mrp: prod.mrp ? prod.mrp.toString() : '', 
+      stock: currentStock.toString(),
+      tax_percentage: prod.tax_percentage !== null ? prod.tax_percentage : '', 
+      uom: prod.uom, 
+      min_stock: prod.min_stock !== null ? prod.min_stock : '', 
+      image_urls: prod.image_urls || [], 
+      is_online: prod.is_online, 
       warehouse_id: warehouses[0]?.id || ''
     });
     setIsItemModalOpen(true);
@@ -121,31 +147,45 @@ export default function ProviderInventoryPage() {
     setEditProductId(null);
     setOldStockInWh(0);
     setNewProduct({
-      name: '', sku: '', brand: '', category: categories[0]?.name || '', purchase_price: '', selling_price: '', 
-      mrp: '', stock: '', tax_percentage: 18, uom: 'Pcs', min_stock: 5, image_urls: [], is_online: true, 
-      warehouse_id: warehouses[0]?.id || ''
+      name: '', sku: '', brand: '', category: categories[0]?.name || '', 
+      purchase_price: '', selling_price: '', mrp: '', stock: '', 
+      tax_percentage: '', uom: 'Pcs', min_stock: '', 
+      image_urls: [], is_online: true, warehouse_id: warehouses[0]?.id || ''
     });
     setIsItemModalOpen(true);
   };
 
   const handleSaveProduct = async () => {
-    if (!newProduct.name || !newProduct.selling_price || !newProduct.warehouse_id) return alert("Name, Selling Price, and Warehouse required.");
+    if (!newProduct.name || !newProduct.selling_price) {
+      return alert("Product Name and Selling Price are required.");
+    }
+    if (!newProduct.warehouse_id) {
+      return alert("Warehouse is missing. Please refresh the page.");
+    }
+
     setSavingItem(true);
-    
     try {
       const payload = {
-        business_id: activeId, name: newProduct.name, sku: newProduct.sku, brand: newProduct.brand,
-        category: newProduct.category, purchase_price: Number(newProduct.purchase_price) || 0,
-        selling_price: Number(newProduct.selling_price), mrp: Number(newProduct.mrp) || null,
-        tax_percentage: Number(newProduct.tax_percentage), uom: newProduct.uom,
-        min_stock: Number(newProduct.min_stock), image_urls: newProduct.image_urls, is_online: newProduct.is_online,
+        business_id: activeId, 
+        name: newProduct.name, 
+        sku: newProduct.sku, 
+        brand: newProduct.brand,
+        category: newProduct.category, 
+        purchase_price: Number(newProduct.purchase_price) || 0,
+        selling_price: Number(newProduct.selling_price), 
+        mrp: newProduct.mrp ? Number(newProduct.mrp) : null,
+        tax_percentage: newProduct.tax_percentage !== '' ? Number(newProduct.tax_percentage) : null, 
+        uom: newProduct.uom,
+        min_stock: newProduct.min_stock !== '' ? Number(newProduct.min_stock) : null, 
+        image_urls: newProduct.image_urls, 
+        is_online: newProduct.is_online,
       };
 
       if (editProductId) {
         const { error: prodError } = await supabase.from('products').update(payload).eq('id', editProductId);
         if (prodError) throw prodError;
 
-        const newStock = Number(newProduct.stock);
+        const newStock = Number(newProduct.stock) || 0;
         const delta = newStock - oldStockInWh;
         
         if (delta !== 0) {
@@ -158,19 +198,23 @@ export default function ProviderInventoryPage() {
         const { data: prodData, error: prodError } = await supabase.from('products').insert([payload]).select().single();
         if (prodError) throw prodError;
 
-        if (Number(newProduct.stock) > 0) {
+        const initialStock = Number(newProduct.stock) || 0;
+        if (initialStock > 0) {
           await supabase.rpc('adjust_stock', {
             p_business_id: activeId, p_product_id: prodData.id, p_warehouse_id: newProduct.warehouse_id,
-            p_quantity: Number(newProduct.stock), p_movement_type: 'INITIAL_STOCK'
+            p_quantity: initialStock, p_movement_type: 'INITIAL_STOCK'
           });
         }
       }
       setIsItemModalOpen(false);
       fetchData();
-    } catch (error: any) { alert("Error: " + error.message); } finally { setSavingItem(false); }
+    } catch (error: any) { 
+      alert("Save Error: " + error.message); 
+    } finally { 
+      setSavingItem(false); 
+    }
   };
 
-  // (Baaki functions: image upload, toggle online, purchase logic etc. same rahenge)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0 || !activeId) return;
@@ -263,7 +307,10 @@ export default function ProviderInventoryPage() {
     products.forEach(p => {
       const totalQty = p.inventory_stock?.reduce((acc, curr) => acc + curr.quantity, 0) || 0;
       totalStockValue += (totalQty * p.purchase_price);
-      if (totalQty > 0 && totalQty <= p.min_stock) lowStockCount++;
+      
+      // Safe Check for Min Stock
+      const minAlert = p.min_stock || 0;
+      if (totalQty > 0 && totalQty <= minAlert) lowStockCount++;
     });
     return { totalStockValue, lowStockCount, totalItems: products.length };
   }, [products]);
@@ -271,7 +318,9 @@ export default function ProviderInventoryPage() {
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku?.toLowerCase().includes(searchQuery.toLowerCase());
     const totalQty = p.inventory_stock?.reduce((acc, curr) => acc + curr.quantity, 0) || 0;
-    if (filterType === 'low_stock') return matchesSearch && totalQty > 0 && totalQty <= p.min_stock;
+    const minAlert = p.min_stock || 0;
+    
+    if (filterType === 'low_stock') return matchesSearch && totalQty > 0 && totalQty <= minAlert;
     return matchesSearch;
   });
 
@@ -279,7 +328,6 @@ export default function ProviderInventoryPage() {
   return (
     <div className="space-y-6 pb-20 max-w-6xl mx-auto">
       
-      {/* HEADER & TABS */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-100 gap-4">
         <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2"><span className="text-blue-600">📦</span> Universal Inventory</h1>
         <div className="flex bg-gray-100 p-1 rounded-xl w-full md:w-auto">
@@ -294,7 +342,6 @@ export default function ProviderInventoryPage() {
         </Link>
       </div>
 
-      {/* ================= TAB: INVENTORY ================= */}
       {activeTab === 'inventory' && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -333,20 +380,19 @@ export default function ProviderInventoryPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredProducts.map((product) => {
               const totalQty = product.inventory_stock?.reduce((acc, curr) => acc + curr.quantity, 0) || 0;
-              const isLowStock = totalQty > 0 && totalQty <= product.min_stock;
+              const isLowStock = totalQty > 0 && totalQty <= (product.min_stock || 0);
               const coverImage = product.image_urls?.[0];
 
               return (
                 <div key={product.id} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
                   
-                  {/* 👇 EDIT BUTTON (Always Visible Now) */}
+                  {/* Always Visible Edit Button */}
                   <div className="absolute top-2 left-2 z-10">
                     <button onClick={() => handleEditClick(product)} className="bg-blue-50 border border-blue-200 shadow-sm px-2 py-1 rounded-lg text-blue-700 font-bold text-[10px] flex items-center gap-1">
                       ✏️ Edit
                     </button>
                   </div>
                   
-                  {/* Online Toggle */}
                   <div className="absolute top-2 right-2 z-10">
                     <button onClick={() => toggleOnlineStatus(product.id, product.is_online)} className={`w-8 h-4 rounded-full relative transition-colors ${product.is_online ? 'bg-green-500' : 'bg-gray-300'}`}>
                       <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${product.is_online ? 'right-0.5' : 'left-0.5'}`}></span>
@@ -372,7 +418,6 @@ export default function ProviderInventoryPage() {
           </div>
         </>
       )}
-      {/* ================= TAB: PURCHASES ================= */}
       {activeTab === 'purchases' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-gray-100 h-fit space-y-4">
@@ -464,6 +509,7 @@ export default function ProviderInventoryPage() {
                   <div><label className="text-xs font-bold text-gray-600">Brand</label><input type="text" value={newProduct.brand} onChange={e => setNewProduct({...newProduct, brand: e.target.value})} className="w-full p-3 border rounded-xl mt-1" /></div>
                 </div>
                 <div><label className="text-xs font-bold text-gray-600">Category</label><select value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full p-3 border rounded-xl mt-1 bg-white">{categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
+                
                 <div>
                   <label className="text-xs font-bold text-gray-600 block mb-2">Item Photos</label>
                   <div className="grid grid-cols-4 gap-2">
@@ -473,21 +519,39 @@ export default function ProviderInventoryPage() {
                   <input type="file" accept="image/*" multiple ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
                 </div>
               </div>
+              
               <div className="space-y-4">
                 <div className="grid grid-cols-3 gap-2 bg-gray-50 p-3 rounded-xl border">
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">Purchase (₹)</label><input type="number" value={newProduct.purchase_price} onChange={e => setNewProduct({...newProduct, purchase_price: e.target.value})} className="w-full p-2 border rounded-lg mt-1 text-sm" /></div>
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">MRP (₹)</label><input type="number" value={newProduct.mrp} onChange={e => setNewProduct({...newProduct, mrp: e.target.value})} className="w-full p-2 border rounded-lg mt-1 text-sm" /></div>
                   <div><label className="text-[10px] font-bold text-blue-600 uppercase">Selling (₹) *</label><input type="number" value={newProduct.selling_price} onChange={e => setNewProduct({...newProduct, selling_price: e.target.value})} className="w-full p-2 border rounded-lg mt-1 text-sm font-bold" /></div>
                 </div>
+                
                 <div className="grid grid-cols-2 gap-3">
                   <div><label className="text-xs font-bold text-gray-600">UOM</label><select value={newProduct.uom} onChange={e => setNewProduct({...newProduct, uom: e.target.value})} className="w-full p-3 border rounded-xl mt-1 bg-white">{STANDARD_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
-                  <div><label className="text-xs font-bold text-gray-600">Warehouse *</label><select value={newProduct.warehouse_id} onChange={e => setNewProduct({...newProduct, warehouse_id: e.target.value})} className="w-full p-3 border rounded-xl mt-1 bg-blue-50 font-bold">{warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
+                  {/* 👇 Warehouse Dropdown with Error handling */}
+                  <div>
+                    <label className="text-xs font-bold text-gray-600">Warehouse *</label>
+                    <select 
+                      value={newProduct.warehouse_id} 
+                      onChange={e => setNewProduct({...newProduct, warehouse_id: e.target.value})} 
+                      className="w-full p-3 border rounded-xl mt-1 bg-blue-50 font-bold text-blue-800"
+                    >
+                      {warehouses.length === 0 ? (
+                        <option value="">(Fetching Warehouse...)</option>
+                      ) : (
+                        warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)
+                      )}
+                    </select>
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-3 gap-2">
                   <div><label className="text-xs font-bold text-gray-600">Stock</label><input type="number" value={newProduct.stock} onChange={e => setNewProduct({...newProduct, stock: e.target.value})} className="w-full p-3 border rounded-xl mt-1" /></div>
-                  <div><label className="text-xs font-bold text-gray-600">Min Alert</label><input type="number" value={newProduct.min_stock} onChange={e => setNewProduct({...newProduct, min_stock: Number(e.target.value)})} className="w-full p-3 border rounded-xl mt-1" /></div>
-                  <div><label className="text-xs font-bold text-gray-600">GST %</label><input type="number" value={newProduct.tax_percentage} onChange={e => setNewProduct({...newProduct, tax_percentage: Number(e.target.value)})} className="w-full p-3 border rounded-xl mt-1" /></div>
+                  <div><label className="text-xs font-bold text-gray-600">Min Alert</label><input type="number" value={newProduct.min_stock} onChange={e => setNewProduct({...newProduct, min_stock: e.target.value})} className="w-full p-3 border rounded-xl mt-1" placeholder="0" /></div>
+                  <div><label className="text-xs font-bold text-gray-600">GST %</label><input type="number" value={newProduct.tax_percentage} onChange={e => setNewProduct({...newProduct, tax_percentage: e.target.value})} className="w-full p-3 border rounded-xl mt-1" placeholder="0" /></div>
                 </div>
+
                 <div className="bg-blue-50 p-3 rounded-xl flex items-center justify-between border border-blue-100">
                   <div><p className="text-sm font-bold text-blue-900">Online Store</p></div>
                   <input type="checkbox" checked={newProduct.is_online} onChange={e => setNewProduct({...newProduct, is_online: e.target.checked})} className="w-5 h-5 accent-blue-600" />
