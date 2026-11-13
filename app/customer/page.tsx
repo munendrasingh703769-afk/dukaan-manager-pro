@@ -176,11 +176,12 @@ export default function CustomerSuperAppHome() {
 
         <section>
           <div className="grid grid-cols-4 gap-y-5 gap-x-2 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-            <Link href="/customer/shop" className="flex flex-col items-center gap-2 active:scale-95 transition">
-              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-4xl shadow-inner">🛒</div>
-              <span className="text-[11px] font-bold text-gray-700 text-center leading-tight">{t.shopNow}</span>
-            </Link>
-            
+            <Link href="/customer/partner-deals" className="flex flex-col items-center gap-2 active:scale-95 transition">
+  <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center text-4xl shadow-inner">🏷️</div>
+  <span className="text-[11px] font-bold text-gray-700 text-center leading-tight">
+    Partner Deals
+  </span>
+</Link>  
             <Link href="/customer/explore" className="flex flex-col items-center gap-2 active:scale-95 transition">
               <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-4xl shadow-inner">🧭</div>
               <span className="text-[11px] font-bold text-indigo-700 text-center leading-tight">{t.exploreServices}</span>
@@ -195,8 +196,7 @@ export default function CustomerSuperAppHome() {
               <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center text-4xl shadow-inner">📦</div>
               <span className="text-[11px] font-bold text-gray-700 text-center leading-tight">{t.sendParcel}</span>
             </Link>
-
-            <Link href="/customer/orders" className="flex flex-col items-center gap-2 active:scale-95 transition">
+              <Link href="/customer/marketplace-orders" className="flex flex-col items-center gap-2 active:scale-95 transition">
               <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center text-4xl shadow-inner">🕒</div>
               <span className="text-[11px] font-bold text-gray-700 text-center leading-tight">{t.myOrders}</span>
             </Link>
