@@ -1,123 +1,206 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 
-export default function ProductDetailPage() {
-  const { id } = useParams();
-  const router = useRouter();
-  const supabase = createClient();
+export default function ProductDetailsPage() {
+  const { id } = useParams()
+  const router = useRouter()
+  const supabase = createClient()
 
-  const [product, setProduct] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [product, setProduct] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [selectedImage, setSelectedImage] = useState<string>('')
+  const [quantity, setQuantity] = useState(1)
+  const [addingToCart, setAddingToCart] = useState(false)
 
   useEffect(() => {
-    const fetchProduct = async () => {
-      if (!id) return;
-      const { data } = await supabase.from('products').select(`*, businesses(name, city)`).eq('id', id).single();
-      if (data) setProduct(data);
-      setLoading(false);
-    };
-    fetchProduct();
-  }, [id, supabase]);
+    if (id) {
+      fetchProduct(id as string)
+    }
+  }, [id])
 
-  if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading...</div>;
-  if (!product) return <div className="text-center py-20 font-bold text-red-600">Product not found!</div>;
+  async function fetchProduct(productId: string) {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', productId)
+      .single()
 
-  const discount = product.mrp && product.mrp > product.selling_price ? Math.round(((product.mrp - product.selling_price) / product.mrp) * 100) : 0;
-  const images = product.image_urls && product.image_urls.length > 0 ? product.image_urls : [null];
+    if (data) {
+      setProduct(data)
+      // Set first image as default selected image
+      if (data.image_urls && data.image_urls.length > 0) {
+        setSelectedImage(data.image_urls[0])
+      }
+    }
+    setLoading(false)
+  }
+
+  async function handleAddToCart() {
+    setAddingToCart(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        alert("Please login to add items to cart")
+        router.push('/login')
+        return
+      }
+
+      // Check if item already in cart
+      const { data: existingCart } = await supabase
+        .from('cart')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('product_id', product.id)
+        .single()
+
+      if (existingCart) {
+        // Update quantity
+        await supabase
+          .from('cart')
+          .update({ quantity: existingCart.quantity + quantity })
+          .eq('id', existingCart.id)
+      } else {
+        // Insert new item
+        await supabase
+          .from('cart')
+          .insert({
+            user_id: user.id,
+            product_id: product.id,
+            quantity: quantity,
+            price: product.selling_price
+          })
+      }
+      
+      alert("Added to cart successfully!")
+      router.push('/customer/cart')
+
+    } catch (error: any) {
+      console.error(error)
+      alert("Error adding to cart: " + error.message)
+    } finally {
+      setAddingToCart(false)
+    }
+  }
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Loading product details...</div>
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Product not found</h2>
+        <Link href="/customer/explore" className="text-blue-600 hover:underline">Go back to shop</Link>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
-      
-      <div className="bg-white p-4 sticky top-0 z-40 shadow-sm flex items-center justify-between">
-        <button onClick={() => router.back()} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-xl font-bold">←</button>
-        <h1 className="text-lg font-bold text-gray-800 line-clamp-1">{product.name}</h1>
-        <Link href="/customer/shop" className="text-blue-600 font-bold text-sm">Shop</Link>
-      </div>
-
-      <div className="max-w-2xl mx-auto bg-white mt-2 pb-6 shadow-sm">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4">
         
-        {/* IMAGES */}
-        <div className="relative w-full h-80 bg-gray-50 flex items-center justify-center border-b">
-          {images[activeImageIndex] ? (
-            <img src={images[activeImageIndex]} alt={product.name} className="w-full h-full object-contain cursor-zoom-in" onClick={() => setIsZoomOpen(true)} />
-          ) : (
-            <span className="text-6xl text-gray-300 font-black">{product.name.charAt(0)}</span>
-          )}
-          {discount > 0 && <span className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-lg shadow-md z-10">{discount}% OFF</span>}
+        {/* Breadcrumb */}
+        <div className="mb-6 text-sm text-gray-500 flex gap-2">
+          <Link href="/customer/explore" className="hover:text-blue-600">Home</Link>
+          <span>/</span>
+          <span className="text-gray-800 font-medium line-clamp-1">{product.name}</span>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col md:flex-row">
           
-          {images.length > 1 && (
-            <div className="absolute bottom-4 flex gap-2 w-full justify-center px-4 overflow-x-auto">
-              {images.map((img, idx) => (
-                <div key={idx} onClick={() => setActiveImageIndex(idx)} className={`w-12 h-12 rounded-lg border-2 cursor-pointer overflow-hidden flex-shrink-0 bg-white ${activeImageIndex === idx ? 'border-blue-600' : 'border-gray-200 opacity-70'}`}>
-                  {img ? <img src={img} alt="thumb" className="w-full h-full object-cover" /> : <div className="text-xs text-center mt-3">Img</div>}
-                </div>
+          {/* Left: Image Section */}
+          <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col border-b md:border-b-0 md:border-r border-gray-100">
+            <div className="aspect-square bg-gray-50 rounded-xl overflow-hidden mb-4 flex items-center justify-center p-4">
+              {selectedImage ? (
+                <img src={selectedImage} alt={product.name} className="max-h-full max-w-full object-contain" />
+              ) : (
+                <span className="text-gray-400">No Image Available</span>
+              )}
+            </div>
+            
+            {/* Thumbnail Gallery - FIXED TYPES HERE */}
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {product.image_urls?.map((img: string, index: number) => (
+                <button 
+                  key={index} 
+                  onClick={() => setSelectedImage(img)}
+                  className={`w-20 h-20 rounded-lg border-2 overflow-hidden flex-shrink-0 ${selectedImage === img ? 'border-blue-600' : 'border-gray-200'}`}
+                >
+                  <img src={img} alt={`Thumbnail ${index}`} className="w-full h-full object-cover" />
+                </button>
               ))}
             </div>
-          )}
-        </div>
-
-        {/* DETAILS */}
-        <div className="p-5 space-y-4">
-          <div>
-            <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">{product.category}</p>
-            <h2 className="text-xl font-black text-gray-900 leading-tight mt-1">{product.name}</h2>
-            <p className="text-xs text-gray-500 mt-1">Sold by: {product.businesses?.name} ({product.businesses?.city})</p>
           </div>
 
-          <div className="flex items-end gap-2">
-            <span className="text-3xl font-black text-gray-900">₹{product.selling_price}</span>
-            {product.mrp && product.mrp > product.selling_price && <span className="text-sm text-gray-400 line-through mb-1 font-medium">MRP ₹{product.mrp}</span>}
-            <span className="text-xs text-gray-500 font-bold mb-1 ml-1">/ {product.uom}</span>
-          </div>
-
-          {/* DYNAMIC ATTRIBUTES DISPLAY */}
-          {product.attributes && Object.keys(product.attributes).length > 0 && (
-            <div className="border-t pt-4">
-              <h3 className="font-bold text-gray-800 mb-3 text-sm">Specifications</h3>
-              <div className="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
-                {Object.entries(product.attributes).map(([key, value]: any, idx) => (
-                  <div key={key} className={`grid grid-cols-2 p-3 text-sm ${idx !== 0 ? 'border-t border-gray-200' : ''}`}>
-                    <span className="text-gray-500 font-medium capitalize">{key.replace('_', ' ')}</span>
-                    <span className="text-gray-900 font-bold">{value}</span>
-                  </div>
-                ))}
-              </div>
+          {/* Right: Details Section */}
+          <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col">
+            <span className="text-xs font-bold text-blue-600 tracking-wider uppercase mb-2">
+              {product.category}
+            </span>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
+            
+            <div className="flex items-end gap-3 mb-6">
+              <p className="text-3xl font-bold text-gray-900">₹{product.selling_price}</p>
+              {product.mrp > product.selling_price && (
+                <>
+                  <p className="text-lg text-gray-400 line-through">₹{product.mrp}</p>
+                  <p className="text-sm font-bold text-green-600 mb-1">
+                    {Math.round(((product.mrp - product.selling_price) / product.mrp) * 100)}% OFF
+                  </p>
+                </>
+              )}
             </div>
-          )}
 
-          {/* DESCRIPTION */}
-          <div className="border-t pt-4">
-            <h3 className="font-bold text-gray-800 mb-2 text-sm">Product Details</h3>
-            <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
-              {product.description || "No detailed description provided for this product."}
-            </p>
-          </div>
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 mb-1">
+                {product.stock > 0 ? (
+                  <span className="text-green-600 font-medium">In Stock ({product.stock} {product.unit})</span>
+                ) : (
+                  <span className="text-red-600 font-medium">Out of Stock</span>
+                )}
+              </p>
+              {product.sku && <p className="text-xs text-gray-400">SKU: {product.sku}</p>}
+            </div>
 
-          {/* STOCK */}
-          <div className="flex items-center gap-2 text-sm bg-gray-50 p-3 rounded-xl border border-gray-100">
-            <span className="font-bold text-gray-700">Availability:</span>
-            <span className="font-bold text-green-600">In Stock (Ready to ship)</span>
+            {/* Quantity & Add to Cart */}
+            {product.stock > 0 && (
+              <div className="mb-8 space-y-4">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-gray-700">Quantity:</span>
+                  <div className="flex items-center border border-gray-300 rounded-lg">
+                    <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="px-4 py-2 hover:bg-gray-50 text-gray-600">-</button>
+                    <span className="px-4 py-2 border-x border-gray-300 font-medium">{quantity}</span>
+                    <button onClick={() => setQuantity(q => Math.min(product.stock, q + 1))} className="px-4 py-2 hover:bg-gray-50 text-gray-600">+</button>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleAddToCart}
+                  disabled={addingToCart}
+                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {addingToCart ? 'Adding...' : '🛒 Add to Cart'}
+                </button>
+              </div>
+            )}
+
+            {/* Description */}
+            <div className="mt-auto pt-6 border-t border-gray-100">
+              <h3 className="font-semibold text-gray-900 mb-2">Product Description</h3>
+              <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
+                {product.description || 'No description available for this product.'}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="fixed bottom-0 w-full bg-white border-t border-gray-200 p-4 flex gap-3 z-40 max-w-2xl left-1/2 transform -translate-x-1/2">
-        <button onClick={() => alert("Cart feature coming soon!")} className="flex-1 bg-gray-100 text-gray-800 py-3.5 rounded-xl font-bold shadow-sm border border-gray-200">Add to Cart</button>
-        <button onClick={() => alert("Buy Now feature coming soon!")} className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-md">Buy Now</button>
       </div>
-
-      {isZoomOpen && images[activeImageIndex] && (
-        <div className="fixed inset-0 z-[999] bg-black/95 flex items-center justify-center p-2" onClick={() => setIsZoomOpen(false)}>
-          <button className="absolute top-6 right-6 text-white text-4xl font-bold">&times;</button>
-          <img src={images[activeImageIndex]} alt="Zoomed" className="max-w-full max-h-full object-contain" />
-        </div>
-      )}
     </div>
-  );
+  )
 }
