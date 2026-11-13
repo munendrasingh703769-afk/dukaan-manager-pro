@@ -22,7 +22,6 @@ export default function UnifiedStorePage() {
   }, [])
 
   async function fetchCategories() {
-    // Sirf consumer categories fetch karo
     const { data } = await supabase
       .from('commerce_categories')
       .select('*')
@@ -37,17 +36,26 @@ export default function UnifiedStorePage() {
     
     const [
       { data: affiliateData },
-      { data: internalData }
+      { data: internalData },
+      { data: sponsoredData }
     ] = await Promise.all([
-      // 1. Fetch Affiliate Products
+      // 1. Affiliate Products
       supabase.from('affiliate_products')
         .select(`id, name, price, currency, image_url, external_url, partner_id, availability, category_id, affiliate_partners(name)`),
       
-      // 2. Fetch Internal Marketplace Listings (STRICTLY RETAIL / SHOP ONLY)
+      // 2. Internal Marketplace (Strictly Retail Shops)
       supabase.from('marketplace_listings')
         .select(`id, title, price, currency, image_urls, seller_type, stock_qty, category_id`)
         .eq('status', 'active')
-        .eq('seller_type', 'shop') // 🔥 YEH SABSE IMPORTANT HAI: Sirf dukaan wale ka maal dikhega
+        .eq('seller_type', 'shop'),
+        
+      // 3. Sponsored Listings
+      supabase.from('sponsored_listings')
+        .select(`
+          id,
+          marketplace_listings (id, title, price, currency, image_urls, seller_type, stock_qty, category_id)
+        `)
+        .eq('status', 'active')
     ])
 
     // Format Affiliate
@@ -61,10 +69,11 @@ export default function UnifiedStorePage() {
       source_label: item.affiliate_partners?.name || 'Partner',
       action_link: item.external_url,
       availability: item.availability || 'In Stock',
-      category_id: item.category_id
+      category_id: item.category_id,
+      is_sponsored: false
     }))
 
-    // Format Internal (Retail)
+    // Format Internal
     const formattedInternal = (internalData || []).map((item: any) => ({
       id: item.id,
       title: item.title,
@@ -73,12 +82,36 @@ export default function UnifiedStorePage() {
       image: item.image_urls?.[0] || '',
       source_type: 'internal',
       source_label: 'Local Shop',
-      action_link: `/customer/product/${item.id}`,
+      action_link: `/customer/checkout/${item.id}`,
       availability: item.stock_qty > 0 ? 'In Stock' : 'Out of Stock',
-      category_id: item.category_id
+      category_id: item.category_id,
+      is_sponsored: false
     }))
 
-    setProducts([...formattedAffiliate, ...formattedInternal])
+    // Format Sponsored
+    const formattedSponsored = (sponsoredData || []).map((sp: any) => {
+      const item = sp.marketplace_listings
+      if (!item) return null
+      return {
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        currency: item.currency || '₹',
+        image: item.image_urls?.[0] || '',
+        source_type: 'internal',
+        source_label: 'Local Shop',
+        action_link: `/customer/checkout/${item.id}`,
+        availability: item.stock_qty > 0 ? 'In Stock' : 'Out of Stock',
+        category_id: item.category_id,
+        is_sponsored: true // 🔥 Sponsored Flag
+      }
+    }).filter(Boolean)
+
+    // Merge: Sponsored first, then others
+    const sponsoredIds = formattedSponsored.map((p: any) => p.id)
+    const otherProducts = [...formattedAffiliate, ...formattedInternal].filter(p => !sponsoredIds.includes(p.id))
+
+    setProducts([...formattedSponsored, ...otherProducts])
     setLoading(false)
   }
 
@@ -171,7 +204,12 @@ export default function UnifiedStorePage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredProducts.map((product: any) => (
-              <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col hover:shadow-md transition">
+              <div 
+                key={product.id} 
+                className={`bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col hover:shadow-md transition ${
+                  product.is_sponsored ? 'border-yellow-400 ring-1 ring-yellow-400' : 'border-gray-200'
+                }`}
+              >
                 
                 {/* Image & Badge */}
                 <div className="relative h-48 bg-gray-50 flex items-center justify-center p-3">
@@ -180,11 +218,20 @@ export default function UnifiedStorePage() {
                     alt={product.title}
                     className="max-h-full max-w-full object-contain"
                   />
+                  
+                  {/* Source Badge */}
                   <span className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded shadow-sm ${
                     product.source_type === 'affiliate' ? 'bg-black/80 text-white' : 'bg-green-600 text-white'
                   }`}>
                     {product.source_label}
                   </span>
+
+                  {/* Sponsored Badge */}
+                  {product.is_sponsored && (
+                    <span className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-[10px] font-extrabold px-2 py-1 rounded shadow-sm uppercase tracking-wider">
+                      ⭐ Sponsored
+                    </span>
+                  )}
                 </div>
 
                 {/* Details */}
