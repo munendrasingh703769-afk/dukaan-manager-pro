@@ -106,7 +106,7 @@ export default function CheckoutPage() {
         .eq('id', product.id)
 
       alert("Order placed successfully! Seller will contact you soon.")
-      router.push('/customer/orders')
+      router.push('/customer/marketplace-orders')
 
     } catch (error: any) {
       alert("Error placing order: " + error.message)
