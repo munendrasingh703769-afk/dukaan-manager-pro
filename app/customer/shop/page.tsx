@@ -1,95 +1,137 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 
 export default function CustomerShopPage() {
-  const supabase = createClient();
-  const router = useRouter();
-  const [products, setProducts] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedCat, setSelectedCat] = useState<string | null>(null);
-  const [cartCount, setCartCount] = useState(0);
+  const supabase = createClient()
+  
+  const [products, setProducts] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'affiliate' | 'internal'>('all')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
   useEffect(() => {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    setCartCount(cart.length);
+    fetchCategories()
+    fetchUnifiedProducts()
+  }, [])
 
-    const fetchData = async () => {
-      // 1. Fetch SHOP Categories (Medicines, Fashion, etc.)
-      const { data: cats } = await supabase.from('shop_categories').select('*').eq('is_active', true);
-      if (cats) setCategories(cats);
+  async function fetchCategories() {
+    const { data } = await supabase.from('commerce_categories').select('*').eq('market', 'consumer').eq('is_active', true)
+    if (data) setCategories(data)
+  }
 
-      // 2. Fetch Products
-      const { data: prods } = await supabase.from('products').select(`*, businesses!inner(name, city, id)`).gt('stock', 0);
-      if (prods) setProducts(prods);
-      setLoading(false);
-    };
-    fetchData();
-  }, [supabase]);
+  async function fetchUnifiedProducts() {
+    setLoading(true)
+    
+    const [
+      { data: affiliateData },
+      { data: internalData },
+      { data: sponsoredData }
+    ] = await Promise.all([
+      supabase.from('affiliate_products').select(`id, name, price, currency, image_url, external_url, availability, category_id, affiliate_partners(name)`),
+      supabase.from('marketplace_listings').select(`id, title, price, currency, image_urls, seller_type, stock_qty, category_id`).eq('status', 'active').eq('seller_type', 'shop'),
+      supabase.from('sponsored_listings').select(`id, marketplace_listings (id, title, price, currency, image_urls, stock_qty, category_id)`).eq('status', 'active')
+    ])
 
-  const addToCart = (product: any) => {
-    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const existing = cart.find((item: any) => item.id === product.id);
-    if (existing) {
-      existing.qty += 1;
-    } else {
-      cart.push({ ...product, qty: 1 });
-    }
-    localStorage.setItem('cart', JSON.stringify(cart));
-    setCartCount(cart.length);
-    alert(`${product.name} added to cart!`);
-  };
+    const formattedAffiliate = (affiliateData || []).map((item: any) => ({
+      id: item.id, title: item.name, price: item.price, currency: item.currency || '₹',
+      image: item.image_url, source_type: 'affiliate', source_label: item.affiliate_partners?.name || 'Partner',
+      action_link: item.external_url, availability: item.availability || 'In Stock', category_id: item.category_id, is_sponsored: false
+    }))
 
-  const filteredProducts = selectedCat 
-    ? products.filter(p => p.category === selectedCat) 
-    : products;
+    const formattedInternal = (internalData || []).map((item: any) => ({
+      id: item.id, title: item.title, price: item.price, currency: item.currency || '₹',
+      image: item.image_urls?.[0] || '', source_type: 'internal', source_label: 'Local Shop',
+      action_link: `/customer/checkout/${item.id}`, availability: item.stock_qty > 0 ? 'In Stock' : 'Out of Stock',
+      category_id: item.category_id, is_sponsored: false
+    }))
+
+    const formattedSponsored = (sponsoredData || []).map((sp: any) => {
+      const item = sp.marketplace_listings
+      if (!item) return null
+      return {
+        id: item.id, title: item.title, price: item.price, currency: item.currency || '₹',
+        image: item.image_urls?.[0] || '', source_type: 'internal', source_label: 'Local Shop',
+        action_link: `/customer/checkout/${item.id}`, availability: item.stock_qty > 0 ? 'In Stock' : 'Out of Stock',
+        category_id: item.category_id, is_sponsored: true
+      }
+    }).filter(Boolean)
+
+    const sponsoredIds = formattedSponsored.map((p: any) => p.id)
+    const otherProducts = [...formattedAffiliate, ...formattedInternal].filter(p => !sponsoredIds.includes(p.id))
+
+    setProducts([...formattedSponsored, ...otherProducts])
+    setLoading(false)
+  }
+
+  const filteredProducts = products.filter((p: any) => {
+    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesType = activeFilter === 'all' || p.source_type === activeFilter
+    const matchesCategory = selectedCategory === 'all' || p.category_id === selectedCategory
+    return matchesSearch && matchesType && matchesCategory
+  })
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white p-4 sticky top-0 z-20 shadow-sm space-y-3">
-        <div className="flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800">Shopping Store</h1>
-          <Link href="/customer/cart" className="bg-indigo-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1">
-            🛒 Cart ({cartCount})
-          </Link>
-        </div>
-        <input type="text" placeholder="Search for Medicines, Clothes, Toys..." className="w-full p-3 bg-gray-100 rounded-xl outline-none text-sm font-medium" />
-      </div>
-
-      <div className="flex gap-2 overflow-x-auto p-4 no-scrollbar">
-        <button onClick={() => setSelectedCat(null)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap ${!selectedCat ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>All Products</button>
-        {categories.map(c => (
-          <button key={c.id} onClick={() => setSelectedCat(c.name)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1 ${selectedCat === c.name ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
-            {c.icon} {c.name}
-          </button>
-        ))}
-      </div>
-
-      <div className="p-4 grid grid-cols-2 gap-3 max-w-2xl mx-auto">
-        {loading ? <p className="col-span-2 text-center text-indigo-600 font-bold">Loading Products...</p> : 
-         filteredProducts.length === 0 ? <p className="col-span-2 text-center text-gray-500 font-bold py-10">Is category me abhi koi product nahi hai.</p> :
-         filteredProducts.map(prod => (
-          <div key={prod.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-            <div className="h-32 bg-gray-50 flex items-center justify-center text-gray-400">
-              {prod.name.charAt(0)}
-            </div>
-            <div className="p-3 flex-1 flex flex-col justify-between">
-              <div>
-                <h3 className="font-bold text-gray-800 text-sm line-clamp-2">{prod.name}</h3>
-                <p className="text-xs text-gray-500 mt-1 truncate">{prod.businesses?.name}</p>
-              </div>
-              <div className="mt-2">
-                <p className="text-lg font-black text-gray-800">₹{prod.selling_price}</p>
-                <p className="text-[10px] text-green-600 font-bold mb-2">In Stock ({prod.stock})</p>
-                <button onClick={() => addToCart(prod)} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold text-xs active:scale-95 transition">Add to Cart</button>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="bg-blue-900 text-white pt-8 pb-6 px-4">
+        <div className="max-w-6xl mx-auto text-center">
+          <h1 className="text-3xl font-bold mb-2">VyapaarSetu Store</h1>
+          <div className="max-w-2xl mx-auto relative mt-4">
+            <input type="text" placeholder="Search products..." className="w-full px-4 py-3 rounded-lg text-gray-900 outline-none" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <span className="absolute right-4 top-3 text-gray-400">🔍</span>
           </div>
-        ))}
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 mt-6">
+        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+          <button onClick={() => setSelectedCategory('all')} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border ${selectedCategory === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700'}`}>All Categories</button>
+          {categories.map((cat) => (
+            <button key={cat.id} onClick={() => setSelectedCategory(cat.id)} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border ${selectedCategory === cat.id ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700'}`}>{cat.name}</button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 mb-6 border-b border-gray-200 pb-4">
+          <button onClick={() => setActiveFilter('all')} className={`px-3 py-1 rounded text-xs font-bold uppercase ${activeFilter === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>All</button>
+          <button onClick={() => setActiveFilter('affiliate')} className={`px-3 py-1 rounded text-xs font-bold uppercase ${activeFilter === 'affiliate' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>Partner Deals</button>
+          <button onClick={() => setActiveFilter('internal')} className={`px-3 py-1 rounded text-xs font-bold uppercase ${activeFilter === 'internal' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>Local Shops</button>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-20 text-gray-500 font-medium">Loading products...</div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-xl border border-gray-200"><p className="text-gray-500">No products found.</p></div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredProducts.map((product: any) => (
+              <div key={product.id} className={`bg-white rounded-xl shadow-sm border flex flex-col ${product.is_sponsored ? 'border-yellow-400 ring-1 ring-yellow-400' : 'border-gray-200'}`}>
+                <div className="relative h-48 bg-gray-50 flex items-center justify-center p-3">
+                  <img src={product.image || '/placeholder.png'} alt={product.title} className="max-h-full max-w-full object-contain" />
+                  <span className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded ${product.source_type === 'affiliate' ? 'bg-black/80 text-white' : 'bg-green-600 text-white'}`}>{product.source_label}</span>
+                  {product.is_sponsored && <span className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-1 rounded uppercase">⭐ Sponsored</span>}
+                </div>
+                <div className="p-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800 line-clamp-2">{product.title}</h3>
+                    <p className={`text-xs mt-1 font-medium ${product.availability === 'In Stock' ? 'text-green-600' : 'text-red-500'}`}>{product.availability}</p>
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-lg font-bold text-gray-900">{product.currency} {product.price}</p>
+                    {product.source_type === 'affiliate' ? (
+                      <a href={product.action_link} target="_blank" rel="noopener noreferrer" className="mt-2 block w-full text-center bg-gray-900 text-white text-sm font-medium py-2 rounded-lg">Buy Now</a>
+                    ) : (
+                      <Link href={product.action_link} className="mt-2 block w-full text-center bg-blue-600 text-white text-sm font-medium py-2 rounded-lg">View Details</Link>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
