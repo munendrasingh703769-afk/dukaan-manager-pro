@@ -8,13 +8,30 @@ export default function UnifiedStorePage() {
   const supabase = createClient()
   
   const [products, setProducts] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Filters
   const [activeFilter, setActiveFilter] = useState<'all' | 'affiliate' | 'internal'>('all')
+  const [activeMarket, setActiveMarket] = useState<'consumer' | 'business'>('consumer')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
   useEffect(() => {
+    fetchCategories(activeMarket)
     fetchUnifiedProducts()
-  }, [])
+  }, [activeMarket])
+
+  async function fetchCategories(market: string) {
+    const { data } = await supabase
+      .from('commerce_categories')
+      .select('*')
+      .eq('market', market)
+      .eq('is_active', true)
+      
+    if (data) setCategories(data)
+    setSelectedCategory('all') // Reset category when market changes
+  }
 
   async function fetchUnifiedProducts() {
     setLoading(true)
@@ -23,15 +40,17 @@ export default function UnifiedStorePage() {
       { data: affiliateData },
       { data: internalData }
     ] = await Promise.all([
+      // Fetch Affiliate Products with Category
       supabase.from('affiliate_products')
-        .select(`id, name, price, currency, image_url, external_url, partner_id, availability, affiliate_partners(name)`),
+        .select(`id, name, price, currency, image_url, external_url, partner_id, availability, category_id, affiliate_partners(name)`),
       
+      // Fetch Internal Marketplace Listings with Category
       supabase.from('marketplace_listings')
-        .select(`id, title, price, currency, image_urls, seller_type, stock_qty`)
+        .select(`id, title, price, currency, image_urls, seller_type, stock_qty, category_id`)
         .eq('status', 'active')
     ])
 
-    // Affiliate Data Format
+    // Format Affiliate
     const formattedAffiliate = (affiliateData || []).map((item: any) => ({
       id: item.id,
       title: item.name,
@@ -42,10 +61,10 @@ export default function UnifiedStorePage() {
       source_label: item.affiliate_partners?.name || 'Partner',
       action_link: item.external_url,
       availability: item.availability || 'In Stock',
-      raw_data: item
+      category_id: item.category_id
     }))
 
-    // Internal Data Format
+    // Format Internal
     const formattedInternal = (internalData || []).map((item: any) => ({
       id: item.id,
       title: item.title,
@@ -56,33 +75,35 @@ export default function UnifiedStorePage() {
       source_label: `Local ${item.seller_type}`,
       action_link: `/customer/product/${item.id}`,
       availability: item.stock_qty > 0 ? 'In Stock' : 'Out of Stock',
-      raw_data: item
+      category_id: item.category_id
     }))
 
     setProducts([...formattedAffiliate, ...formattedInternal])
     setLoading(false)
   }
 
+  // Client-side Filtering Logic
   const filteredProducts = products.filter((p: any) => {
     const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesType = activeFilter === 'all' || p.source_type === activeFilter
-    return matchesSearch && matchesType
+    const matchesCategory = selectedCategory === 'all' || p.category_id === selectedCategory
+    return matchesSearch && matchesType && matchesCategory
   })
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       
       {/* Header & Banner */}
-      <div className="bg-blue-900 text-white py-8 px-4">
+      <div className="bg-blue-900 text-white pt-8 pb-6 px-4">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-3xl font-bold mb-2">VyapaarSetu Store</h1>
-          <p className="text-blue-200 mb-6">Discover products from top brands and local businesses.</p>
+          <p className="text-blue-200 mb-6">Shop for your home or your business, all in one place.</p>
           
           {/* Search Bar */}
           <div className="max-w-2xl mx-auto relative">
             <input
               type="text"
-              placeholder="Search for electronics, groceries, machinery..."
+              placeholder="Search for products, brands, and more..."
               className="w-full px-4 py-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -92,27 +113,65 @@ export default function UnifiedStorePage() {
         </div>
       </div>
 
+      {/* Consumer vs Business Tabs */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-6xl mx-auto flex">
+          <button 
+            onClick={() => setActiveMarket('consumer')}
+            className={`flex-1 py-4 text-center font-bold text-lg border-b-4 transition ${activeMarket === 'consumer' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+          >
+            🛍️ Consumer Shopping
+          </button>
+          <button 
+            onClick={() => setActiveMarket('business')}
+            className={`flex-1 py-4 text-center font-bold text-lg border-b-4 transition ${activeMarket === 'business' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+          >
+            🏭 Business Shopping
+          </button>
+        </div>
+      </div>
+
       <div className="max-w-6xl mx-auto px-4 mt-6">
         
-        {/* Source Filters */}
-        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
+        {/* Category Pills (Horizontal Scroll) */}
+        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+          <button 
+            onClick={() => setSelectedCategory('all')}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition border ${selectedCategory === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+          >
+            All Categories
+          </button>
+          {categories.map((cat) => (
+            <button 
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition border ${selectedCategory === cat.id ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Source Filters (Affiliate vs Internal) */}
+        <div className="flex items-center gap-2 mb-6 border-b border-gray-200 pb-4">
+          <span className="text-sm text-gray-500 font-medium mr-2">Filter by Source:</span>
           <button 
             onClick={() => setActiveFilter('all')}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${activeFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+            className={`px-3 py-1 rounded text-xs font-bold uppercase transition ${activeFilter === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
-            All Products
+            All
           </button>
           <button 
             onClick={() => setActiveFilter('affiliate')}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${activeFilter === 'affiliate' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+            className={`px-3 py-1 rounded text-xs font-bold uppercase transition ${activeFilter === 'affiliate' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
-            External Partners
+            Partner Deals
           </button>
           <button 
             onClick={() => setActiveFilter('internal')}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${activeFilter === 'internal' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+            className={`px-3 py-1 rounded text-xs font-bold uppercase transition ${activeFilter === 'internal' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
-            Local Sellers & Manufacturers
+            Local Sellers
           </button>
         </div>
 
@@ -125,7 +184,7 @@ export default function UnifiedStorePage() {
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-xl border border-gray-200">
-            <p className="text-gray-500 text-lg">No products found matching your search.</p>
+            <p className="text-gray-500 text-lg">No products found in this category.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -139,7 +198,6 @@ export default function UnifiedStorePage() {
                     alt={product.title}
                     className="max-h-full max-w-full object-contain"
                   />
-                  {/* Source Identification Badge */}
                   <span className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-1 rounded shadow-sm ${
                     product.source_type === 'affiliate' ? 'bg-black/80 text-white' : 'bg-green-600 text-white'
                   }`}>
@@ -163,7 +221,6 @@ export default function UnifiedStorePage() {
                       {product.currency} {product.price}
                     </p>
                     
-                    {/* Action Button */}
                     {product.source_type === 'affiliate' ? (
                       <a
                         href={product.action_link || '#'}
