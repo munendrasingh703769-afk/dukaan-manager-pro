@@ -338,7 +338,11 @@ export default function OwnerDashboard() {
               { name: 'Udhaar & Pay', icon: '💰', link: '/payments', color: 'bg-yellow-50 text-yellow-600' },
               { name: 'Expenses', icon: '💵', link: '/expenses', color: 'bg-green-50 text-green-600' },
               { name: 'Reports & GST', icon: '📊', link: '/reports', color: 'bg-teal-50 text-teal-600' },
-              { name: 'Staff & Perms', icon: '🛡️', link: '/settings/workers', color: 'bg-cyan-50 text-cyan-600' },
+              { name: 'Staff & Perms', icon: '👔', link: '/settings/workers', color: 'bg-cyan-50 text-cyan-600' },
+// 🚀 NAYE MODULES (VyapaarSetu Marketplace)
+    { name: 'My Products', icon: '📦', link: '/owner/marketplace', color: 'bg-indigo-50 text-indigo-600' },
+    { name: 'My Orders', icon: '🚚', link: '/owner/orders', color: 'bg-rose-50 text-rose-600' },
+    { name: 'My Earnings', icon: '💰', link: '/owner/earnings', color: 'bg-emerald-50 text-emerald-600' },
             ].map(module => (
               <Link key={module.name} href={module.link} className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-2 shadow-sm active:scale-95 transition-transform">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${module.color}`}>{module.icon}</div>
