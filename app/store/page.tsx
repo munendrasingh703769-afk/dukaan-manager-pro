@@ -14,23 +14,22 @@ export default function UnifiedStorePage() {
   
   // Filters
   const [activeFilter, setActiveFilter] = useState<'all' | 'affiliate' | 'internal'>('all')
-  const [activeMarket, setActiveMarket] = useState<'consumer' | 'business'>('consumer')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
   useEffect(() => {
-    fetchCategories(activeMarket)
+    fetchCategories()
     fetchUnifiedProducts()
-  }, [activeMarket])
+  }, [])
 
-  async function fetchCategories(market: string) {
+  async function fetchCategories() {
+    // Sirf consumer categories fetch karo
     const { data } = await supabase
       .from('commerce_categories')
       .select('*')
-      .eq('market', market)
+      .eq('market', 'consumer')
       .eq('is_active', true)
       
     if (data) setCategories(data)
-    setSelectedCategory('all') // Reset category when market changes
   }
 
   async function fetchUnifiedProducts() {
@@ -40,14 +39,15 @@ export default function UnifiedStorePage() {
       { data: affiliateData },
       { data: internalData }
     ] = await Promise.all([
-      // Fetch Affiliate Products with Category
+      // 1. Fetch Affiliate Products
       supabase.from('affiliate_products')
         .select(`id, name, price, currency, image_url, external_url, partner_id, availability, category_id, affiliate_partners(name)`),
       
-      // Fetch Internal Marketplace Listings with Category
+      // 2. Fetch Internal Marketplace Listings (STRICTLY RETAIL / SHOP ONLY)
       supabase.from('marketplace_listings')
         .select(`id, title, price, currency, image_urls, seller_type, stock_qty, category_id`)
         .eq('status', 'active')
+        .eq('seller_type', 'shop') // 🔥 YEH SABSE IMPORTANT HAI: Sirf dukaan wale ka maal dikhega
     ])
 
     // Format Affiliate
@@ -64,7 +64,7 @@ export default function UnifiedStorePage() {
       category_id: item.category_id
     }))
 
-    // Format Internal
+    // Format Internal (Retail)
     const formattedInternal = (internalData || []).map((item: any) => ({
       id: item.id,
       title: item.title,
@@ -72,7 +72,7 @@ export default function UnifiedStorePage() {
       currency: item.currency || '₹',
       image: item.image_urls?.[0] || '',
       source_type: 'internal',
-      source_label: `Local ${item.seller_type}`,
+      source_label: 'Local Shop',
       action_link: `/customer/product/${item.id}`,
       availability: item.stock_qty > 0 ? 'In Stock' : 'Out of Stock',
       category_id: item.category_id
@@ -82,7 +82,7 @@ export default function UnifiedStorePage() {
     setLoading(false)
   }
 
-  // Client-side Filtering Logic
+  // Client-side Filtering
   const filteredProducts = products.filter((p: any) => {
     const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesType = activeFilter === 'all' || p.source_type === activeFilter
@@ -97,7 +97,7 @@ export default function UnifiedStorePage() {
       <div className="bg-blue-900 text-white pt-8 pb-6 px-4">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-3xl font-bold mb-2">VyapaarSetu Store</h1>
-          <p className="text-blue-200 mb-6">Shop for your home or your business, all in one place.</p>
+          <p className="text-blue-200 mb-6">Shop everyday essentials from top brands and local shops.</p>
           
           {/* Search Bar */}
           <div className="max-w-2xl mx-auto relative">
@@ -113,27 +113,9 @@ export default function UnifiedStorePage() {
         </div>
       </div>
 
-      {/* Consumer vs Business Tabs */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-6xl mx-auto flex">
-          <button 
-            onClick={() => setActiveMarket('consumer')}
-            className={`flex-1 py-4 text-center font-bold text-lg border-b-4 transition ${activeMarket === 'consumer' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
-          >
-            🛍️ Consumer Shopping
-          </button>
-          <button 
-            onClick={() => setActiveMarket('business')}
-            className={`flex-1 py-4 text-center font-bold text-lg border-b-4 transition ${activeMarket === 'business' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
-          >
-            🏭 Business Shopping
-          </button>
-        </div>
-      </div>
-
       <div className="max-w-6xl mx-auto px-4 mt-6">
         
-        {/* Category Pills (Horizontal Scroll) */}
+        {/* Category Pills */}
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
           <button 
             onClick={() => setSelectedCategory('all')}
@@ -152,7 +134,7 @@ export default function UnifiedStorePage() {
           ))}
         </div>
 
-        {/* Source Filters (Affiliate vs Internal) */}
+        {/* Source Filters */}
         <div className="flex items-center gap-2 mb-6 border-b border-gray-200 pb-4">
           <span className="text-sm text-gray-500 font-medium mr-2">Filter by Source:</span>
           <button 
@@ -171,7 +153,7 @@ export default function UnifiedStorePage() {
             onClick={() => setActiveFilter('internal')}
             className={`px-3 py-1 rounded text-xs font-bold uppercase transition ${activeFilter === 'internal' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
-            Local Sellers
+            Local Shops
           </button>
         </div>
 
