@@ -299,6 +299,15 @@ export default function AdminPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+<Link href="/admin/users" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition flex flex-col items-start gap-3 group mb-6">
+  <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+    👥
+  </div>
+  <div>
+    <h3 className="font-bold text-gray-900">User & Subscription Manager</h3>
+    <p className="text-xs text-gray-500 mt-1">View all users, their details, and manually activate plans.</p>
+  </div>
+</Link>
           
           {/* MANUAL ACTIVATION FORM */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-fit">
