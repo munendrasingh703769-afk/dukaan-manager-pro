@@ -20,18 +20,30 @@ export default function AdminUsersPage() {
     fetchUsers()
   }, [])
 
-        async function fetchUsers() {
+          async function fetchUsers() {
     setLoading(true)
-    // created_at hata diya hai taaki koi column error na aaye
+    
+    // Check 1: Kya user login hai?
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    console.log("1. Logged In User:", user?.email)
+    if (authError) console.error("Auth Error:", authError)
+
+    // Check 2: Kya user ka role admin hai?
+    if (user) {
+      const { data: myProfile } = await supabase.from('profiles').select('user_type').eq('id', user.id).single()
+      console.log("2. My Role in DB:", myProfile?.user_type)
+    }
+
+    // Check 3: Saare users fetch karo
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       
     if (error) {
-      console.error("Supabase Error:", error)
-      alert("Database Error: " + error.message) // Agar koi error hoga toh screen par dikhega
+      console.error("3. Fetch Error:", error)
+      alert("Database Error: " + error.message)
     } else {
-      console.log("Fetched Data:", data)
+      console.log("3. Fetched Users Count:", data?.length)
       setUsers(data || [])
     }
     setLoading(false)
