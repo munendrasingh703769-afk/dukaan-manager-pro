@@ -236,6 +236,36 @@ export default function AdminPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
             <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl mb-3">📊</div>
+            <p className="text-sm text-gray-500 font-bold mb-1">Total Subs</p>
+            <h2 className="text-2xl font-black text-gray-800">{recent.length}</h2>
+          </div>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-xl mb-3">✅</div>
+            <p className="text-sm text-gray-500 font-bold mb-1">Active Plans</p>
+            <h2 className="text-2xl font-black text-green-600">{activeSubs}</h2>
+          </div>
+          <div className="bg-orange-50 p-5 rounded-2xl shadow-sm border border-orange-200">
+            <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center text-xl mb-3">⏳</div>
+            <p className="text-sm text-orange-800 font-bold mb-1">Pending Requests</p>
+            <h2 className="text-2xl font-black text-orange-600">{pendingSubs}</h2>
+          </div>
+          <div className="bg-gradient-to-br from-green-500 to-emerald-700 p-5 rounded-2xl shadow-md text-white">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-xl mb-3">💰</div>
+            <p className="text-sm text-green-100 font-bold mb-1">Total Revenue</p>
+            <h2 className="text-2xl font-black">₹{totalRevenue}</h2>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+<Link href="/admin/users" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition flex flex-col items-start gap-3 group mb-6">
+  <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+    👥
+  </div>
+  <div>
+    <h3 className="font-bold text-gray-900">User & Subscription Manager</h3>
+    <p className="text-xs text-gray-500 mt-1">View all users, their details, and manually activate plans.</p>
+  </div>
+</Link>
           {/* 🚀 NAYA SECTION: VyapaarSetu Marketplace & Affiliate */}
 
 <div className="mt-8">
@@ -271,44 +301,13 @@ export default function AdminPage() {
         💰
       </div>
       <div>
-        <h3 className="font-bold text-gray-900">Revenue & Commissions</h3>
+<h3 className="font-bold text-gray-900">Revenue & Commissions</h3>
         <p className="text-xs text-gray-500 mt-1">Track platform earnings, seller payouts, and pending commissions.</p>
       </div>
     </Link>
 
   </div>
 </div>
-            <p className="text-sm text-gray-500 font-bold mb-1">Total Subs</p>
-            <h2 className="text-2xl font-black text-gray-800">{recent.length}</h2>
-          </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-xl mb-3">✅</div>
-            <p className="text-sm text-gray-500 font-bold mb-1">Active Plans</p>
-            <h2 className="text-2xl font-black text-green-600">{activeSubs}</h2>
-          </div>
-          <div className="bg-orange-50 p-5 rounded-2xl shadow-sm border border-orange-200">
-            <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center text-xl mb-3">⏳</div>
-            <p className="text-sm text-orange-800 font-bold mb-1">Pending Requests</p>
-            <h2 className="text-2xl font-black text-orange-600">{pendingSubs}</h2>
-          </div>
-          <div className="bg-gradient-to-br from-green-500 to-emerald-700 p-5 rounded-2xl shadow-md text-white">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-xl mb-3">💰</div>
-            <p className="text-sm text-green-100 font-bold mb-1">Total Revenue</p>
-            <h2 className="text-2xl font-black">₹{totalRevenue}</h2>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-<Link href="/admin/users" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition flex flex-col items-start gap-3 group mb-6">
-  <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-    👥
-  </div>
-  <div>
-    <h3 className="font-bold text-gray-900">User & Subscription Manager</h3>
-    <p className="text-xs text-gray-500 mt-1">View all users, their details, and manually activate plans.</p>
-  </div>
-</Link>
-          
           {/* MANUAL ACTIVATION FORM */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-fit">
             <h2 className="text-lg font-bold text-gray-800 border-b pb-3 mb-4">Manual Activate (Offline)</h2>
