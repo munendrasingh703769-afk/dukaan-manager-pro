@@ -120,7 +120,7 @@ export default function AdminUsersPage() {
                       <tr key={u.id} className="hover:bg-gray-50">
                         <td className="p-4">
                           <p className="font-bold text-gray-900">{u.full_name || 'No Name'}</p>
-                          <p className="text-xs text-gray-500">{u.email || 'No Email'}</p>
+                          <p className="text-xs text-gray-500">{u.email ? u.email : (u.user_type === 'admin' ? 'Admin Account' : 'No Email')}</p>
                         </td>
                         <td className="p-4">
                           <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-blue-100 text-blue-700">
