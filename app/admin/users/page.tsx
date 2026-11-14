@@ -20,22 +20,18 @@ export default function AdminUsersPage() {
     fetchUsers()
   }, [])
 
-      async function fetchUsers() {
+        async function fetchUsers() {
     setLoading(true)
-    // Check karo ki current user login hai ya nahi
-    const { data: { user } } = await supabase.auth.getUser()
-    console.log("Current Logged In User:", user?.email)
-
+    // created_at hata diya hai taaki koi column error na aaye
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .order('created_at', { ascending: false })
       
     if (error) {
-      console.error("Supabase Error Details:", error)
-      alert("Database Error: " + error.message) // Agar error aayega toh screen par dikhega
+      console.error("Supabase Error:", error)
+      alert("Database Error: " + error.message) // Agar koi error hoga toh screen par dikhega
     } else {
-      console.log("Fetched Users:", data) // Console me data dikhega
+      console.log("Fetched Data:", data)
       setUsers(data || [])
     }
     setLoading(false)
