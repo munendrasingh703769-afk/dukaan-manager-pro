@@ -235,6 +235,48 @@ export default function AdminPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
             <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl mb-3">📊</div>
+          {/* 🚀 NAYA SECTION: VyapaarSetu Marketplace & Affiliate */}
+
+<div className="mt-8">
+  <h2 className="text-lg font-bold text-gray-800 mb-4 px-1">Marketplace & Revenue</h2>
+  
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    
+    {/* 1. Affiliate Products */}
+    <Link href="/admin/affiliate-products" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-300 transition flex flex-col items-start gap-3 group">
+      <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+        🏷️
+      </div>
+      <div>
+        <h3 className="font-bold text-gray-900">Affiliate Products</h3>
+        <p className="text-xs text-gray-500 mt-1">Add Amazon/Flipkart products manually to the store.</p>
+      </div>
+    </Link>
+
+    {/* 2. Marketplace Orders */}
+    <Link href="/admin/marketplace-orders" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md hover:border-purple-300 transition flex flex-col items-start gap-3 group">
+      <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+        🚚
+      </div>
+      <div>
+        <h3 className="font-bold text-gray-900">Marketplace Orders</h3>
+        <p className="text-xs text-gray-500 mt-1">Verify UPI payments and manage customer orders.</p>
+      </div>
+    </Link>
+
+    {/* 3. Revenue & Commissions */}
+    <Link href="/admin/revenue" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md hover:border-green-300 transition flex flex-col items-start gap-3 group">
+      <div className="w-12 h-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+        💰
+      </div>
+      <div>
+        <h3 className="font-bold text-gray-900">Revenue & Commissions</h3>
+        <p className="text-xs text-gray-500 mt-1">Track platform earnings, seller payouts, and pending commissions.</p>
+      </div>
+    </Link>
+
+  </div>
+</div>
             <p className="text-sm text-gray-500 font-bold mb-1">Total Subs</p>
             <h2 className="text-2xl font-black text-gray-800">{recent.length}</h2>
           </div>
