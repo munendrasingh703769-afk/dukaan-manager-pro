@@ -20,14 +20,19 @@ export default function AdminUsersPage() {
     fetchUsers()
   }, [])
 
-  async function fetchUsers() {
+    async function fetchUsers() {
     setLoading(true)
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false })
       
-    if (data) setUsers(data)
+    if (error) {
+      console.error("Supabase Error:", error)
+      alert("Error fetching users: " + error.message) // 👈 Yeh error aapko screen par dikhayega
+    } else {
+      setUsers(data || [])
+    }
     setLoading(false)
   }
 
