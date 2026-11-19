@@ -88,14 +88,17 @@ export default function OwnerDashboard() {
       setCurrentBusiness(activeBiz);
       
       // 3. OWNER-LEVEL SUBSCRIPTION LOGIC
-      // Ab hum business_id ki jagah owner (user) ki ID se fetch kar rahe hain
       const { data: subData } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('owner_id', user.id)
         .maybeSingle();
 
-      
+      let currentPlanName = 'Trial';
+      let remainingDays = 0;
+
+      if (subData && subData.status === 'active') {
+        const expiryDate = new Date(subData.current_period_end).getTime();
         const now = new Date().getTime();
         const diff = expiryDate - now;
         
@@ -119,6 +122,13 @@ export default function OwnerDashboard() {
           }
         }
       }
+
+      setDebugInfo({
+        ownerId: user.id,
+        plan: subData?.plan_code || 'NONE',
+        status: subData?.status || 'NONE',
+        expiry: subData?.current_period_end || 'NONE'
+      });
 
       setPlanName(currentPlanName);
       setTrialDays(remainingDays);
@@ -195,16 +205,7 @@ export default function OwnerDashboard() {
   if (loading) {
     return <div className="min-h-screen bg-slate-50 flex items-center justify-center">
 
-      {/* VISUAL DEBUG BOX */}
-      {debugInfo && (
-        <div className="bg-red-600 text-white p-3 mx-4 mt-4 rounded-lg z-50 text-xs font-mono break-all shadow-md">
-          <p>Owner: {debugInfo.ownerId}</p>
-          <p>Plan: {debugInfo.plan}</p>
-          <p>Status: {debugInfo.status}</p>
-          <p>Expiry: {debugInfo.expiry}</p>
-        </div>
-      )}
-<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
   }
   const todayDate = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
