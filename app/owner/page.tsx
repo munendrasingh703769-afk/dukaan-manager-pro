@@ -94,7 +94,7 @@ export default function OwnerDashboard() {
         .select('*')
       .or(`owner_id.eq.${user.id},business_id.eq.${activeBiz.id}`)
       .order('created_at', { ascending: false });
-    const subData = subList?.find((s: any) => s.status?.toLowerCase() === 'active') || subList?. || null;
+    const subData = subList?.find((s: any) => s.status?.toLowerCase() === 'active') || subList?.[0] || null;
 
       // Save data to state so we can print it on screen
       setDebugSubData({ subData, subError, userId: user.id, bizId: activeBiz.id });
