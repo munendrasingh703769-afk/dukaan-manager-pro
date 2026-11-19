@@ -311,22 +311,65 @@ export default function OwnerDashboard() {
           </div>
         )}
 
-        {/* Premium Trial Banner */}
-          {(planName === 'Trial' || planName === 'Expired') && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm relative overflow-hidden flex items-center justify-between">
-          <div className="relative z-10 flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 text-xl">👑</div>
-            <div>
-              <h3 className="text-sm font-bold text-emerald-800 tracking-wide">
-                {trialDays > 0 ? `Trial: ${trialDays} days left` : 'Trial Expired'}
-              </h3>
-          <p className="text-[11px] text-emerald-600 font-medium">{JSON.stringify(debugSubData)}</p>
+        {/* Subscription / Trial Banner */}
+          <div className={`rounded-2xl p-4 shadow-sm relative overflow-hidden flex items-center justify-between border ${
+            planName === 'Expired'
+              ? 'bg-red-50 border-red-200'
+              : planName === 'Trial'
+              ? 'bg-emerald-50 border-emerald-200'
+              : 'bg-indigo-50 border-indigo-200'
+          }`}>
+            <div className="relative z-10 flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${
+                planName === 'Expired'
+                  ? 'bg-red-100 text-red-600'
+                  : planName === 'Trial'
+                  ? 'bg-emerald-100 text-emerald-600'
+                  : 'bg-indigo-100 text-indigo-600'
+              }`}>
+                {planName === 'Trial' || planName === 'Expired' ? '👑' : '💎'}
+              </div>
+              <div>
+                <h3 className={`text-sm font-bold tracking-wide ${
+                  planName === 'Expired'
+                    ? 'text-red-800'
+                    : planName === 'Trial'
+                    ? 'text-emerald-800'
+                    : 'text-indigo-900'
+                }`}>
+                  {planName === 'Trial'
+                    ? (trialDays > 0 ? `Trial: ${trialDays} days left` : 'Trial Expired')
+                    : planName === 'Expired'
+                    ? 'Plan Expired'
+                    : `${planName.replace('_1M', '').replace('_1Y', '')} Plan Active`}
+                </h3>
+                <p className={`text-[11px] font-medium ${
+                  planName === 'Expired'
+                    ? 'text-red-600'
+                    : planName === 'Trial'
+                    ? 'text-emerald-600'
+                    : 'text-indigo-600'
+                }`}>
+                  {planName === 'Trial' || planName === 'Expired'
+                    ? 'Upgrade to unlock all features'
+                    : `${trialDays} days remaining • Active Subscription`}
+                </p>
+              </div>
             </div>
+            <Link
+              href="/pricing"
+              className={`relative z-10 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all ${
+                planName === 'Expired'
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : planName === 'Trial'
+                  ? 'bg-emerald-500 hover:bg-emerald-600'
+                  : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
+            >
+              {planName === 'Trial' || planName === 'Expired' ? 'Upgrade →' : 'Plans →'}
+            </Link>
           </div>
-          <Link href="/pricing" className="relative z-10 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-blue-700 active:scale-95 transition-all">Upgrade →</Link>
-        </div>
-) }
-        {/* Business Overview */}
+          {/* Business Overview */}
         <div className="flex items-center justify-between mt-6 mb-3 px-1">
           <h2 className="text-lg font-black text-slate-800 tracking-tight">Business Overview</h2>
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm">

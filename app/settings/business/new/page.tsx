@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { getUserPlanLimits } from '@/lib/planLimits'
 
 export default function NewBusinessPage() {
   const router = useRouter()
@@ -28,6 +29,19 @@ export default function NewBusinessPage() {
     if (!user) {
       alert('You must be logged in')
       router.push('/login')
+      return
+    }
+
+    // Check plan business limit
+    const limits = await getUserPlanLimits(supabase, user.id)
+    const { count: bizCount } = await supabase
+      .from('businesses')
+      .select('*', { count: 'exact', head: true })
+      .eq('owner_id', user.id)
+    if ((bizCount || 0) >= limits.maxBusinesses) {
+      alert(`${limits.planName} plan me maximum ${limits.maxBusinesses} business hi bana sakte hain. Multi-Branch ke liye plan upgrade karein!`)
+      setLoading(false)
+      router.push('/pricing')
       return
     }
 

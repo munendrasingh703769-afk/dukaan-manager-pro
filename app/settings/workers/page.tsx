@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getCurrentBusinessId } from '@/lib/business'
+import { getUserPlanLimits, PlanLimitConfig } from '@/lib/planLimits'
 
 type Member = {
   id: string
@@ -31,6 +32,7 @@ export default function WorkersPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [planLimits, setPlanLimits] = useState<PlanLimitConfig | null>(null)
 
   // Form State
   const [newEmail, setNewEmail] = useState('')
@@ -50,6 +52,8 @@ export default function WorkersPage() {
   async function loadData() {
     setLoading(true)
     const businessId = getCurrentBusinessId()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) { setPlanLimits(await getUserPlanLimits(supabase, user.id)) }
     if (!businessId) {
       setError('Business not found. Please select a business.')
       setLoading(false)
@@ -109,6 +113,21 @@ export default function WorkersPage() {
   async function inviteWorker(e: React.FormEvent) {
     e.preventDefault()
     if (!newEmail) return
+    if (planLimits) {
+      if (planLimits.isExpired) {
+        setError('Aapka plan expire ho gaya hai. Worker add karne ke liye plan upgrade karein.')
+        return
+      }
+      const totalUsed = members.length + invites.length
+      if (totalUsed >= planLimits.maxWorkers) {
+        setError(`${planLimits.planName} plan me maximum ${planLimits.maxWorkers} workers hi allow hain. Zyada workers ke liye plan upgrade karein.`)
+        return
+      }
+      if (newRole === 'ca' && !planLimits.caAccess) {
+        setError('CA Access sirf Standard, Premium aur Enterprise plans me available hai. Kripya plan upgrade karein.')
+        return
+      }
+    }
 
     setSaving(true)
     setError('')
@@ -116,6 +135,8 @@ export default function WorkersPage() {
 
     try {
       const businessId = getCurrentBusinessId()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) { setPlanLimits(await getUserPlanLimits(supabase, user.id)) }
       if (!businessId) throw new Error('No business selected')
 
       const { data, error: invErr } = await supabase
@@ -201,7 +222,7 @@ export default function WorkersPage() {
               className="w-full rounded-lg border p-2.5 text-sm outline-none focus:border-blue-500 bg-white"
             >
               <option value="manager">Manager</option>
-              <option value="ca">CA (Chartered Accountant)</option>
+              <option value="ca" disabled={planLimits ? !planLimits.caAccess : false}>CA (Chartered Accountant) {planLimits && !planLimits.caAccess ? "🔒 (Standard+ Plan)" : ""}</option>
               <option value="staff">Staff / Salesman</option>
               <option value="viewer">Viewer</option>
             </select>
