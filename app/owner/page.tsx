@@ -85,6 +85,11 @@ export default function OwnerDashboard() {
         .select('*')
         .eq('business_id', activeBiz.id)
         .maybeSingle();
+      // 🔥 DEBUG ALERT: Yeh check karne ke liye ki DB se kya aa raha hai
+      alert(`Business ID: ${activeBiz.id} 
+Plan Found: ${subData?.plan_code || 'NONE'} 
+Status: ${subData?.status || 'NONE'} 
+Expiry: ${subData?.current_period_end || 'NONE'}`);
 
       let currentPlanName = 'Trial';
       let remainingDays = 0;
