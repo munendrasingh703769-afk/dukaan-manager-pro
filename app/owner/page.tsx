@@ -320,7 +320,7 @@ export default function OwnerDashboard() {
               <h3 className="text-sm font-bold text-emerald-800 tracking-wide">
                 {trialDays > 0 ? `Trial: ${trialDays} days left` : 'Trial Expired'}
               </h3>
-              <p className="text-[11px] text-emerald-600 font-medium">{planName === 'Expired' ? 'Upgrade to unlock all features ({subError ? subError.message : `Subs: ${debugSubData?.subData ? JSON.stringify(debugSubData.subData) : 'None'} | BizPlan: ${activeBiz?.plan_code || activeBiz?.plan || 'None'}`})' : `Expires in ${trialDays} days`}</p>
+              <p className="text-[11px] text-emerald-600 font-medium">{planName === 'Expired' ? 'Upgrade to unlock all features ({JSON.stringify(debugSubData)})</p>
             </div>
           </div>
           <Link href="/pricing" className="relative z-10 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-blue-700 active:scale-95 transition-all">Upgrade →</Link>
