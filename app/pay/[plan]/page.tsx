@@ -166,7 +166,21 @@ export default function PayPage() {
             </div>
             <a
               href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waText}`}
-              target="_blank"
+              onClick={async () => {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user && selected) {
+                const { data: biz } = await supabase.from('businesses').select('id').eq('owner_id', user.id).limit(1).maybeSingle();
+                await supabase.from('subscriptions').insert([{
+                  owner_id: user.id,
+                  business_id: biz?.id || null,
+                  plan_code: selected.plan_code,
+                  status: 'pending',
+                  amount_paid: selected.price,
+                  payment_method: 'upi_manual'
+                }]);
+              }
+            }}
+            target="_blank"
               rel="noopener noreferrer"
               className="block w-full rounded-lg bg-green-600 px-4 py-3 text-center text-white font-medium"
             >

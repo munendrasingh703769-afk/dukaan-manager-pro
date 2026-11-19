@@ -126,7 +126,7 @@ export default function PricingPage() {
                   onClick={(e) => {
                     e.stopPropagation()
                     setSelectedPlan(plan.plan_code)
-                    alert('Payment gateway agle phase me add hoga.')
+                    window.location.href = `/pay/${plan.plan_code}`
                   }}
                   className={`mt-6 w-full rounded px-4 py-3 text-white font-medium ${
                     selectedPlan === plan.plan_code ? 'bg-green-600' : 'bg-blue-600'

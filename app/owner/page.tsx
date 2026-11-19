@@ -89,11 +89,12 @@ export default function OwnerDashboard() {
       setCurrentBusiness(activeBiz);
       
       // 3. OWNER-LEVEL SUBSCRIPTION LOGIC
-      const { data: subData, error: subError } = await supabase
+    const { data: subList, error: subError } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('owner_id', user.id)
-        .maybeSingle();
+      .or(`owner_id.eq.${user.id},business_id.eq.${activeBiz.id}`)
+      .order('created_at', { ascending: false });
+    const subData = subList?.find((s: any) => s.status?.toLowerCase() === 'active') || subList?. || null;
 
       // Save data to state so we can print it on screen
       setDebugSubData({ subData, subError, userId: user.id, bizId: activeBiz.id });
@@ -101,7 +102,7 @@ export default function OwnerDashboard() {
       let currentPlanName = 'Trial';
       let remainingDays = 0;
 
-      if (subData && subData.status === 'active') {
+      if (subData && subData.status?.toLowerCase() === 'active') {
         const expiryDate = new Date(subData.current_period_end).getTime();
         const now = new Date().getTime();
         const diff = expiryDate - now;
@@ -311,6 +312,7 @@ export default function OwnerDashboard() {
         )}
 
         {/* Premium Trial Banner */}
+          {(planName === 'Trial' || planName === 'Expired') && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm relative overflow-hidden flex items-center justify-between">
           <div className="relative z-10 flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 text-xl">👑</div>
@@ -323,6 +325,7 @@ export default function OwnerDashboard() {
           </div>
           <Link href="/pricing" className="relative z-10 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-blue-700 active:scale-95 transition-all">Upgrade →</Link>
         </div>
+) }
         {/* Business Overview */}
         <div className="flex items-center justify-between mt-6 mb-3 px-1">
           <h2 className="text-lg font-black text-slate-800 tracking-tight">Business Overview</h2>

@@ -68,8 +68,9 @@ export default function ProviderPlansPage() {
     // Update or Insert Subscription
     const { error } = await supabase.from('subscriptions').insert([{
       business_id: activeId,
+        owner_id: (await supabase.auth.getUser()).data.user?.id,
       plan_code: plan.plan_code,
-      status: 'active',
+      status: 'pending',
       current_period_start: new Date().toISOString(),
       current_period_end: endDate.toISOString(),
       amount_paid: plan.price,
@@ -78,7 +79,7 @@ export default function ProviderPlansPage() {
     }]);
 
     if (!error) {
-      alert("Plan Upgraded Successfully! (Demo payment successful)");
+      alert("Plan Request Sent! Admin approval ke baad plan active ho jayega.");
       fetchData();
     } else {
       alert("Error upgrading: " + error.message);
