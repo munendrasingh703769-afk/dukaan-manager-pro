@@ -34,6 +34,7 @@ export default function OwnerDashboard() {
   const [isBizDropdownOpen, setIsBizDropdownOpen] = useState(false);
   const [trialDays, setTrialDays] = useState(15);
   const [planName, setPlanName] = useState('Trial');
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   
 
   useEffect(() => {
@@ -46,9 +47,9 @@ export default function OwnerDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        alert(`✅ Logged in as: ${user.email} \nUser ID: ${user.id}`);
+        
       } else {
-        alert(`❌ No user found! You are not logged in.`);
+        
       }
       if (!user) { router.push('/login'); return; }
 
@@ -192,7 +193,18 @@ export default function OwnerDashboard() {
   }
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+
+      {/* VISUAL DEBUG BOX */}
+      {debugInfo && (
+        <div className="bg-red-600 text-white p-3 mx-4 mt-4 rounded-lg z-50 text-xs font-mono break-all shadow-md">
+          <p>Owner: {debugInfo.ownerId}</p>
+          <p>Plan: {debugInfo.plan}</p>
+          <p>Status: {debugInfo.status}</p>
+          <p>Expiry: {debugInfo.expiry}</p>
+        </div>
+      )}
+<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
   }
   const todayDate = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
