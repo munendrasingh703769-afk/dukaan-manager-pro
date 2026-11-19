@@ -79,15 +79,17 @@ export default function OwnerDashboard() {
       setCurrentBusinessId(activeBiz.id);
       setCurrentBusiness(activeBiz);
       
-      // 3. NEW SUBSCRIPTION LOGIC
+      // 3. OWNER-LEVEL SUBSCRIPTION LOGIC
+      // Ab hum business_id ki jagah owner (user) ki ID se fetch kar rahe hain
       const { data: subData } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('business_id', activeBiz.id)
+        .eq('owner_id', user.id)
         .maybeSingle();
-      // 🔥 DEBUG ALERT: Yeh check karne ke liye ki DB se kya aa raha hai
-      alert(`Business ID: ${activeBiz.id} 
-Plan Found: ${subData?.plan_code || 'NONE'} 
+
+      // 🔥 DEBUG ALERT (Check karne ke liye)
+      alert(`Owner ID: ${user.id} 
+Plan: ${subData?.plan_code || 'NONE'} 
 Status: ${subData?.status || 'NONE'} 
 Expiry: ${subData?.current_period_end || 'NONE'}`);
 
