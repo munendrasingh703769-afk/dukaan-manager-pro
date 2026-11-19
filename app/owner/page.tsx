@@ -34,6 +34,7 @@ export default function OwnerDashboard() {
   const [isBizDropdownOpen, setIsBizDropdownOpen] = useState(false);
   const [trialDays, setTrialDays] = useState(15);
   const [planName, setPlanName] = useState('Trial');
+  const [debugSubData, setDebugSubData] = useState<any>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   
 
@@ -88,11 +89,14 @@ export default function OwnerDashboard() {
       setCurrentBusiness(activeBiz);
       
       // 3. OWNER-LEVEL SUBSCRIPTION LOGIC
-      const { data: subData } = await supabase
+      const { data: subData, error: subError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('owner_id', user.id)
         .maybeSingle();
+
+      // Save data to state so we can print it on screen
+      setDebugSubData({ subData, subError, userId: user.id, bizId: activeBiz.id });
 
       let currentPlanName = 'Trial';
       let remainingDays = 0;
@@ -204,6 +208,15 @@ export default function OwnerDashboard() {
 
   if (loading) {
     return <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      {/* 🔥 FORCE DEBUG BOX 🔥 */}
+      <div style={{ backgroundColor: '#dc2626', color: 'white', padding: '10px', fontSize: '11px', zIndex: 9999, position: 'relative', wordBreak: 'break-all' }}>
+        <p><strong>State:</strong> {planName} ({trialDays} days)</p>
+        <p><strong>User ID:</strong> {user?.id}</p>
+        <p><strong>Biz ID:</strong> {activeBiz?.id}</p>
+        <p><strong>SubData:</strong> {JSON.stringify(debugSubData?.subData)}</p>
+        <p><strong>Error:</strong> {JSON.stringify(debugSubData?.subError)}</p>
+      </div>
+    
 
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
   }
