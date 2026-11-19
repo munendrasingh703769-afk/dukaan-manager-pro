@@ -33,6 +33,7 @@ export default function OwnerDashboard() {
   const [modalType, setModalType] = useState<string | null>(null);
   const [isBizDropdownOpen, setIsBizDropdownOpen] = useState(false);
   const [trialDays, setTrialDays] = useState(15);
+  const [planName, setPlanName] = useState('Trial');
 
   useEffect(() => {
     fetchData();
@@ -78,14 +79,44 @@ export default function OwnerDashboard() {
       setCurrentBusinessId(activeBiz.id);
       setCurrentBusiness(activeBiz);
       
-      // 3. Calculate Trial Days (15 days from creation)
-      if (activeBiz.created_at) {
-        const start = new Date(activeBiz.created_at).getTime();
+      // 3. NEW SUBSCRIPTION LOGIC
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('business_id', activeBiz.id)
+        .maybeSingle();
+
+      let currentPlanName = 'Trial';
+      let remainingDays = 0;
+
+      if (subData && subData.status === 'active') {
+        const expiryDate = new Date(subData.current_period_end).getTime();
         const now = new Date().getTime();
-        const daysPassed = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-        const daysLeft = 15 - daysPassed;
-        setTrialDays(daysLeft > 0 ? daysLeft : 0);
+        const diff = expiryDate - now;
+        
+        if (diff > 0) {
+          remainingDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
+          currentPlanName = subData.plan_code.toUpperCase();
+        } else {
+          currentPlanName = 'Expired';
+          remainingDays = 0;
+        }
+      } else {
+        if (activeBiz.created_at) {
+          const start = new Date(activeBiz.created_at).getTime();
+          const now = new Date().getTime();
+          const daysPassed = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+          remainingDays = 15 - daysPassed;
+          
+          if (remainingDays <= 0) {
+            currentPlanName = 'Expired';
+            remainingDays = 0;
+          }
+        }
       }
+
+      setPlanName(currentPlanName);
+      setTrialDays(remainingDays);
 
       // 4. Fetch Dashboard Stats
       const [custRes, prodRes, salesRes] = await Promise.all([
@@ -255,7 +286,7 @@ export default function OwnerDashboard() {
               <h3 className="text-sm font-bold text-emerald-800 tracking-wide">
                 {trialDays > 0 ? `Trial: ${trialDays} days left` : 'Trial Expired'}
               </h3>
-              <p className="text-[11px] text-emerald-600 font-medium">Upgrade to unlock all features</p>
+              <p className="text-[11px] text-emerald-600 font-medium">{planName === 'Expired' ? 'Upgrade to unlock all features' : `Expires in ${trialDays} days`}</p>
             </div>
           </div>
           <Link href="/pricing" className="relative z-10 bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-blue-700 active:scale-95 transition-all">Upgrade →</Link>
