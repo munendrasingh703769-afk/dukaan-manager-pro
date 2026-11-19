@@ -34,7 +34,7 @@ export default function OwnerDashboard() {
   const [isBizDropdownOpen, setIsBizDropdownOpen] = useState(false);
   const [trialDays, setTrialDays] = useState(15);
   const [planName, setPlanName] = useState('Trial');
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  
 
   useEffect(() => {
     fetchData();
@@ -44,6 +44,12 @@ export default function OwnerDashboard() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        alert(`✅ Logged in as: ${user.email} \nUser ID: ${user.id}`);
+      } else {
+        alert(`❌ No user found! You are not logged in.`);
+      }
       if (!user) { router.push('/login'); return; }
 
       // 1. Check User Role
@@ -88,14 +94,7 @@ export default function OwnerDashboard() {
         .eq('owner_id', user.id)
         .maybeSingle();
 
-      // 🔥 DEBUG ALERT (Check karne ke liye)
       
-
-      let currentPlanName = 'Trial';
-      let remainingDays = 0;
-
-      if (subData && subData.status === 'active') {
-        const expiryDate = new Date(subData.current_period_end).getTime();
         const now = new Date().getTime();
         const diff = expiryDate - now;
         
@@ -200,16 +199,7 @@ export default function OwnerDashboard() {
   return (
     <main
 
-      {/* DEBUG BANNER */}
-      {debugInfo && (
-        <div className="bg-red-600 text-white p-4 m-2 rounded-lg z-50 text-xs font-mono break-all">
-          <p><strong>Owner ID:</strong> {debugInfo.ownerId}</p>
-          <p><strong>Plan:</strong> {debugInfo.plan}</p>
-          <p><strong>Status:</strong> {debugInfo.status}</p>
-          <p><strong>Expiry:</strong> {debugInfo.expiry}</p>
-        </div>
-      )}
- className="min-h-screen bg-slate-50 pb-24">
+      className="min-h-screen bg-slate-50 pb-24">
       <header className="bg-white px-4 py-3 sticky top-0 z-40 border-b border-slate-200 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">V</div>
