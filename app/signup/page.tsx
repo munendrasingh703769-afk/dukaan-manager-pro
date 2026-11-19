@@ -22,6 +22,7 @@ export default function SignupPage() {
   
   const [otp, setOtp] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   
   // Role State
   const [role, setRole] = useState('shopkeeper')

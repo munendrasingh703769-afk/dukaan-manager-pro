@@ -8,6 +8,8 @@ export default function SetPasswordPage() {
   const supabase = createClient()
   
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -61,11 +63,21 @@ export default function SetPasswordPage() {
         <form onSubmit={handleSetPassword} className="mt-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">New Password</label>
-            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full rounded border p-2" placeholder="••••••••" />
+            <div className="relative mt-1">
+            <input type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded border p-2 pr-12" placeholder="••••••••" />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 text-xs font-bold">
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
-            <input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="mt-1 w-full rounded border p-2" placeholder="••••••••" />
+            <div className="relative mt-1">
+            <input type={showConfirm ? "text" : "password"} required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded border p-2 pr-12" placeholder="••••••••" />
+            <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 text-xs font-bold">
+              {showConfirm ? 'Hide' : 'Show'}
+            </button>
+          </div>
           </div>
           <button type="submit" disabled={loading} className="w-full rounded bg-emerald-600 px-4 py-3 text-white font-bold disabled:opacity-50">
             {loading ? 'Saving...' : 'Save Password & Continue'}
