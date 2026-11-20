@@ -102,16 +102,23 @@ export default function OwnerDashboard() {
       let currentPlanName = 'Trial';
       let remainingDays = 0;
 
-      if (subData && subData.status?.toLowerCase() === 'active') {
-        const expObj = new Date(subData.current_period_end);
+    if (subData && ['active', 'approved', 'paid'].includes(subData.status?.toLowerCase())) {
+      const rawEnd = subData.current_period_end || subData.expires_at || subData.end_date;
+      const startBase = subData.current_period_start || subData.updated_at || subData.created_at || new Date().toISOString();
+      const defaultDays = (subData.plan_code || '').toUpperCase().includes('1Y') ? 365 : 30;
+      const expObj = rawEnd ? new Date(rawEnd) : new Date(new Date(startBase).getTime() + defaultDays * 24 * 60 * 60 * 1000);
       setPlanExpiryDate(expObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }));
       const expiryDate = expObj.getTime();
-        const now = new Date().getTime();
-        const diff = expiryDate - now;
-        
-        if (diff > 0) {
-          remainingDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
-          currentPlanName = subData.plan_code.toUpperCase();
+      const now = new Date().getTime();
+      const diff = expiryDate - now;
+
+      if (diff > 0) {
+        remainingDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        currentPlanName = (subData.plan_code || 'BASIC').toUpperCase();
+      } else {
+        currentPlanName = 'Expired';
+        remainingDays = 0;
+      }
         } else {
           currentPlanName = 'Expired';
           remainingDays = 0;
