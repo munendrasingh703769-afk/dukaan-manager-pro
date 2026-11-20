@@ -126,24 +126,6 @@ export default function SalesPage() {
     const prefix = bizData?.invoice_prefix?.trim() || 'INV'
 
     const { data: lastSale } = await supabase
-    // Pre-save stock validation for all items before creating invoice
-    for (const checkItem of items) {
-      let checkPid = checkItem.product_id;
-      if (!checkPid && checkItem.product_name.trim()) {
-        const found = products.find(
-          (p) => p.name.toLowerCase() === checkItem.product_name.trim().toLowerCase()
-        );
-        if (found) checkPid = found.id;
-      }
-      if (checkPid) {
-        const matchedProd = products.find((p) => p.id === checkPid);
-        if (matchedProd && Number(checkItem.quantity) > Number(matchedProd.stock_qty ?? 0)) {
-          alert(`Stock कम है! "${matchedProd.name}" के केवल ${matchedProd.stock_qty ?? 0} पीस उपलब्ध हैं, आप ${checkItem.quantity} पीस का बिल नहीं बना सकते।`);
-          return;
-        }
-      }
-    }
-
       .from('sales')
       .select('invoice_no')
       .eq('business_id', bizId())
@@ -329,6 +311,24 @@ export default function SalesPage() {
     }
     const useIGST = businessState && customerState && businessState.toLowerCase().trim() !== customerState.toLowerCase().trim()
 
+    // Pre-save stock validation for all items before creating invoice
+    for (const checkItem of items) {
+      let checkPid = checkItem.product_id;
+      if (!checkPid && checkItem.product_name.trim()) {
+        const found = products.find(
+          (p) => p.name.toLowerCase() === checkItem.product_name.trim().toLowerCase()
+        );
+        if (found) checkPid = found.id;
+      }
+      if (checkPid) {
+        const matchedProd = products.find((p) => p.id === checkPid);
+        if (matchedProd && Number(checkItem.quantity) > Number(matchedProd.stock_qty ?? 0)) {
+          alert(`Stock कम है! "${matchedProd.name}" के केवल ${matchedProd.stock_qty ?? 0} पीस उपलब्ध हैं, आप ${checkItem.quantity} पीस का बिल नहीं बना सकते।`);
+          return;
+        }
+      }
+    }
+
     const { data: sale, error } = await supabase
       .from('sales')
       .insert({
@@ -372,15 +372,6 @@ export default function SalesPage() {
         )
         if (existing) {
           pid = existing.id
-        }
-      }
-
-      // Stock availability check before saving sale
-      if (pid) {
-        const matchedProd = products.find((p) => p.id === pid);
-        if (matchedProd && Number(item.quantity) > Number(matchedProd.stock_qty ?? 0)) {
-          alert(`Stock कम है! "${matchedProd.name}" के केवल ${matchedProd.stock_qty ?? 0} पीस उपलब्ध हैं, आप ${item.quantity} पीस का बिल नहीं बना सकते।`);
-          return;
         }
       }
 
