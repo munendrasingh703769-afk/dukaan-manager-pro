@@ -233,28 +233,35 @@ export default function OwnerDashboard() {
         
         {/* Business Info Card */}
         {currentBusiness ? (
-          <div className="relative overflow-hidden border border-slate-200 shadow-sm bg-white p-4 rounded-2xl">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-            <div className="flex items-center justify-between relative z-10">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-2xl shadow-inner border border-emerald-100">
-                  {userRole === 'business' ? '🏭' : '🏪'}
+            <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white p-4 rounded-2xl shadow-md border border-emerald-500/30 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-400/30 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0">
+                  🏪
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-800 line-clamp-1">{currentBusiness.name}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Owner: {currentBusiness.owner_name || 'Not Set'}</p>
-                  {currentBusiness.phone && (
-                    <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">📞 {currentBusiness.phone}</p>
-                  )}
-                  {currentBusiness.city && (
-                    <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">📍 {currentBusiness.city}</p>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base font-extrabold text-white tracking-tight">{currentBusiness.name}</h2>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 border border-emerald-400/30 text-[9px] font-extrabold text-emerald-300 uppercase tracking-wider">
+                      Store
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-100/80 mt-0.5 font-medium">
+                    Owner: {currentBusiness.owner_name || 'Not Set'}
+                  </p>
+                  <div className="flex items-center gap-3 mt-1 text-[11px] text-teal-200/80 font-medium">
+                    {currentBusiness.phone && <span>📞 {currentBusiness.phone}</span>}
+                    {currentBusiness.city && <span>📍 {currentBusiness.city}</span>}
+                  </div>
                 </div>
               </div>
-              <button onClick={() => router.push('/settings/business')} className="px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 active:scale-95 transition-all">✏️ Edit</button>
+              <button
+                onClick={() => router.push('/settings/business')}
+                className="px-3.5 py-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-extrabold rounded-xl backdrop-blur-md active:scale-95 transition-all shrink-0"
+              >
+                ✏️ Edit
+              </button>
             </div>
-          </div>
-        ) : (
+          ) : (
           <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-slate-200">
              <p className="text-slate-600 mb-3">Aapne abhi tak koi dukaan nahi jodi hai.</p>
              <button onClick={() => router.push('/settings/business/new')} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Add Business Now</button>
