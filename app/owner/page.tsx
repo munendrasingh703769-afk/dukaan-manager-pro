@@ -427,24 +427,62 @@ export default function OwnerDashboard() {
           </div>
 
           {/* Quick Actions */}
-        <section>
-          <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Quick Actions</h2>
+        <section className="my-2">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2 className="text-sm font-bold text-slate-800 tracking-tight">Quick Actions</h2>
+            <span className="text-[11px] font-medium text-slate-400">Fast Access</span>
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            <Link href={subDetails?.isExpired ? "/pricing" : "/sales/new"} className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm active:scale-95 transition-transform">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">🛒</div>
-              <p className="text-sm font-bold text-slate-800">New Sale</p>
+            <Link
+              href={subDetails?.isExpired ? "/pricing" : "/sales"}
+              className="group bg-gradient-to-br from-white to-indigo-50/40 border border-slate-200/90 hover:border-indigo-300 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm hover:shadow transition-all active:scale-95"
+            >
+              <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl shadow-inner group-hover:scale-105 transition-transform">
+                🛒
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800 leading-tight">New Sale</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Create bill</p>
+              </div>
             </Link>
-            <Link href="/products" className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm active:scale-95 transition-transform">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg">📦</div>
-              <p className="text-sm font-bold text-slate-800">Product & Stock</p>
+
+            <Link
+              href="/products"
+              className="group bg-gradient-to-br from-white to-blue-50/40 border border-slate-200/90 hover:border-blue-300 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm hover:shadow transition-all active:scale-95"
+            >
+              <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl shadow-inner group-hover:scale-105 transition-transform">
+                📦
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800 leading-tight">Product & Stock</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Manage items</p>
+              </div>
             </Link>
-            <Link href={subDetails?.isExpired ? "/pricing" : "/products/new"} className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm active:scale-95 transition-transform">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">🛍️</div>
-              <p className="text-sm font-bold text-slate-800">Add Product</p>
+
+            <Link
+              href={subDetails?.isExpired ? "/pricing" : "/products"}
+              className="group bg-gradient-to-br from-white to-emerald-50/40 border border-slate-200/90 hover:border-emerald-300 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm hover:shadow transition-all active:scale-95"
+            >
+              <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shadow-inner group-hover:scale-105 transition-transform">
+                🛍️
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800 leading-tight">Add Product</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">New inventory</p>
+              </div>
             </Link>
-            <Link href={subDetails?.isExpired ? "/pricing" : "/customers/new"} className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm active:scale-95 transition-transform">
-              <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-lg">👤</div>
-              <p className="text-sm font-bold text-slate-800">Add Customer</p>
+
+            <Link
+              href={subDetails?.isExpired ? "/pricing" : "/customers"}
+              className="group bg-gradient-to-br from-white to-violet-50/40 border border-slate-200/90 hover:border-violet-300 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm hover:shadow transition-all active:scale-95"
+            >
+              <div className="w-11 h-11 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center text-xl shadow-inner group-hover:scale-105 transition-transform">
+                👤
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800 leading-tight">Add Customer</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">New party</p>
+              </div>
             </Link>
           </div>
         </section>
