@@ -99,8 +99,8 @@ export default function OwnerDashboard() {
       // Save data to state so we can print it on screen
       setDebugSubData({ subData, subError, userId: user.id, bizId: activeBiz.id });
 
-      let currentPlanName = 'Trial';
-      let remainingDays = 0;
+    let currentPlanName = 'Trial';
+    let remainingDays = 15;
 
     if (subData && ['active', 'approved', 'paid'].includes(subData.status?.toLowerCase())) {
       const rawEnd = subData.current_period_end || subData.expires_at || subData.end_date;
@@ -108,9 +108,7 @@ export default function OwnerDashboard() {
       const defaultDays = (subData.plan_code || '').toUpperCase().includes('1Y') ? 365 : 30;
       const expObj = rawEnd ? new Date(rawEnd) : new Date(new Date(startBase).getTime() + defaultDays * 24 * 60 * 60 * 1000);
       setPlanExpiryDate(expObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }));
-      const expiryDate = expObj.getTime();
-      const now = new Date().getTime();
-      const diff = expiryDate - now;
+      const diff = expObj.getTime() - Date.now();
 
       if (diff > 0) {
         remainingDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -119,28 +117,16 @@ export default function OwnerDashboard() {
         currentPlanName = 'Expired';
         remainingDays = 0;
       }
-      } else {
-        if (activeBiz.created_at) {
-          const start = new Date(activeBiz.created_at).getTime();
-          const now = new Date().getTime();
-          const daysPassed = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-          remainingDays = 15 - daysPassed;
-          
-          if (remainingDays <= 0) {
-            currentPlanName = 'Expired';
-            remainingDays = 0;
-          }
-        }
+    } else if (activeBiz?.created_at) {
+      const start = new Date(activeBiz.created_at).getTime();
+      const daysPassed = Math.floor((Date.now() - start) / (1000 * 60 * 60 * 24));
+      remainingDays = Math.max(0, 15 - daysPassed);
+      if (remainingDays <= 0) {
+        currentPlanName = 'Expired';
       }
+    }
 
-      setDebugInfo({
-        ownerId: user.id,
-        plan: subData?.plan_code || 'NONE',
-        status: subData?.status || 'NONE',
-        expiry: subData?.current_period_end || 'NONE'
-      });
-
-      setPlanName(currentPlanName);
+    setPlanName(currentPlanName);
       setTrialDays(remainingDays);
 
       // 4. Fetch Dashboard Stats
