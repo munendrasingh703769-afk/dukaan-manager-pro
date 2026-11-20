@@ -391,41 +391,42 @@ export default function OwnerDashboard() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-                    <Link href="/sales/today" className="active:scale-95 transition-transform !bg-[#1e1e24] border-0 text-white shadow-md relative overflow-hidden rounded-2xl p-4 block">
-            <div className="flex justify-between items-start mb-2 relative z-10">
-              <p className="text-[11px] font-semibold tracking-wider text-slate-300 uppercase">Today's Sales</p>
-              <span className="text-sm bg-white/10 p-1.5 rounded-lg">📈</span>
-            </div>
-            <p className="text-2xl font-black relative z-10 tracking-tight">₹{todaySales.toLocaleString('en-IN')}</p>
-          </Link>
+            <Link href="/sales/today" className="active:scale-95 transition-transform bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-emerald-500/30 text-white shadow-md relative overflow-hidden rounded-2xl p-4 block">
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-[11px] font-bold tracking-wider text-slate-300 uppercase">Today&apos;s Sales</p>
+                <span className="text-sm bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 p-1.5 rounded-lg">📈</span>
+              </div>
+              <p className="text-2xl font-black text-emerald-400 tracking-tight">₹{todaySales.toLocaleString('en-IN')}</p>
+            </Link>
 
-          <Link href="/customers" className="active:scale-95 transition-transform border border-slate-200 shadow-sm relative overflow-hidden bg-white rounded-2xl p-4 block">
-            <div className="flex justify-between items-start mb-2">
-              <p className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Total Udhaar</p>
-              <span className="text-sm bg-rose-50 text-rose-500 p-1.5 rounded-lg">👥</span>
-            </div>
-            <p className="text-2xl font-black text-rose-500 tracking-tight">₹{totalUdhaar.toLocaleString('en-IN')}</p>
-          </Link>
+            <Link href="/customers" className="active:scale-95 transition-transform bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-rose-500/30 text-white shadow-md relative overflow-hidden rounded-2xl p-4 block">
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-[11px] font-bold tracking-wider text-slate-300 uppercase">Total Udhaar</p>
+                <span className="text-sm bg-rose-500/20 text-rose-300 border border-rose-400/30 p-1.5 rounded-lg">👥</span>
+              </div>
+              <p className="text-2xl font-black text-rose-400 tracking-tight">₹{totalUdhaar.toLocaleString('en-IN')}</p>
+            </Link>
 
-          <Link href="/products" className="active:scale-95 transition-transform border border-slate-200 shadow-sm relative overflow-hidden bg-white rounded-2xl p-4 block">
-            <div className="flex justify-between items-start mb-2">
-              <p className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">Low Stock</p>
-              <span className="text-sm bg-amber-50 text-amber-500 p-1.5 rounded-lg">⚠️</span>
-            </div>
-            <p className="text-2xl font-black text-slate-800 tracking-tight flex items-baseline gap-1">
-              {lowStockCount} <span className="text-xs font-medium text-slate-400">Items</span>
-            </p>
-          </Link>
+            <Link href="/products" className="active:scale-95 transition-transform bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-amber-500/30 text-white shadow-md relative overflow-hidden rounded-2xl p-4 block">
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-[11px] font-bold tracking-wider text-slate-300 uppercase">Low Stock</p>
+                <span className="text-sm bg-amber-500/20 text-amber-300 border border-amber-400/30 p-1.5 rounded-lg">⚠️</span>
+              </div>
+              <p className="text-2xl font-black text-amber-400 tracking-tight flex items-baseline gap-1">
+                {lowStockCount} <span className="text-xs font-medium text-slate-400">Items</span>
+              </p>
+            </Link>
 
-          <Link href="/reports" className="active:scale-95 transition-transform bg-gradient-to-br from-indigo-600 to-violet-600 border-0 text-white shadow-md relative overflow-hidden rounded-2xl p-4 block">
-            <div className="flex justify-between items-start mb-2 relative z-10">
-              <p className="text-[11px] font-semibold tracking-wider text-indigo-100 uppercase">Net Profit</p>
-            </div>
-            <p className="text-2xl font-black relative z-10 tracking-tight">₹{totalProfit.toLocaleString('en-IN')}</p>
-          </Link>
-        </div>
+            <Link href={subDetails?.isExpired ? '/pricing' : '/reports'} className="active:scale-95 transition-transform bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-500/30 text-white shadow-md relative overflow-hidden rounded-2xl p-4 block">
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-[11px] font-bold tracking-wider text-slate-300 uppercase">Net Profit</p>
+                <span className="text-sm bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 p-1.5 rounded-lg">💰</span>
+              </div>
+              <p className="text-2xl font-black text-cyan-400 tracking-tight">₹{totalProfit.toLocaleString('en-IN')}</p>
+            </Link>
+          </div>
 
-        {/* Quick Actions */}
+          {/* Quick Actions */}
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
