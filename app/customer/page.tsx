@@ -1,5 +1,5 @@
-'use client'
-
+'use client';
+import PlanStatusBanner from '@/components/PlanStatusBanner';
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -68,6 +68,7 @@ export default function CustomerSuperAppHome() {
 
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
+      <div className="px-4 pt-3"><PlanStatusBanner roleType="customer" upgradeHref="/pricing" /></div>
       
       {/* 🔵 TOP HEADER */}
       <header className="bg-blue-600 text-white pt-4 pb-6 px-4 rounded-b-3xl relative shadow-md">

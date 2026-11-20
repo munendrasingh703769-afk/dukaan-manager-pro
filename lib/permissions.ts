@@ -1,8 +1,8 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
+import { getSubscriptionDetails } from '@/lib/planLimits'
 
-// Type definition me 'all' aur index signature dono add kar diye hain
 export type Permissions = {
   all?: boolean;
   sales_view?: boolean;
@@ -24,10 +24,10 @@ export type Permissions = {
   reports_view?: boolean;
   settings_view?: boolean;
   settings_edit?: boolean;
+  is_expired?: boolean;
   [key: string]: boolean | undefined;
 }
 
-// Default permissions (owner ke liye sab true)
 export const OWNER_PERMISSIONS: Permissions = {
   all: true,
   sales_view: true,
@@ -49,29 +49,55 @@ export const OWNER_PERMISSIONS: Permissions = {
   reports_view: true,
   settings_view: true,
   settings_edit: true,
+  is_expired: false,
 }
 
-// Function to get user permissions
+export const EXPIRED_LOCKED_PERMISSIONS: Permissions = {
+  all: false,
+  sales_view: true,
+  sales_create: false,
+  sales_edit: false,
+  sales_delete: false,
+  purchase_view: true,
+  purchase_create: false,
+  purchase_edit: false,
+  purchase_delete: false,
+  products_view: true,
+  products_create: false,
+  products_edit: false,
+  products_delete: false,
+  customers_view: true,
+  customers_create: false,
+  customers_edit: false,
+  customers_delete: false,
+  reports_view: false,
+  settings_view: true,
+  settings_edit: false,
+  is_expired: true,
+}
+
 export async function getUserPermissions(businessId: string): Promise<Permissions> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   if (!user) return {}
 
-  // 1. Check if the user is the direct owner of this business
   if (businessId) {
     const { data: biz } = await supabase
       .from('businesses')
       .select('owner_id')
       .eq('id', businessId)
       .single()
-      
+
     if (biz && biz.owner_id === user.id) {
+      const sub = await getSubscriptionDetails(supabase, user.id, 'owner')
+      if (sub.isExpired) {
+        return EXPIRED_LOCKED_PERMISSIONS
+      }
       return OWNER_PERMISSIONS
     }
   }
 
-  // 2. If not owner, check the business_members table for staff permissions
   const { data: member } = await supabase
     .from('business_members')
     .select('role, permissions')
@@ -81,14 +107,17 @@ export async function getUserPermissions(businessId: string): Promise<Permission
 
   if (!member) return {}
 
-  if (member.role === 'owner') return OWNER_PERMISSIONS
+  if (member.role === 'owner') {
+    const sub = await getSubscriptionDetails(supabase, user.id, 'owner')
+    return sub.isExpired ? EXPIRED_LOCKED_PERMISSIONS : OWNER_PERMISSIONS
+  }
 
   return (member.permissions || {}) as Permissions
 }
 
-// Function to check a specific permission
 export function hasPermission(perms: Permissions | null | undefined, key: string): boolean {
   if (!perms) return false;
+  if (perms.is_expired) return false;
   if (perms.all === true) return true;
   return perms[key] === true;
 }

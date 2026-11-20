@@ -1,22 +1,40 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
-const ADMIN_PASSWORD = 'Munnendra@2026'
+const PLAN_OPTIONS = [
+  { code: 'BASIC_1M', label: 'Basic Plan (30 Days)', days: 30, price: 299 },
+  { code: 'STANDARD_1M', label: 'Standard Plan (30 Days)', days: 30, price: 599 },
+  { code: 'PREMIUM_1M', label: 'Premium Plan (30 Days)', days: 30, price: 999 },
+  { code: 'ENTERPRISE_1M', label: 'Enterprise Plan (30 Days)', days: 30, price: 1999 },
+  { code: 'BASIC_1Y', label: 'Basic Plan (365 Days / 1 Year)', days: 365, price: 2999 },
+  { code: 'STANDARD_1Y', label: 'Standard Plan (365 Days / 1 Year)', days: 365, price: 5999 },
+  { code: 'PREMIUM_1Y', label: 'Premium Plan (365 Days / 1 Year)', days: 365, price: 9999 },
+  { code: 'ENTERPRISE_1Y', label: 'Enterprise Plan (365 Days / 1 Year)', days: 365, price: 19999 },
+];
 
-export default function AdminCategoriesPage() {
+export default function AdminMasterPage() {
   const supabase = createClient();
-  
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [password, setPassword] = useState('');
-  
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<'subscriptions' | 'categories'>('subscriptions');
+  const [loading, setLoading] = useState(false);
+
+  // Subscriptions & Businesses State
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [selectedBizId, setSelectedBizId] = useState('');
+  const [selectedPlanCode, setSelectedPlanCode] = useState('PREMIUM_1M');
+  const [activating, setActivating] = useState(false);
+
+  // Categories State
   const [categories, setCategories] = useState<any[]>([]);
   const [subcategories, setSubcategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Form States
   const [newCatName, setNewCatName] = useState('');
   const [newCatIcon, setNewCatIcon] = useState('🛠️');
   const [selectedCatId, setSelectedCatId] = useState('');
@@ -24,12 +42,17 @@ export default function AdminCategoriesPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: cats } = await supabase.from('service_categories').select('*').order('name');
-    if (cats) setCategories(cats);
+    const [bizRes, subRes, catRes, subCatRes] = await Promise.all([
+      supabase.from('businesses').select('id, name, owner_id, phone, city, created_at').order('created_at', { ascending: false }),
+      supabase.from('subscriptions').select('*').order('created_at', { ascending: false }),
+      supabase.from('service_categories').select('*').order('name'),
+      supabase.from('service_subcategories').select('*').order('name'),
+    ]);
 
-    const { data: subs } = await supabase.from('service_subcategories').select('*').order('name');
-    if (subs) setSubcategories(subs);
-    
+    if (bizRes.data) setBusinesses(bizRes.data);
+    if (subRes.data) setSubscriptions(subRes.data);
+    if (catRes.data) setCategories(catRes.data);
+    if (subCatRes.data) setSubcategories(subCatRes.data);
     setLoading(false);
   };
 
@@ -37,14 +60,110 @@ export default function AdminCategoriesPage() {
     if (isLoggedIn) fetchData();
   }, [isLoggedIn]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) setIsLoggedIn(true);
-    else alert("Invalid Password");
+    setAuthLoading(true);
+    try {
+      const res = await fetch('/api/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (res.ok && data.authenticated) {
+        setIsLoggedIn(true);
+      } else {
+        alert(data.error || 'Invalid Admin Password');
+      }
+    } catch {
+      alert('Authentication failed');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const activateSubscription = async (targetBizId: string, targetOwnerId: string | null, planCode: string, existingPendingId?: string) => {
+    const planMeta = PLAN_OPTIONS.find((p) => p.code === planCode) || {
+      code: planCode.toUpperCase(),
+      days: planCode.toUpperCase().includes('1Y') ? 365 : 30,
+      price: 0,
+    };
+
+    const now = new Date();
+    const endDate = new Date(now.getTime() + planMeta.days * 24 * 60 * 60 * 1000);
+
+    // Prevent duplicates: check existing active/pending subscription for this business or owner
+    const existing = subscriptions.find(
+      (s) =>
+        s.id === existingPendingId ||
+        (targetBizId && s.business_id === targetBizId && ['active', 'pending'].includes((s.status || '').toLowerCase())) ||
+        (targetOwnerId && s.owner_id === targetOwnerId && ['active', 'pending'].includes((s.status || '').toLowerCase()))
+    );
+
+    const payload = {
+      business_id: targetBizId || existing?.business_id || null,
+      owner_id: targetOwnerId || existing?.owner_id || null,
+      plan_code: planMeta.code,
+      status: 'active',
+      current_period_start: now.toISOString(),
+      current_period_end: endDate.toISOString(),
+      amount_paid: existing?.amount_paid || planMeta.price,
+      payment_method: existing?.payment_method || 'admin_manual',
+    };
+
+    if (existing) {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update(payload)
+        .eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('subscriptions')
+        .insert([payload]);
+      if (error) throw error;
+    }
+  };
+
+  const handleManualActivate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBizId) return alert('Kripya pehle business select karein');
+    const biz = businesses.find((b) => b.id === selectedBizId);
+    if (!biz) return alert('Business nahi mila');
+
+    setActivating(true);
+    try {
+      await activateSubscription(biz.id, biz.owner_id, selectedPlanCode);
+      alert(`✅ ${biz.name} ke liye ${selectedPlanCode} plan activate ho gaya!`);
+      await fetchData();
+    } catch (err: any) {
+      alert('Activation error: ' + (err.message || 'Failed'));
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  const handleApprovePending = async (sub: any) => {
+    const biz = businesses.find((b) => b.id === sub.business_id || b.owner_id === sub.owner_id);
+    setActivating(true);
+    try {
+      await activateSubscription(
+        sub.business_id || biz?.id || '',
+        sub.owner_id || biz?.owner_id || null,
+        sub.plan_code || 'BASIC_1M',
+        sub.id
+      );
+      alert('✅ Request Approved & Plan Activated!');
+      await fetchData();
+    } catch (err: any) {
+      alert('Approval error: ' + (err.message || 'Failed'));
+    } finally {
+      setActivating(false);
+    }
   };
 
   const handleAddCategory = async () => {
-    if (!newCatName) return alert("Category name required");
+    if (!newCatName) return alert('Category name required');
     const { error } = await supabase.from('service_categories').insert([{ name: newCatName, icon: newCatIcon }]);
     if (!error) {
       setNewCatName('');
@@ -53,11 +172,8 @@ export default function AdminCategoriesPage() {
   };
 
   const handleAddSubcategory = async () => {
-    if (!selectedCatId || !newSubName) return alert("Select a category and enter subcategory name");
-    const { error } = await supabase.from('service_subcategories').insert([{ 
-      category_id: selectedCatId, 
-      name: newSubName 
-    }]);
+    if (!selectedCatId || !newSubName) return alert('Select a category and enter subcategory name');
+    const { error } = await supabase.from('service_subcategories').insert([{ category_id: selectedCatId, name: newSubName }]);
     if (!error) {
       setNewSubName('');
       fetchData();
@@ -66,68 +182,213 @@ export default function AdminCategoriesPage() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <form onSubmit={handleLogin} className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm space-y-4">
-          <h1 className="text-xl font-bold text-center">Admin Login</h1>
-          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 border rounded-xl" />
-          <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Login</button>
+          <h1 className="text-xl font-extrabold text-center text-slate-800">VyapaarSetu Admin Login</h1>
+          <input
+            type="password"
+            required
+            placeholder="Admin Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-3 border rounded-xl outline-none focus:border-indigo-600"
+          />
+          <button
+            type="submit"
+            disabled={authLoading}
+            className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {authLoading ? 'Verifying...' : 'Login'}
+          </button>
         </form>
       </div>
     );
   }
 
+  const pendingSubs = subscriptions.filter((s) => (s.status || '').toLowerCase() === 'pending');
+  const activeSubs = subscriptions.filter((s) => (s.status || '').toLowerCase() === 'active');
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        
-        <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-          <h1 className="text-xl font-bold text-gray-800">Manage Categories</h1>
-          <Link href="/admin" className="text-sm font-bold text-blue-600">← Back to Admin</Link>
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 pb-20">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div className="flex flex-wrap justify-between items-center gap-3 bg-slate-900 text-white p-5 rounded-2xl shadow-md">
+          <div>
+            <h1 className="text-xl font-extrabold">VyapaarSetu Master Admin</h1>
+            <p className="text-xs text-slate-300 mt-0.5">Subscriptions, Manual Plan Activation & Categories</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('subscriptions')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                activeTab === 'subscriptions' ? 'bg-emerald-500 text-slate-950' : 'bg-white/10 text-white'
+              }`}
+            >
+              💎 Subscriptions ({pendingSubs.length} Pending)
+            </button>
+            <button
+              onClick={() => setActiveTab('categories')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                activeTab === 'categories' ? 'bg-emerald-500 text-slate-950' : 'bg-white/10 text-white'
+              }`}
+            >
+              🛠️ Categories
+            </button>
+            <Link href="/owner" className="px-3 py-2 rounded-xl text-xs font-bold bg-white/10 text-slate-200">
+              Owner Panel →
+            </Link>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* ADD CATEGORY */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-            <h2 className="text-lg font-bold border-b pb-2">Add Main Category</h2>
-            <div className="flex gap-2">
-              <input type="text" placeholder="Icon (e.g. ❄️)" value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)} className="w-16 p-3 border rounded-xl text-center" />
-              <input type="text" placeholder="Category Name (e.g. AC Repair)" value={newCatName} onChange={e => setNewCatName(e.target.value)} className="flex-1 p-3 border rounded-xl" />
-            </div>
-            <button onClick={handleAddCategory} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Add Category</button>
-            
-            <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
-              {categories.map(c => (
-                <div key={c.id} className="bg-gray-50 p-2 rounded-lg flex items-center gap-2 text-sm font-medium">
-                  <span>{c.icon}</span> {c.name}
+        {activeTab === 'subscriptions' ? (
+          <div className="space-y-6">
+            {/* Manual Plan Activation Card */}
+            <form onSubmit={handleManualActivate} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+              <h2 className="text-base font-extrabold text-slate-800">⚡ Manual Business Plan Activation</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 block mb-1">Select Business</label>
+                  <select
+                    value={selectedBizId}
+                    onChange={(e) => setSelectedBizId(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl text-sm bg-white"
+                    required
+                  >
+                    <option value="">-- Choose Business ({businesses.length}) --</option>
+                    {businesses.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} {b.phone ? `(${b.phone})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ))}
+                <div>
+                  <label className="text-xs font-bold text-slate-600 block mb-1">Select Plan & Validity</label>
+                  <select
+                    value={selectedPlanCode}
+                    onChange={(e) => setSelectedPlanCode(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl text-sm bg-white"
+                  >
+                    {PLAN_OPTIONS.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.label} — ₹{p.price}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    disabled={activating}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-2.5 px-4 rounded-xl text-sm shadow-sm disabled:opacity-50"
+                  >
+                    {activating ? 'Activating...' : '✓ Activate Plan Now'}
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* Pending Plan Requests */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+              <h2 className="text-base font-extrabold text-slate-800">⏳ Pending Plan Requests ({pendingSubs.length})</h2>
+              {pendingSubs.length === 0 ? (
+                <p className="text-xs text-slate-500">Abhi koi pending request nahi hai.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {pendingSubs.map((sub) => {
+                    const biz = businesses.find((b) => b.id === sub.business_id || b.owner_id === sub.owner_id);
+                    return (
+                      <div key={sub.id} className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/60 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-extrabold text-slate-800">{biz?.name || 'Unknown Business'}</p>
+                          <p className="text-xs font-semibold text-amber-800">
+                            Plan: <span className="uppercase">{sub.plan_code}</span> • Amount: ₹{sub.amount_paid || 0} • {new Date(sub.created_at).toLocaleDateString('en-IN')}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleApprovePending(sub)}
+                          disabled={activating}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold px-4 py-2 rounded-xl shadow-sm"
+                        >
+                          ✓ Approve & Activate
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Active Subscriptions List */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+              <h2 className="text-base font-extrabold text-slate-800">💎 Active Subscriptions ({activeSubs.length})</h2>
+              {loading ? (
+                <p className="text-xs text-slate-500">Loading...</p>
+              ) : activeSubs.length === 0 ? (
+                <p className="text-xs text-slate-500">Koi active subscription nahi mili.</p>
+              ) : (
+                <div className="space-y-2">
+                  {activeSubs.map((sub) => {
+                    const biz = businesses.find((b) => b.id === sub.business_id || b.owner_id === sub.owner_id);
+                    const expDate = sub.current_period_end
+                      ? new Date(sub.current_period_end).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : 'N/A';
+                    return (
+                      <div key={sub.id} className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{biz?.name || sub.business_id || 'Business'}</p>
+                          <p className="text-xs text-slate-600">
+                            Plan: <span className="font-bold text-indigo-700 uppercase">{sub.plan_code}</span> • Valid till: <span className="font-bold">{expDate}</span>
+                          </p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase">
+                          Active
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* ADD SUBCATEGORY */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-            <h2 className="text-lg font-bold border-b pb-2">Add Subcategory</h2>
-            <select value={selectedCatId} onChange={e => setSelectedCatId(e.target.value)} className="w-full p-3 border rounded-xl bg-white">
-              <option value="">Select Main Category</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-            </select>
-            <input type="text" placeholder="Subcategory Name (e.g. AC Gas Filling)" value={newSubName} onChange={e => setNewSubName(e.target.value)} className="w-full p-3 border rounded-xl" />
-            <button onClick={handleAddSubcategory} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold">Add Subcategory</button>
-
-            <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
-              {subcategories.map(s => {
-                const parent = categories.find(c => c.id === s.category_id);
-                return (
-                  <div key={s.id} className="bg-gray-50 p-2 rounded-lg text-sm text-gray-700">
-                    <b>{parent?.name}</b> → {s.name}
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+              <h2 className="text-lg font-bold border-b pb-2">Add Main Category</h2>
+              <div className="flex gap-2">
+                <input type="text" placeholder="Icon (e.g. ⚡)" value={newCatIcon} onChange={(e) => setNewCatIcon(e.target.value)} className="w-16 p-3 border rounded-xl text-center" />
+                <input type="text" placeholder="Category Name (e.g. AC Repair)" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} className="flex-1 p-3 border rounded-xl" />
+              </div>
+              <button onClick={handleAddCategory} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Add Category</button>
+              <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
+                {categories.map((c) => (
+                  <div key={c.id} className="bg-gray-50 p-2 rounded-lg flex items-center gap-2 text-sm font-medium">
+                    <span>{c.icon}</span><span>{c.name}</span>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+              <h2 className="text-lg font-bold border-b pb-2">Add Subcategory</h2>
+              <select value={selectedCatId} onChange={(e) => setSelectedCatId(e.target.value)} className="w-full p-3 border rounded-xl bg-white">
+                <option value="">Select Main Category</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              </select>
+              <input type="text" placeholder="Subcategory Name (e.g. AC Gas Filling)" value={newSubName} onChange={(e) => setNewSubName(e.target.value)} className="w-full p-3 border rounded-xl" />
+              <button onClick={handleAddSubcategory} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold">Add Subcategory</button>
+              <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
+                {subcategories.map((s) => {
+                  const parent = categories.find((c) => c.id === s.category_id);
+                  return (
+                    <div key={s.id} className="bg-gray-50 p-2 rounded-lg text-sm text-gray-700">
+                      <b>{parent?.name}</b> → {s.name}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-
-        </div>
+        )}
       </div>
     </div>
   );

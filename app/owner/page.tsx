@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { getCurrentBusinessId, setCurrentBusinessId } from '@/lib/business';
+import { getSubscriptionDetails, SubscriptionDetails } from '@/lib/planLimits';
 
 type Business = {
   id: string;
@@ -34,6 +35,7 @@ export default function OwnerDashboard() {
   const [isBizDropdownOpen, setIsBizDropdownOpen] = useState(false);
   const [trialDays, setTrialDays] = useState(15);
   const [planName, setPlanName] = useState('Trial');
+  const [subDetails, setSubDetails] = useState<SubscriptionDetails | null>(null);
   const [debugSubData, setDebugSubData] = useState<any>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   
@@ -89,44 +91,13 @@ export default function OwnerDashboard() {
       setCurrentBusiness(activeBiz);
       
       // 3. OWNER-LEVEL SUBSCRIPTION LOGIC
-    const { data: subList, error: subError } = await supabase
-        .from('subscriptions')
-        .select('*')
-      .or(`owner_id.eq.${user.id},business_id.eq.${activeBiz.id}`)
-      .order('created_at', { ascending: false });
-    const subData = subList?.find((s: any) => s.status?.toLowerCase() === 'active') || subList?.[0] || null;
+    const details = await getSubscriptionDetails(supabase, user.id, 'owner');
+    setSubDetails(details);
+    setPlanName(details.planName);
+    setTrialDays(details.remainingDays);
+    setPlanExpiryDate(details.expiryDateFormatted);
 
-      // Save data to state so we can print it on screen
-      setDebugSubData({ subData, subError, userId: user.id, bizId: activeBiz.id });
-
-    let currentPlanName = 'Trial';
-    let remainingDays = 15;
-
-    if (subData && ['active', 'approved', 'paid'].includes((subData.status || '').toLowerCase())) {
-      const codeStr = (subData.plan_code || 'BASIC').toUpperCase();
-      currentPlanName = codeStr;
-      const defaultDays = codeStr.includes('1Y') ? 365 : 30;
-      const rawEnd = subData.current_period_end || subData.expires_at || subData.end_date;
-      let expObj = rawEnd ? new Date(rawEnd) : new Date(Date.now() + defaultDays * 86400000);
-      if (expObj.getTime() <= Date.now()) {
-        const base = subData.updated_at || subData.created_at || new Date().toISOString();
-        expObj = new Date(new Date(base).getTime() + defaultDays * 86400000);
-        if (expObj.getTime() <= Date.now()) {
-          expObj = new Date(Date.now() + defaultDays * 86400000);
-        }
-      }
-      setPlanExpiryDate(expObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }));
-      remainingDays = Math.max(1, Math.ceil((expObj.getTime() - Date.now()) / 86400000));
-    } else if (activeBiz?.created_at) {
-      const daysPassed = Math.floor((Date.now() - new Date(activeBiz.created_at).getTime()) / 86400000);
-      remainingDays = Math.max(0, 15 - daysPassed);
-      if (remainingDays <= 0) currentPlanName = 'Expired';
-    }
-
-    setPlanName(currentPlanName);
-      setTrialDays(remainingDays);
-
-      // 4. Fetch Dashboard Stats
+    // 4. Fetch Dashboard Stats
       const [custRes, prodRes, salesRes] = await Promise.all([
         supabase.from('customers').select('id, current_balance').eq('business_id', activeBiz.id),
         supabase.from('products').select('*').eq('business_id', activeBiz.id),
@@ -291,78 +262,118 @@ export default function OwnerDashboard() {
         )}
 
         {/* Subscription / Trial Banner */}
-          <div className={`rounded-2xl p-4 shadow-md relative overflow-hidden border transition-all ${
-            planName === 'Expired'
-              ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200'
-              : planName === 'Trial'
-              ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200'
-              : 'bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white border-indigo-500/30'
-          }`}>
-            <div className="relative z-10 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${
-                  planName === 'Expired'
-                    ? 'bg-red-100 text-red-600'
-                    : planName === 'Trial'
-                    ? 'bg-emerald-100 text-emerald-600'
-                    : 'bg-indigo-500/20 border border-indigo-400/30 text-amber-300'
-                }`}>
-                  {planName === 'Trial' || planName === 'Expired' ? '👑' : '💎'}
+          {subDetails && (
+            <div className={`rounded-2xl p-4 shadow-md border transition-all ${
+              subDetails.alertLevel === 'expired'
+                ? 'bg-red-50 border-red-300 text-red-950'
+                : subDetails.alertLevel === 'critical' || subDetails.alertLevel === 'urgent' || subDetails.alertLevel === 'red'
+                ? 'bg-rose-50 border-rose-300 text-rose-950'
+                : subDetails.isTrial
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                : 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border-indigo-500/30 text-white'
+            }`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${
+                    subDetails.isExpired
+                      ? 'bg-red-100 text-red-600'
+                      : subDetails.isTrial
+                      ? 'bg-emerald-100 text-emerald-600'
+                      : 'bg-indigo-500/20 border border-indigo-400/30 text-amber-300'
+                  }`}>
+                    {subDetails.isExpired ? '🔒' : subDetails.isTrial ? '👑' : '💎'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-extrabold tracking-tight">
+                        {subDetails.planName}
+                      </h3>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                        subDetails.alertLevel === 'expired'
+                          ? 'bg-red-600 text-white'
+                          : subDetails.alertLevel === 'critical' || subDetails.alertLevel === 'urgent' || subDetails.alertLevel === 'red'
+                          ? 'bg-rose-600 text-white'
+                          : subDetails.isTrial
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-emerald-500 text-slate-950'
+                      }`}>
+                        Status: {subDetails.status}
+                      </span>
+                    </div>
+                    <p className={`text-[11px] font-semibold mt-0.5 ${
+                      subDetails.isExpired || subDetails.isTrial || subDetails.alertLevel !== 'green'
+                        ? 'opacity-80'
+                        : 'text-indigo-200'
+                    }`}>
+                      Total Validity: {subDetails.totalValidityDays} Days • {subDetails.maxWorkers} Workers • {subDetails.maxBusinesses} Business
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/pricing"
+                  className={`px-3.5 py-2 rounded-xl text-xs font-extrabold shadow-sm shrink-0 active:scale-95 transition-all ${
+                    subDetails.isExpired
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : subDetails.isTrial
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      : 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950'
+                  }`}
+                >
+                  {subDetails.isExpired ? 'Renew Now →' : 'Upgrade'}
+                </Link>
+              </div>
+
+              {/* Start Date, Expiry Date & Remaining Grid */}
+              <div className={`mt-3.5 pt-3 border-t grid grid-cols-3 gap-2 text-left ${
+                subDetails.isExpired || subDetails.isTrial || subDetails.alertLevel !== 'green'
+                  ? 'border-black/10'
+                  : 'border-white/10'
+              }`}>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider opacity-70 font-bold">Start Date</p>
+                  <p className="text-xs font-extrabold mt-0.5">{subDetails.startDateFormatted}</p>
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className={`text-sm font-extrabold tracking-wide ${
-                      planName === 'Expired'
-                        ? 'text-red-800'
-                        : planName === 'Trial'
-                        ? 'text-emerald-800'
-                        : 'text-white'
-                    }`}>
-                      {planName === 'Trial'
-                        ?   'Free Trial'
-                        : planName === 'Expired'
-                        ? 'Plan Expired'
-                        : `${planName.replace('_1M', '').replace('_1Y', '')} Plan`}
-                    </h3>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                      planName === 'Expired' || trialDays <= 3
-                        ? 'bg-red-500 text-white'
-                        : planName === 'Trial'
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'
-                    }`}>
-                      {trialDays > 0 ? `⏳ ${trialDays} Days Left` : 'Expired'}
-                    </span>
-                  </div>
-                  <p className={`text-[11px] font-medium mt-1 ${
-                    planName === 'Expired'
-                      ? 'text-red-600'
-                      : planName === 'Trial'
-                      ? 'text-emerald-700'
-                      : 'text-slate-300'
+                  <p className="text-[10px] uppercase tracking-wider opacity-70 font-bold">Expiry Date</p>
+                  <p className="text-xs font-extrabold mt-0.5">{subDetails.expiryDateFormatted}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider opacity-70 font-bold">Remaining</p>
+                  <p className={`text-xs font-extrabold mt-0.5 ${
+                    subDetails.isExpired ? 'text-red-600' : ''
                   }`}>
-                    {planName === 'Trial'
-                      ? (trialDays > 0 ? `Trial ends in ${trialDays} days • Upgrade anytime` : 'Upgrade to continue using features')
-                      : planName === 'Expired'
-                      ? 'Renew plan to unlock all features'
-                      : `${planExpiryDate ? `Valid till ${planExpiryDate} • ` : ''}Active Plan`}
+                    {subDetails.isExpired
+                      ? '0 Days'
+                      : subDetails.remainingMonths > 0
+                      ? `${subDetails.remainingMonths}M ${subDetails.remainingDays % 30}D (${subDetails.remainingDays}d)`
+                      : `${subDetails.remainingDays} Days`}
                   </p>
                 </div>
               </div>
-              <Link
-                href="/pricing"
-                className={`relative z-10 px-3.5 py-2 rounded-xl text-xs font-extrabold shadow-sm shrink-0 active:scale-95 transition-all ${
-                  planName === 'Expired'
-                    ? 'bg-red-600 text-white hover:bg-red-700'
-                    : planName === 'Trial'
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                    : 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 hover:opacity-95'
-                }`}
-              >
-                {planName === 'Trial' || planName === 'Expired' ? 'Upgrade →' : 'Upgrade'}
-              </Link>
+
+              {/* Dynamic Expiry Alerts */}
+              {subDetails.alertLevel === 'red' && (
+                <div className="mt-3 px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold">
+                  ⚠️ Red Alert: 5 days remaining! Plan jaldi renew karein.
+                </div>
+              )}
+              {subDetails.alertLevel === 'urgent' && (
+                <div className="mt-3 px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold">
+                  🚨 Urgent Warning: Sirf {subDetails.remainingDays} days bache hain!
+                </div>
+              )}
+              {subDetails.alertLevel === 'critical' && (
+                <div className="mt-3 px-3 py-2 rounded-xl bg-red-700 text-white text-xs font-bold animate-pulse">
+                  🔥 Critical Warning: Aaj aakhiri din (1 day remaining) hai! Kal features lock ho jayenge.
+                </div>
+              )}
+              {subDetails.alertLevel === 'expired' && (
+                <div className="mt-3 px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-bold">
+                  🔒 Plan Expired: Paid features lock kar diye gaye hain (aapka data safe hai). Unlock karne ke liye Renew karein.
+                </div>
+              )}
             </div>
-          </div>
+          )}
           {/* Business Overview */}
         <div className="flex items-center justify-between mt-6 mb-3 px-1">
           <h2 className="text-lg font-black text-slate-800 tracking-tight">Business Overview</h2>
@@ -411,7 +422,7 @@ export default function OwnerDashboard() {
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Link href="/sales/new" className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm active:scale-95 transition-transform">
+            <Link href={subDetails?.isExpired ? "/pricing" : "/sales/new"} className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm active:scale-95 transition-transform">
               <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">🛒</div>
               <p className="text-sm font-bold text-slate-800">New Sale</p>
             </Link>
@@ -419,11 +430,11 @@ export default function OwnerDashboard() {
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg">📦</div>
               <p className="text-sm font-bold text-slate-800">Product & Stock</p>
             </Link>
-            <Link href="/products/new" className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm active:scale-95 transition-transform">
+            <Link href={subDetails?.isExpired ? "/pricing" : "/products/new"} className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm active:scale-95 transition-transform">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">🛍️</div>
               <p className="text-sm font-bold text-slate-800">Add Product</p>
             </Link>
-            <Link href="/customers/new" className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm active:scale-95 transition-transform">
+            <Link href={subDetails?.isExpired ? "/pricing" : "/customers/new"} className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm active:scale-95 transition-transform">
               <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-lg">👤</div>
               <p className="text-sm font-bold text-slate-800">Add Customer</p>
             </Link>
@@ -435,12 +446,12 @@ export default function OwnerDashboard() {
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">Business Modules</h2>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { name: 'Purchases', icon: '🛍️', link: '/purchases', color: 'bg-pink-50 text-pink-600' },
+              { name: 'Purchases', icon: '🛍️', link: subDetails?.isExpired ? '/pricing' : '/purchases', color: 'bg-pink-50 text-pink-600' },
               { name: 'Customers', icon: '👥', link: '/customers', color: 'bg-blue-50 text-blue-600' },
               { name: 'Suppliers', icon: '🚚', link: '/suppliers', color: 'bg-orange-50 text-orange-600' },
               { name: 'Udhaar & Pay', icon: '💰', link: '/payments', color: 'bg-yellow-50 text-yellow-600' },
               { name: 'Expenses', icon: '💵', link: '/expenses', color: 'bg-green-50 text-green-600' },
-              { name: 'Reports & GST', icon: '📊', link: '/reports', color: 'bg-teal-50 text-teal-600' },
+              { name: 'Reports & GST', icon: '📊', link: subDetails?.isExpired ? '/pricing' : '/reports', color: 'bg-teal-50 text-teal-600' },
               { name: 'Staff & Perms', icon: '🛡️', link: '/settings/workers', color: 'bg-cyan-50 text-cyan-600' },
             ].map(module => (
               <Link key={module.name} href={module.link} className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-2 shadow-sm active:scale-95 transition-transform">
