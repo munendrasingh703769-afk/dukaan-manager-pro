@@ -80,14 +80,17 @@ export default function LoginPage() {
               <label className="text-xs font-bold text-slate-700">Password</label>
               <Link href="/forgot-password" className="text-xs text-blue-600 font-bold hover:underline">Forgot?</Link>
             </div>
-            <input 
+          <div className="relative mt-1">
+          <input
               required 
-              type="password" 
+            type={showPassword ? "text" : "password"}
               value={password} 
               onChange={e => setPassword(e.target.value)} 
               className="w-full mt-1 p-3 border rounded-xl text-sm focus:border-emerald-500 outline-none" 
               placeholder="••••••••" 
-            />
+          />
+          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded">{showPassword ? "Hide" : "Show"}</button>
+          </div>
           </div>
 
           <button 
