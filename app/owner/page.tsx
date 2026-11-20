@@ -103,7 +103,9 @@ export default function OwnerDashboard() {
       let remainingDays = 0;
 
       if (subData && subData.status?.toLowerCase() === 'active') {
-        const expiryDate = new Date(subData.current_period_end).getTime();
+        const expObj = new Date(subData.current_period_end);
+      setPlanExpiryDate(expObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }));
+      const expiryDate = expObj.getTime();
         const now = new Date().getTime();
         const diff = expiryDate - now;
         
