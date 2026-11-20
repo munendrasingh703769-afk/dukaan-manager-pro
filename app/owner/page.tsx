@@ -210,7 +210,7 @@ export default function OwnerDashboard() {
   if (loading) {
     
 
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
   }
   const todayDate = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
