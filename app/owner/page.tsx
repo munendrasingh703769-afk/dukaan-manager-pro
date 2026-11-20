@@ -102,28 +102,25 @@ export default function OwnerDashboard() {
     let currentPlanName = 'Trial';
     let remainingDays = 15;
 
-    if (subData && ['active', 'approved', 'paid'].includes(subData.status?.toLowerCase())) {
+    if (subData && ['active', 'approved', 'paid'].includes((subData.status || '').toLowerCase())) {
+      const codeStr = (subData.plan_code || 'BASIC').toUpperCase();
+      currentPlanName = codeStr;
+      const defaultDays = codeStr.includes('1Y') ? 365 : 30;
       const rawEnd = subData.current_period_end || subData.expires_at || subData.end_date;
-      const startBase = subData.current_period_start || subData.updated_at || subData.created_at || new Date().toISOString();
-      const defaultDays = (subData.plan_code || '').toUpperCase().includes('1Y') ? 365 : 30;
-      const expObj = rawEnd ? new Date(rawEnd) : new Date(new Date(startBase).getTime() + defaultDays * 24 * 60 * 60 * 1000);
+      let expObj = rawEnd ? new Date(rawEnd) : new Date(Date.now() + defaultDays * 86400000);
+      if (expObj.getTime() <= Date.now()) {
+        const base = subData.updated_at || subData.created_at || new Date().toISOString();
+        expObj = new Date(new Date(base).getTime() + defaultDays * 86400000);
+        if (expObj.getTime() <= Date.now()) {
+          expObj = new Date(Date.now() + defaultDays * 86400000);
+        }
+      }
       setPlanExpiryDate(expObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }));
-      const diff = expObj.getTime() - Date.now();
-
-      if (diff > 0) {
-        remainingDays = Math.ceil(diff / (1000 * 60 * 60 * 24));
-        currentPlanName = (subData.plan_code || 'BASIC').toUpperCase();
-      } else {
-        currentPlanName = 'Expired';
-        remainingDays = 0;
-      }
+      remainingDays = Math.max(1, Math.ceil((expObj.getTime() - Date.now()) / 86400000));
     } else if (activeBiz?.created_at) {
-      const start = new Date(activeBiz.created_at).getTime();
-      const daysPassed = Math.floor((Date.now() - start) / (1000 * 60 * 60 * 24));
+      const daysPassed = Math.floor((Date.now() - new Date(activeBiz.created_at).getTime()) / 86400000);
       remainingDays = Math.max(0, 15 - daysPassed);
-      if (remainingDays <= 0) {
-        currentPlanName = 'Expired';
-      }
+      if (remainingDays <= 0) currentPlanName = 'Expired';
     }
 
     setPlanName(currentPlanName);
