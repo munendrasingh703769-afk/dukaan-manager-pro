@@ -336,7 +336,7 @@ export default function OwnerDashboard() {
                         : 'text-white'
                     }`}>
                       {planName === 'Trial'
-                        ?  'Free Trial'
+                        ?   `Trial [st:${debugSubData?.subData?.status}|pl:${debugSubData?.subData?.plan_code}]`
                         : planName === 'Expired'
                         ? 'Plan Expired'
                         : `${planName.replace('_1M', '').replace('_1Y', '')} Plan`}
