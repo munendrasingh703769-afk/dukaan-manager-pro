@@ -119,11 +119,6 @@ export default function OwnerDashboard() {
         currentPlanName = 'Expired';
         remainingDays = 0;
       }
-        } else {
-          currentPlanName = 'Expired';
-          remainingDays = 0;
-        }
-    }
       } else {
         if (activeBiz.created_at) {
           const start = new Date(activeBiz.created_at).getTime();
