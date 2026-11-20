@@ -208,15 +208,6 @@ export default function OwnerDashboard() {
   }
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      {/* 🔥 FORCE DEBUG BOX 🔥 */}
-      <div style={{ backgroundColor: '#dc2626', color: 'white', padding: '10px', fontSize: '11px', zIndex: 9999, position: 'relative', wordBreak: 'break-all' }}>
-        <p><strong>State:</strong> {planName} ({trialDays} days)</p>
-        <p><strong>User ID:</strong> {debugSubData?.userId || 'Loading...'}</p>
-        <p><strong>Biz ID:</strong> {debugSubData?.bizId || 'Loading...'}</p>
-        <p><strong>SubData:</strong> {JSON.stringify(debugSubData?.subData)}</p>
-        <p><strong>Error:</strong> {JSON.stringify(debugSubData?.subError)}</p>
-      </div>
     
 
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
