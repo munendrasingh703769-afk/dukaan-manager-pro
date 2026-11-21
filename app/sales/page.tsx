@@ -704,173 +704,81 @@ export default function SalesPage() {
       </div>
 
       <div className="mt-6 rounded-lg border p-4">
-        <h2 className="text-lg font-semibold">Sale Items</h2>
-
-        <div className="mt-3 grid grid-cols-6 gap-2 text-sm font-semibold">
-          <div>Product</div>
-          <div>Unit</div>
-          <div>Qty</div>
-          <div>Price</div>
-          <div>GST%</div>
-          <div>Action</div>
-        </div>
-
-        <div className="mt-2 space-y-2">
-          {items.map((item, index) => (
-            <div key={index} className="grid grid-cols-6 gap-2">
-              <select
-                value={item.product_id || '__custom__'}
-                onChange={(e) => {
-                  const val = e.target.value
-                  if (val === '__custom__') {
-                    setItems((current) =>
-                      current.map((it, i) =>
-                        i === index
-                          ? { ...it, product_id: '', product_name: '' }
-                          : it
-                      )
-                    )
-                    return
-                  }
-                  if (val === '__service__') {
-                    setItems((current) =>
-                      current.map((it, i) =>
-                        i === index
-                          ? {
-                              ...it,
-                              product_id: '',
-                              product_name: 'Service',
-                              unit: 'SERVICE',
-                              price: 0,
-                              gst_percent: 18,
-                              hsn_code: '9987',
-                            }
-                          : it
-                      )
-                    )
-                    return
-                  }
-                  const prod = products.find((p) => p.id === val)
-                  if (prod) {
-  setItems((current) =>
-    current.map((it, i) =>
-      i === index
-        ? {
-            ...it,
-            product_id: (prod as any).id,
-            product_name: (prod as any).name,
-            hsn_code: (prod as any).hsn_code || '',
-            unit: (prod as any).unit || 'PCS',
-            price: (prod as any).selling_price || 0,
-            gst_percent: (prod as any).gst_percent || 0,
-          }
-        : it
-    )
-  );
-}
-
-                }}
-                className="rounded border p-2"
-              >
-                <option value="">Select Product</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-                <option value="__service__">🔧 Service (Repair / Labour)</option>
-                <option value="__custom__">➕ Custom Product</option>
-              </select>
-
-              <input
-                type="text"
-                value={item.unit}
-                onChange={(e) => updateItem(index, 'unit', e.target.value.toUpperCase())}
-                className="rounded border p-2"
-                placeholder="Unit"
-                list={`unit-sale-${index}`}
-              />
-              <datalist id={`unit-sale-${index}`}>
-                <option value="PCS" />
-                <option value="KG" />
-                <option value="GM" />
-                <option value="LTR" />
-                <option value="ML" />
-                <option value="BOX" />
-                <option value="PKT" />
-                <option value="DOZEN" />
-                <option value="SQFT" />
-                <option value="SQM" />
-                <option value="MTR" />
-                <option value="CM" />
-                <option value="MM" />
-                <option value="FT" />
-                <option value="INCH" />
-                <option value="BAG" />
-                <option value="SET" />
-                <option value="PAIR" />
-                <option value="ROLL" />
-                <option value="BUNDLE" />
-                <option value="NOS" />
-              </datalist>
-
-              <input
-                type="number"
-                min="0"
-                value={item.quantity === 0 ? '' : item.quantity}
-                onChange={(e) =>
-                  updateItem(
-                    index,
-                    'quantity',
-                    e.target.value === '' ? 0 : Number(e.target.value)
-                  )
-                }
-                className="rounded border p-2"
-                placeholder="Qty"
-              />
-
-              <input
-                type="number"
-                min="0"
-                value={item.price === 0 ? '' : item.price}
-                onChange={(e) =>
-                  updateItem(
-                    index,
-                    'price',
-                    e.target.value === '' ? 0 : Number(e.target.value)
-                  )
-                }
-                className="rounded border p-2"
-                placeholder="Price"
-              />
-
-              <input
-                type="number"
-                min="0"
-                value={item.gst_percent === 0 ? '' : item.gst_percent}
-                onChange={(e) =>
-                  updateItem(
-                    index,
-                    'gst_percent',
-                    e.target.value === '' ? 0 : Number(e.target.value)
-                  )
-                }
-                className="rounded border p-2"
-                placeholder="GST%"
-              />
-
-              <button
-                type="button"
-                onClick={() => removeItem(index)}
-                className="rounded bg-red-600 px-2 py-2 text-white text-sm"
-              >
-                Remove
-              </button>
+        <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-slate-800">Sale Items</h2>
+              <span className="text-xs font-medium text-slate-500">{items.length} item(s)</span>
             </div>
-          ))}
-        </div>
-
-        <button
+            <div className="space-y-4">
+              {items.map((item, index) => {
+                const lineTotal = Number(item.quantity || 0) * Number(item.price || 0) * (1 + Number(item.gst_percent || 0) / 100);
+                const isCustom = !item.product_id;
+                return (
+                  <div key={index} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                      <span className="text-xs font-bold uppercase text-indigo-600">Item #{index + 1}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-slate-700">₹{lineTotal.toFixed(2)}</span>
+                        <button type="button" onClick={() => removeItem(index)} className="rounded-lg bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">Remove</button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Select Product / Service</label>
+                      <select
+                        value={item.product_id || "__custom__"}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "__custom__") {
+                            setItems((c) => c.map((it, i) => i === index ? { ...it, product_id: "", product_name: "" } : it));
+                            return;
+                          }
+                          if (val === "__service__") {
+                            setItems((c) => c.map((it, i) => i === index ? { ...it, product_id: "", product_name: "Service", unit: "SERVICE", price: 0, gst_percent: 18, hsn_code: "9987" } : it));
+                            return;
+                          }
+                          const prod = products.find((p) => p.id === val);
+                          if (prod) {
+                            setItems((c) => c.map((it, i) => i === index ? { ...it, product_id: (prod as any).id, product_name: (prod as any).name, hsn_code: (prod as any).hsn_code || "", unit: (prod as any).unit || "PCS", price: (prod as any).selling_price || 0, gst_percent: (prod as any).gst_percent || 0 } : it));
+                          }
+                        }}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800"
+                      >
+                        <option value="">-- Choose Saved Product --</option>
+                        {products.map((p: any) => (
+                          <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock_qty ?? 0} {p.unit || "PCS"})</option>
+                        ))}
+                        <option value="__service__">🔧 Service (Repair / Labour)</option>
+                        <option value="__custom__">➕ Custom Product (Type Name)</option>
+                      </select>
+                    </div>
+                    {isCustom && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Item Name</label>
+                        <input type="text" value={item.product_name} onChange={(e) => updateItem(index, "product_name", e.target.value)} placeholder="यहाँ आइटम का नाम लिखें..." className="w-full rounded-lg border border-indigo-300 bg-white px-3 py-2.5 text-sm text-slate-800" />
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Quantity (Qty)</label>
+                        <input type="number" min="0" value={item.quantity === 0 ? "" : item.quantity} onChange={(e) => updateItem(index, "quantity", e.target.value === "" ? 0 : Number(e.target.value))} placeholder="0" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Price (₹)</label>
+                        <input type="number" min="0" value={item.price === 0 ? "" : item.price} onChange={(e) => updateItem(index, "price", e.target.value === "" ? 0 : Number(e.target.value))} placeholder="0.00" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Unit</label>
+                        <input type="text" value={item.unit} onChange={(e) => updateItem(index, "unit", e.target.value.toUpperCase())} placeholder="PCS" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">GST %</label>
+                        <input type="number" min="0" value={item.gst_percent === 0 ? "" : item.gst_percent} onChange={(e) => updateItem(index, "gst_percent", e.target.value === "" ? 0 : Number(e.target.value))} placeholder="0" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <button
           type="button"
           onClick={addItem}
           className="mt-4 rounded bg-blue-600 px-4 py-2 text-white"
