@@ -77,7 +77,7 @@ export default function CustomerSuperAppHome() {
 
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
-      <div className="px-4 pt-3"><PlanStatusBanner roleType="customer" upgradeHref="/pricing" /></div>
+      
       
       {/* 🔵 TOP HEADER */}
       <header className="bg-blue-600 text-white pt-4 pb-6 px-4 rounded-b-3xl relative shadow-md">
@@ -86,7 +86,7 @@ export default function CustomerSuperAppHome() {
             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-blue-600 text-xl font-black">🏪</div>
             <div>
               <h1 className="text-lg font-black leading-tight tracking-wide">VyapaarSetu</h1>
-              <p className="text-blue-100 text-[10px]">Smart Dukaan, Smart Aapke Liye</p>
+              <p className="text-blue-100 text-[10px]">India's All-in-One Super App</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -113,6 +113,7 @@ export default function CustomerSuperAppHome() {
           <button type="button" className="text-blue-600 text-xl pr-2">📷</button>
         </form>
       </header>
+      <div className="px-3 pt-3 max-w-2xl mx-auto"><PlanStatusBanner roleType="customer" upgradeHref="/pricing" /></div>
 
       <div className="px-3 space-y-5 mt-4 max-w-2xl mx-auto">
         
@@ -121,7 +122,7 @@ export default function CustomerSuperAppHome() {
           <div className="bg-gradient-to-r from-blue-100 to-blue-200 rounded-2xl p-5 relative overflow-hidden flex items-center shadow-sm">
             <div className="relative z-10 w-3/5">
               <h2 className="text-xl font-black text-blue-900 leading-tight">Sab Kuch Ek Hi App Mein</h2>
-              <p className="text-sm text-blue-800 font-medium mt-1">Dukaan Manage Karein,<br/>Aur Bhi Aasaan Tarike Se!</p>
+              <p className="text-sm text-blue-800 font-medium mt-1">Shopping, Local Services, Rides &amp;<br/>Instant Finance — Sab Kuch Yahan!</p>
               <button className="bg-blue-900 text-white text-xs font-bold px-4 py-2 rounded-lg mt-3 shadow-md flex items-center gap-1">
                 Explore Now →
               </button>
@@ -135,6 +136,22 @@ export default function CustomerSuperAppHome() {
         {/* ⚡ QUICK ACTIONS */}
         <section>
           <div className="grid grid-cols-4 gap-y-4 gap-x-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+            <Link href="/customer/shop" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl">🛒</div>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Buy<br/>Products</span>
+            </Link>
+            <Link href="/customer/explore" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+              <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-2xl">🛠️</div>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Book<br/>Services</span>
+            </Link>
+            <Link href="/customer/request-quote" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+              <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-2xl">💰</div>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Business<br/>Loan</span>
+            </Link>
+            <Link href="/customer/rides" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+              <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-2xl">🚖</div>
+              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Book<br/>Rides</span>
+            </Link>
             <Link href="/customer/shop" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
               <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🛒</div>
               <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Buy<br/>Products</span>
