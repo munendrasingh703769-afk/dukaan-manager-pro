@@ -57,9 +57,44 @@ export default function ProviderInventoryPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [activeId]);
+  useEffect(() => { setProductImages([]);
+      fetchData(); }, [activeId]);
 
   // --- ADD PRODUCT ---
+  const [productImages, setProductImages] = useState<string[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (productImages.length + files.length > 5) {
+      alert("आप अधिकतम 5 फोटो ही अपलोड कर सकते हैं!");
+      return;
+    }
+    setUploadingPhotos(true);
+    try {
+      const uploadedUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const ext = file.name.split(".").pop() || "jpg";
+        const fileName = `products/${activeId || "item"}-${Date.now()}-${i}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("business-assets")
+          .upload(fileName, file);
+        if (upErr) {
+          alert("Photo upload error: " + upErr.message);
+          continue;
+        }
+        const { data } = supabase.storage.from("business-assets").getPublicUrl(fileName);
+        if (data?.publicUrl) uploadedUrls.push(data.publicUrl);
+      }
+      setProductImages((prev) => [...prev, ...uploadedUrls].slice(0, 5));
+    } finally {
+      setUploadingPhotos(false);
+      e.target.value = "";
+    }
+  };
+
   const handleAddProduct = async () => {
     if (!newProduct.name || !newProduct.selling_price) return alert("Name & Selling Price required");
     if (!activeId) return alert("Business ID missing");
@@ -72,7 +107,9 @@ export default function ProviderInventoryPage() {
       selling_price: Number(newProduct.selling_price),
       stock: Number(newProduct.stock) || 0,
       tax_percentage: Number(newProduct.tax_percentage),
-      unit: 'pcs'
+      unit: 'pcs',
+      image_url: productImages[0] || null,
+      images: productImages
     }]);
 
     if (!error) {
@@ -178,6 +215,42 @@ export default function ProviderInventoryPage() {
                     <option value={28}>28%</option>
                   </select>
                 </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                Product Photos (Max 5 Photos)
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {productImages.map((url, idx) => (
+                  <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setProductImages((prev) => prev.filter((_, i) => i !== idx))}
+                      className="absolute top-0.5 right-0.5 bg-red-600 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center font-bold"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {productImages.length < 5 && (
+                  <label className="w-16 h-16 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100/50 transition">
+                    <span className="text-lg text-blue-600 font-bold">+</span>
+                    <span className="text-[9px] font-semibold text-blue-600">
+                      {uploadingPhotos ? "..." : `${productImages.length}/5`}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={uploadingPhotos}
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
             </div>
 

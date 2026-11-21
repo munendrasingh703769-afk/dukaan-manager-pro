@@ -20,6 +20,15 @@ export default function CustomerSuperAppHome() {
 
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
+  const [zoomData, setZoomData] = useState<{ images: string[]; index: number; title: string } | null>(null);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [slides, setSlides] = useState<Record<string, number>>({});
+  const getPhotos = (p: any): string[] => {
+    const a = Array.isArray(p?.images) ? p.images.filter((x: any) => typeof x === "string" && x) : [];
+    if (p?.image_url && !a.includes(p.image_url)) a.unshift(p.image_url);
+    return a;
+  };
+  const openZoom = (images: string[], index: number, title: string) => { setZoomScale(1); setZoomData({ images, index, title }); };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,7 +53,7 @@ export default function CustomerSuperAppHome() {
         .select(`*, businesses!inner(name)`)
         .gt('stock', 0)
         .order('created_at', { ascending: false })
-        .limit(4);
+        .limit(8);
       if (prodData) setTopProducts(prodData);
     };
     
@@ -248,8 +257,6 @@ export default function CustomerSuperAppHome() {
           </div>
         </section>
 
-      </div>
-
       {/* 📱 BOTTOM NAVIGATION */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-5 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
         <Link href="/customer" className="flex flex-col items-center gap-1 text-blue-600">
@@ -299,6 +306,103 @@ export default function CustomerSuperAppHome() {
           )}
         </div>
       )}
-    </main>
-  );
+{/* SHOP BY STORE (Blinkit Style) */}
+        <section>
+          <div className="flex justify-between mb-2 px-1">
+            <h2 className="text-base font-black text-gray-800">Shop by Store</h2>
+            <Link href="/customer/shop" className="text-xs font-bold text-blue-600">View All ›</Link>
+          </div>
+          <div className="grid grid-cols-4 gap-2 bg-white p-3 rounded-2xl border border-gray-100">
+            {categories.map((cat) => (
+              <Link href={`/customer/shop?cat=${cat.name}`} key={cat.id} className="flex flex-col items-center gap-1">
+                <div className="w-14 h-14 bg-blue-50/70 rounded-2xl flex items-center justify-center overflow-hidden">
+                  {cat.image_url ? <img src={cat.image_url} alt={cat.name} className="w-full h-full object-cover" /> : <span className="text-2xl">{cat.icon || "📦"}</span>}
+                </div>
+                <span className="text-[10px] font-bold text-gray-700 text-center line-clamp-1">{cat.name}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* NEW IN STORE */}
+        {topProducts.length > 0 && (
+          <section>
+            <h2 className="text-base font-black text-gray-800 mb-2 px-1">New in Store</h2>
+            <div className="grid grid-cols-3 gap-2">
+              {topProducts.slice(0, 6).map((prod) => {
+                const ph = getPhotos(prod);
+                return (
+                  <div key={prod.id} onClick={() => ph.length > 0 && openZoom(ph, 0, prod.name)} className="bg-sky-50/70 rounded-2xl p-2 border border-sky-100 flex flex-col items-center cursor-pointer">
+                    <span className="text-[10px] font-bold text-gray-800 line-clamp-1 mb-1">{prod.name}</span>
+                    <div className="w-full h-16 rounded-xl bg-white overflow-hidden flex items-center justify-center">
+                      {ph.length > 0 ? <img src={ph} alt={prod.name} className="w-full h-full object-cover" /> : <span className="text-xl font-black text-gray-300">{prod.name.charAt(0)}</span>}
+                    </div>
+                    <span className="text-[10px] font-black text-blue-700 mt-1">₹{prod.selling_price}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* RECOMMENDED FOR YOU (With Multi-Photo Slider & Tap-to-Zoom) */}
+        <section>
+          <div className="flex justify-between mb-2 px-1">
+            <h2 className="text-base font-black text-gray-800">Recommended for You</h2>
+            <Link href="/customer/shop" className="text-xs font-bold text-blue-600">View All ›</Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-3 no-scrollbar">
+            {topProducts.map((prod) => {
+              const ph = getPhotos(prod);
+              const cur = slides[prod.id] || 0;
+              return (
+                <div key={prod.id} className="min-w-[155px] w-[155px] bg-white rounded-2xl border border-gray-100 p-2.5 flex flex-col justify-between">
+                  <div>
+                    <div className="h-28 bg-gray-50 rounded-xl mb-2 relative overflow-hidden">
+                      {ph.length > 0 ? (
+                        <>
+                          <div onScroll={(e) => { const idx = Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth); if (idx !== cur) setSlides((p) => ({ ...p, [prod.id]: idx })); }} className="flex w-full h-full overflow-x-auto snap-x snap-mandatory no-scrollbar">
+                            {ph.map((src, i) => <img key={i} src={src} alt={prod.name} onClick={() => openZoom(ph, i, prod.name)} className="w-full h-full object-cover shrink-0 snap-center cursor-zoom-in" />)}
+                          </div>
+                          {ph.length > 1 && <span className="absolute top-1 right-1 bg-black/65 text-white text-[9px] px-1.5 rounded-full">{cur + 1}/{ph.length}</span>}
+                        </>
+                      ) : <div className="w-full h-full flex items-center justify-center text-2xl font-black text-gray-300">{prod.name.charAt(0)}</div>}
+                    </div>
+                    <h4 className="font-bold text-gray-800 text-xs line-clamp-1">{prod.name}</h4>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-sm font-black">₹{prod.selling_price}</span>
+                    <Link href="/customer/shop" className="bg-blue-50 text-blue-600 text-[11px] font-bold px-2.5 py-1 rounded-lg">Add</Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {zoomData && (
+          <div className="fixed inset-0 z-50 bg-black/95 flex flex-col justify-between p-4">
+            <div className="flex justify-between items-center text-white">
+              <span className="text-xs font-bold">{zoomData.title} ({zoomData.index + 1}/{zoomData.images.length})</span>
+              <div className="flex gap-2">
+                <button onClick={() => setZoomScale((s) => Math.max(1, s - 0.5))} className="w-8 h-8 rounded-full bg-white/20 font-bold">-</button>
+                <button onClick={() => setZoomScale((s) => Math.min(3, s + 0.5))} className="w-8 h-8 rounded-full bg-white/20 font-bold">+</button>
+                <button onClick={() => setZoomData(null)} className="w-8 h-8 rounded-full bg-red-600 font-bold">✕</button>
+              </div>
+            </div>
+            <div className="flex-1 flex items-center justify-center overflow-auto relative">
+              <img src={zoomData.images[zoomData.index]} alt={zoomData.title} onClick={() => setZoomScale((s) => (s === 1 ? 2 : 1))} style={{ transform: `scale(${zoomScale})`, transition: "0.2s" }} className="max-h-[75vh] max-w-full object-contain rounded-xl" />
+              {zoomData.images.length > 1 && (
+                <>
+                  <button onClick={() => { setZoomScale(1); setZoomData({ ...zoomData, index: (zoomData.index - 1 + zoomData.images.length) % zoomData.images.length }); }} className="absolute left-2 bg-white/20 text-white w-9 h-9 rounded-full font-bold">‹</button>
+                  <button onClick={() => { setZoomScale(1); setZoomData({ ...zoomData, index: (zoomData.index + 1) % zoomData.images.length }); }} className="absolute right-2 bg-white/20 text-white w-9 h-9 rounded-full font-bold">›</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+  </main>
+);
 }
