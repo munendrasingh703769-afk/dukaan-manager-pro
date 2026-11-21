@@ -23,6 +23,7 @@ export default function CustomerSuperAppHome() {
   const [zoomData, setZoomData] = useState<{ images: string[]; index: number; title: string } | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
   const [activeCat, setActiveCat] = useState('For You');
+  const [activeTab, setActiveTab] = useState<'supermart' | 'services' | 'rides' | 'loans'>('supermart');
   const [bannerIdx, setBannerIdx] = useState(0);
   const promoBanners = [
     { title: "Mega Super Sale", sub: "Up to 50% OFF on Electronics, Fashion & Daily Essentials", tag: "SUPER DEAL", bg: "from-indigo-600 via-blue-600 to-cyan-500", emoji: "🛍️", href: "/customer/shop" },
@@ -87,22 +88,22 @@ export default function CustomerSuperAppHome() {
     <main className="min-h-screen bg-[#F1F3F6] pb-24 font-sans">
       <header className="bg-gradient-to-b from-[#0F172A] via-[#1E3A8A] to-[#1D4ED8] text-white pt-3 pb-2.5 rounded-b-3xl shadow-md sticky top-0 z-30">
         <div className="grid grid-cols-4 gap-2 px-3 mb-2.5">
-          <Link href="/customer/shop" className="bg-amber-400 text-slate-950 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition">
-            <span className="text-base leading-none">🛒</span>
-            <span className="text-[10px] font-black mt-0.5 tracking-tight">SuperMart</span>
-          </Link>
-          <Link href="/customer/explore" className="bg-white text-slate-900 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition">
-            <span className="text-base leading-none">🛠️</span>
-            <span className="text-[10px] font-extrabold mt-0.5 tracking-tight">Services</span>
-          </Link>
-          <Link href="/customer/rides" className="bg-white text-slate-900 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition">
-            <span className="text-base leading-none">🚖</span>
-            <span className="text-[10px] font-extrabold mt-0.5 tracking-tight">Rides</span>
-          </Link>
-          <Link href="/customer/request-quote" className="bg-white text-slate-900 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition">
-            <span className="text-base leading-none">💰</span>
-            <span className="text-[10px] font-extrabold mt-0.5 tracking-tight">Loans</span>
-          </Link>
+          {[
+            { id: 'supermart', label: 'SuperMart', icon: '🛒' },
+            { id: 'services', label: 'Services', icon: '🛠️' },
+            { id: 'rides', label: 'Rides', icon: '🚖' },
+            { id: 'loans', label: 'Loans', icon: '💰' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition ${activeTab === tab.id ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-200' : 'bg-white text-slate-900'}`}
+            >
+              <span className="text-base leading-none">{tab.icon}</span>
+              <span className="text-[10px] font-black mt-0.5 tracking-tight">{tab.label}</span>
+            </button>
+          ))}
         </div>
 
         <div className="flex items-center justify-between px-3.5 mb-2">
@@ -147,6 +148,87 @@ export default function CustomerSuperAppHome() {
       <div className="px-3 space-y-4 mt-3 max-w-2xl mx-auto">
         <PlanStatusBanner roleType="customer" upgradeHref="/pricing" />
 
+        {activeTab === 'services' && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-sm font-black text-slate-800">🏠 Home & Repair Services</h2>
+                <Link href="/customer/explore" className="text-xs font-bold text-blue-600">All Services ›</Link>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { n: 'AC & Appliance', i: '❄️' }, { n: 'Plumber', i: '🔧' }, { n: 'Electrician', i: '⚡' }, { n: 'Carpenter', i: '🪚' },
+                  { n: 'Painter', i: '🎨' }, { n: 'Labour & Helper', i: '👷' }, { n: 'Home Cleaning', i: '🧹' }, { n: 'Pest Control', i: '🐜' }
+                ].map((s) => (
+                  <Link key={s.n} href={`/customer/explore?service=${encodeURIComponent(s.n)}`} className="flex flex-col items-center gap-1 active:scale-95 transition">
+                    <div className="w-13 h-13 rounded-full bg-slate-100 flex items-center justify-center text-2xl shadow-inner">{s.i}</div>
+                    <span className="text-[10px] font-bold text-slate-700 text-center leading-tight">{s.n}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm">
+              <h2 className="text-sm font-black text-slate-800 mb-3">💻 IT, Telecom & Tech</h2>
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { n: 'Wi-Fi & Internet', i: '📡' }, { n: 'CCTV & Security', i: '📷' }, { n: 'Computer & Laptop', i: '💻' }, { n: 'Mobile Repair', i: '📱' }
+                ].map((s) => (
+                  <Link key={s.n} href={`/customer/explore?service=${encodeURIComponent(s.n)}`} className="flex flex-col items-center gap-1 active:scale-95 transition">
+                    <div className="w-13 h-13 rounded-full bg-blue-50 flex items-center justify-center text-2xl">{s.i}</div>
+                    <span className="text-[10px] font-bold text-slate-700 text-center leading-tight">{s.n}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'rides' && (
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
+            <div className="flex justify-between items-center">
+              <h2 className="text-sm font-black text-slate-800">🚖 Transport & Instant Rides</h2>
+              <Link href="/customer/rides" className="text-xs font-bold text-blue-600">My Rides ›</Link>
+            </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              {[
+                { n: 'Bike Taxi', sub: 'Fast & Cheap', i: '🏍️' },
+                { n: 'Car Rental', sub: 'City & Outstation', i: '🚗' },
+                { n: 'Parcel Delivery', sub: 'Same Day Drop', i: '📦' }
+              ].map((r) => (
+                <Link key={r.n} href="/customer/rides" className="bg-purple-50/70 border border-purple-100 rounded-2xl p-3 flex flex-col items-center text-center active:scale-95 transition">
+                  <span className="text-3xl mb-1">{r.i}</span>
+                  <span className="text-xs font-black text-slate-800">{r.n}</span>
+                  <span className="text-[9px] text-slate-500 mt-0.5">{r.sub}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'loans' && (
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
+            <div className="flex justify-between items-center">
+              <h2 className="text-sm font-black text-slate-800">💰 Instant Business & Personal Loans</h2>
+              <Link href="/customer/request-quote" className="text-xs font-bold text-blue-600">Apply Now ›</Link>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                { n: 'Business Loan', sub: 'Up to ₹5 Lakh • Fast Approval', i: '🏦' },
+                { n: 'Personal Loan', sub: 'Zero Paperwork • Low EMI', i: '💳' },
+                { n: 'Shop Stock Credit', sub: 'Buy Stock Now, Pay Later', i: '📈' },
+                { n: 'Request Custom Quote', sub: 'Compare Best Bank Offers', i: '📝' }
+              ].map((l) => (
+                <Link key={l.n} href="/customer/request-quote" className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3 flex flex-col justify-between active:scale-95 transition">
+                  <span className="text-2xl mb-1">{l.i}</span>
+                  <p className="text-xs font-black text-slate-900">{l.n}</p>
+                  <p className="text-[10px] text-slate-600 mt-0.5">{l.sub}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div>
           <div onScroll={(e) => { const idx = Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth); if (idx !== bannerIdx && idx >= 0 && idx < promoBanners.length) setBannerIdx(idx); }} className="flex overflow-x-auto snap-x snap-mandatory gap-2.5 no-scrollbar rounded-2xl">
             {promoBanners.map((b, i) => (
@@ -169,7 +251,7 @@ export default function CustomerSuperAppHome() {
         {topProducts.length > 0 && (
           <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-3.5 text-white shadow-md">
             <div className="flex items-center justify-between mb-2.5">
-              <h2 className="text-sm font-black tracking-tight">{userProfile?.full_name ? `${userProfile.full_name.split(' ')}, still looking for these?` : 'Still looking for these?'}</h2>
+              <h2 className="text-sm font-black tracking-tight">{userProfile?.full_name ? `${userProfile.full_name.trim().split(' ')[0]}, still looking for these?` : 'Still looking for these?'}</h2>
               <span className="bg-emerald-500 text-[9px] font-black px-2 py-0.5 rounded uppercase">Top Picks</span>
             </div>
             <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar">
