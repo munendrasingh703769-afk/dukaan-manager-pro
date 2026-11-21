@@ -22,6 +22,14 @@ export default function CustomerSuperAppHome() {
   const [searchQuery, setSearchQuery] = useState('');
   const [zoomData, setZoomData] = useState<{ images: string[]; index: number; title: string } | null>(null);
   const [zoomScale, setZoomScale] = useState(1);
+  const [activeCat, setActiveCat] = useState('For You');
+  const [bannerIdx, setBannerIdx] = useState(0);
+  const promoBanners = [
+    { title: "Mega Super Sale", sub: "Up to 50% OFF on Electronics, Fashion & Daily Essentials", tag: "SUPER DEAL", bg: "from-indigo-600 via-blue-600 to-cyan-500", emoji: "🛍️", href: "/customer/shop" },
+    { title: "Expert Home Services", sub: "Electrician, Plumber, AC Repair & Cleaning at Doorstep", tag: "INSTANT BOOKING", bg: "from-emerald-600 via-teal-600 to-green-500", emoji: "🛠️", href: "/customer/explore" },
+    { title: "Quick Business & Personal Loan", sub: "Easy Paperless Approval • Low Interest • Fast Disbursal", tag: "FINANCE", bg: "from-amber-500 via-orange-600 to-red-500", emoji: "💰", href: "/customer/request-quote" },
+    { title: "Fast City Rides & Delivery", sub: "Book Bike, Auto or Cab in Seconds Near You", tag: "24x7 RIDES", bg: "from-purple-600 via-violet-600 to-fuchsia-600", emoji: "🚖", href: "/customer/rides" }
+  ];
   const [slides, setSlides] = useState<Record<string, number>>({});
   const getPhotos = (p: any): string[] => {
     const a = Array.isArray(p?.images) ? p.images.filter((x: any) => typeof x === "string" && x) : [];
@@ -76,118 +84,113 @@ export default function CustomerSuperAppHome() {
   };
 
   return (
-    <main className="min-h-screen bg-[#F8F9FB] pb-24 font-sans">
-      
-      
-      {/* 🔵 TOP HEADER */}
-      <header className="bg-blue-600 text-white pt-4 pb-6 px-4 rounded-b-3xl relative shadow-md">
-        <div className="flex items-center justify-between mb-4">
+    <main className="min-h-screen bg-[#F1F3F6] pb-24 font-sans">
+      <header className="bg-gradient-to-b from-[#0F172A] via-[#1E3A8A] to-[#1D4ED8] text-white pt-3 pb-2.5 rounded-b-3xl shadow-md sticky top-0 z-30">
+        <div className="grid grid-cols-4 gap-2 px-3 mb-2.5">
+          <Link href="/customer/shop" className="bg-amber-400 text-slate-950 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition">
+            <span className="text-base leading-none">🛒</span>
+            <span className="text-[10px] font-black mt-0.5 tracking-tight">SuperMart</span>
+          </Link>
+          <Link href="/customer/explore" className="bg-white text-slate-900 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition">
+            <span className="text-base leading-none">🛠️</span>
+            <span className="text-[10px] font-extrabold mt-0.5 tracking-tight">Services</span>
+          </Link>
+          <Link href="/customer/rides" className="bg-white text-slate-900 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition">
+            <span className="text-base leading-none">🚖</span>
+            <span className="text-[10px] font-extrabold mt-0.5 tracking-tight">Rides</span>
+          </Link>
+          <Link href="/customer/request-quote" className="bg-white text-slate-900 rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition">
+            <span className="text-base leading-none">💰</span>
+            <span className="text-[10px] font-extrabold mt-0.5 tracking-tight">Loans</span>
+          </Link>
+        </div>
+
+        <div className="flex items-center justify-between px-3.5 mb-2">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-blue-600 text-xl font-black">🏪</div>
+            <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center text-blue-700 font-black text-xs shadow">VS</div>
             <div>
-              <h1 className="text-lg font-black leading-tight tracking-wide">VyapaarSetu</h1>
-              <p className="text-blue-100 text-[10px]">India's All-in-One Super App</p>
+              <h1 className="text-sm font-black leading-none tracking-wide">VyapaarSetu</h1>
+              <p className="text-[9px] text-blue-200 mt-0.5">All-in-One Super App • Shopping, Services & Finance</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} className="relative">
-              <span className="text-2xl">🔔</span>
-              {unreadCount > 0 && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border border-blue-600"></span>}
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) markAsRead(); }} className="relative bg-white/15 p-1.5 rounded-full">
+              <span className="text-sm">🔔</span>
+              {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full"></span>}
             </button>
-            <Link href="/customer/profile" className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold">
-              {userProfile?.full_name ? userProfile.full_name.charAt(0) : 'M'}
+            <Link href="/customer/profile" className="w-7 h-7 bg-amber-400 text-slate-950 rounded-full flex items-center justify-center font-black text-xs">
+              {userProfile?.full_name ? userProfile.full_name.charAt(0).toUpperCase() : 'U'}
             </Link>
           </div>
         </div>
 
-        {/* 🔍 SEARCH BAR */}
-        <form onSubmit={handleSearch} className="bg-white rounded-xl flex items-center p-2 shadow-sm">
-          <span className="text-gray-400 pl-2">🔍</span>
-          <input 
-            type="text" 
-            placeholder="Search for products, services..." 
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-transparent outline-none text-sm px-3 text-gray-700 font-medium" 
-          />
-          <button type="button" className="text-blue-600 text-xl pr-2">📷</button>
+        <form onSubmit={handleSearch} className="mx-3 bg-white rounded-xl flex items-center px-3 py-1.5 shadow-inner">
+          <span className="text-gray-400 text-sm">🔍</span>
+          <input type="text" placeholder="Search mobiles, fashion, services, loans..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-transparent outline-none text-xs px-2.5 py-1 text-gray-800 font-medium" />
+          <Link href="/customer/shop" className="text-blue-600 text-base pl-1">📷</Link>
         </form>
+
+        <div className="flex items-center gap-4 overflow-x-auto px-3.5 pt-2.5 pb-0.5 no-scrollbar">
+          <button onClick={() => setActiveCat('For You')} className={`flex flex-col items-center shrink-0 pb-1 border-b-2 transition ${activeCat === 'For You' ? 'border-amber-400 text-amber-300' : 'border-transparent text-blue-100'}`}>
+            <span className="text-lg">🛍️</span>
+            <span className="text-[10px] font-bold mt-0.5 whitespace-nowrap">For You</span>
+          </button>
+          {categories.map((cat) => (
+            <Link key={cat.id} href={`/customer/shop?cat=${cat.name}`} className="flex flex-col items-center shrink-0 pb-1 border-b-2 border-transparent hover:border-amber-400 text-blue-100 hover:text-white transition">
+              {cat.image_url ? <img src={cat.image_url} alt={cat.name} className="w-6 h-6 rounded-md object-cover bg-white/20" /> : <span className="text-lg">{cat.icon || '📦'}</span>}
+              <span className="text-[10px] font-semibold mt-0.5 whitespace-nowrap max-w-[64px] truncate">{cat.name}</span>
+            </Link>
+          ))}
+        </div>
       </header>
-      <div className="px-3 pt-3 max-w-2xl mx-auto"><PlanStatusBanner roleType="customer" upgradeHref="/pricing" /></div>
 
-      <div className="px-3 space-y-5 mt-4 max-w-2xl mx-auto">
-        
-        {/* 🚀 HERO BANNER */}
-        <section>
-          <div className="bg-gradient-to-r from-blue-100 to-blue-200 rounded-2xl p-5 relative overflow-hidden flex items-center shadow-sm">
-            <div className="relative z-10 w-3/5">
-              <h2 className="text-xl font-black text-blue-900 leading-tight">Sab Kuch Ek Hi App Mein</h2>
-              <p className="text-sm text-blue-800 font-medium mt-1">Shopping, Local Services, Rides &amp;<br/>Instant Finance — Sab Kuch Yahan!</p>
-              <button className="bg-blue-900 text-white text-xs font-bold px-4 py-2 rounded-lg mt-3 shadow-md flex items-center gap-1">
-                Explore Now →
-              </button>
-            </div>
-            <div className="absolute right-[-10px] bottom-[-10px] text-7xl opacity-90">
-              🏪
-            </div>
+      <div className="px-3 space-y-4 mt-3 max-w-2xl mx-auto">
+        <PlanStatusBanner roleType="customer" upgradeHref="/pricing" />
+
+        <div>
+          <div onScroll={(e) => { const idx = Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth); if (idx !== bannerIdx && idx >= 0 && idx < promoBanners.length) setBannerIdx(idx); }} className="flex overflow-x-auto snap-x snap-mandatory gap-2.5 no-scrollbar rounded-2xl">
+            {promoBanners.map((b, i) => (
+              <Link key={i} href={b.href} className={`min-w-full snap-center bg-gradient-to-r ${b.bg} rounded-2xl p-4 text-white flex items-center justify-between shadow-sm`}>
+                <div className="max-w-[72%]">
+                  <span className="inline-block bg-black/25 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider mb-1">{b.tag}</span>
+                  <h2 className="text-lg font-black leading-tight">{b.title}</h2>
+                  <p className="text-[11px] text-white/90 mt-1 leading-snug">{b.sub}</p>
+                  <span className="inline-block mt-2.5 bg-white text-slate-900 text-[10px] font-black px-3 py-1 rounded-lg shadow-sm">Explore Now ›</span>
+                </div>
+                <div className="text-5xl drop-shadow-md">{b.emoji}</div>
+              </Link>
+            ))}
           </div>
-        </section>
-
-        {/* ⚡ QUICK ACTIONS */}
-        <section>
-          <div className="grid grid-cols-4 gap-y-4 gap-x-1 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-            <Link href="/customer/shop" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl">🛒</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Buy<br/>Products</span>
-            </Link>
-            <Link href="/customer/explore" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-2xl">🛠️</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Book<br/>Services</span>
-            </Link>
-            <Link href="/customer/request-quote" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-2xl">💰</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Business<br/>Loan</span>
-            </Link>
-            <Link href="/customer/rides" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-2xl">🚖</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Book<br/>Rides</span>
-            </Link>
-            <Link href="/customer/shop" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🛒</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Buy<br/>Products</span>
-            </Link>
-            <Link href="/owner/sales" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🧾</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Sales &<br/>Billing</span>
-            </Link>
-            <Link href="/owner/payments" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🤝</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Udhaar<br/>(Credit)</span>
-            </Link>
-            <Link href="/owner/payments" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">💳</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Payments</span>
-            </Link>
-            <Link href="/customer/orders" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🕒</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Orders &<br/>History</span>
-            </Link>
-            <Link href="/customer/support" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">🎧</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Support</span>
-            </Link>
-            <Link href="/customer/profile" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">⚙️</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">Settings</span>
-            </Link>
-            <Link href="/customer/profile" className="flex flex-col items-center gap-1.5 active:scale-95 transition">
-              <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl">👤</div>
-              <span className="text-[10px] font-bold text-gray-700 text-center leading-tight">My<br/>Account</span>
-            </Link>
+          <div className="flex justify-center gap-1.5 mt-2">
+            {promoBanners.map((_, i) => <span key={i} className={`h-1.5 rounded-full transition-all ${bannerIdx === i ? 'w-5 bg-slate-800' : 'w-1.5 bg-slate-300'}`} />)}
           </div>
-        </section>
+        </div>
 
-        {/* 📦 SHOP BY CATEGORY (Dynamic from DB) */}
+        {topProducts.length > 0 && (
+          <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-3.5 text-white shadow-md">
+            <div className="flex items-center justify-between mb-2.5">
+              <h2 className="text-sm font-black tracking-tight">{userProfile?.full_name ? `${userProfile.full_name.split(' ')}, still looking for these?` : 'Still looking for these?'}</h2>
+              <span className="bg-emerald-500 text-[9px] font-black px-2 py-0.5 rounded uppercase">Top Picks</span>
+            </div>
+            <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar">
+              {topProducts.slice(0, 6).map((prod) => {
+                const ph = getPhotos(prod);
+                return (
+                  <div key={`look-${prod.id}`} onClick={() => ph.length > 0 && openZoom(ph, 0, prod.name)} className="min-w-[115px] w-[115px] bg-white text-slate-900 rounded-xl p-2 flex flex-col justify-between cursor-pointer active:scale-95 transition">
+                    <div className="w-full h-24 rounded-lg bg-slate-50 overflow-hidden flex items-center justify-center relative mb-1.5">
+                      {ph.length > 0 ? <img src={ph} alt={prod.name} className="w-full h-full object-cover" /> : <span className="text-2xl font-black text-slate-300">{prod.name.charAt(0)}</span>}
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-slate-700 line-clamp-1">{prod.name}</p>
+                      <p className="text-xs font-black text-slate-950 mt-0.5">₹{prod.selling_price}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         <section>
           <div className="flex justify-between mb-2 px-1">
             <h2 className="text-base font-black text-gray-800">Shop by Store</h2>
