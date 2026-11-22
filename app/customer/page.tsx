@@ -136,7 +136,15 @@ export default function CustomerSuperAppHome() {
             <span className="text-lg">🛍️</span>
             <span className="text-[10px] font-bold mt-0.5 whitespace-nowrap">For You</span>
           </button>
-          {categories.map((cat) => (
+          {[...categories].sort((a, b) => {
+            const an = (a.name || '').toLowerCase();
+            const bn = (b.name || '').toLowerCase();
+            if (an.includes('grocery')) return -1;
+            if (bn.includes('grocery')) return 1;
+            if (an.includes('medicine')) return 1;
+            if (bn.includes('medicine')) return -1;
+            return 0;
+          }).map((cat) => (
             <Link key={cat.id} href={`/customer/shop?cat=${cat.name}`} className="flex flex-col items-center shrink-0 pb-1 border-b-2 border-transparent hover:border-amber-400 text-blue-100 hover:text-white transition">
               {cat.image_url ? <img src={cat.image_url} alt={cat.name} className="w-6 h-6 rounded-md object-cover bg-white/20" /> : <span className="text-lg">{cat.icon || '📦'}</span>}
               <span className="text-[10px] font-semibold mt-0.5 whitespace-nowrap max-w-[64px] truncate">{cat.name}</span>
@@ -283,22 +291,7 @@ export default function CustomerSuperAppHome() {
           </section>
         )}
 
-        <section>
-          <div className="flex justify-between mb-2 px-1">
-            <h2 className="text-base font-black text-gray-800">Shop by Store</h2>
-            <Link href="/customer/shop" className="text-xs font-bold text-blue-600">View All ›</Link>
-          </div>
-          <div className="grid grid-cols-4 gap-2 bg-white p-3 rounded-2xl border border-gray-100">
-            {categories.map((cat) => (
-              <Link href={`/customer/shop?cat=${cat.name}`} key={cat.id} className="flex flex-col items-center gap-1">
-                <div className="w-14 h-14 bg-blue-50/70 rounded-2xl flex items-center justify-center overflow-hidden">
-                  {cat.image_url ? <img src={cat.image_url} alt={cat.name} className="w-full h-full object-cover" /> : <span className="text-2xl">{cat.icon || "📦"}</span>}
-                </div>
-                <span className="text-[10px] font-bold text-gray-700 text-center line-clamp-1">{cat.name}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
+        
 
         {/* NEW IN STORE */}
         {topProducts.length > 0 && (
