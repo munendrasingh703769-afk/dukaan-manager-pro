@@ -158,6 +158,26 @@ export default function CustomerSuperAppHome() {
           ))}
         </div>
       </header>
+      {showNotifications && (
+        <div className="fixed top-28 right-3 z-50 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 text-slate-800">
+          <div className="flex justify-between items-center border-b pb-2 mb-2">
+            <span className="text-xs font-black">Notifications ({notifications.length})</span>
+            <button onClick={() => setShowNotifications(false)} className="text-xs font-bold text-red-500">✕</button>
+          </div>
+          {notifications.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-4">No notifications yet</p>
+          ) : (
+            <div className="max-h-56 overflow-y-auto space-y-2">
+              {notifications.map((n: any, idx: number) => (
+                <div key={n.id || idx} className="p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                  <p className="font-bold text-slate-800">{n.title || 'Update'}</p>
+                  <p className="text-[11px] text-slate-600 mt-0.5">{n.message || n.body || ''}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="px-3 space-y-4 mt-3 max-w-2xl mx-auto">
         <PlanStatusBanner roleType="customer" upgradeHref="/pricing" />
@@ -302,6 +322,24 @@ export default function CustomerSuperAppHome() {
           </div>
         </section>
 
+        {/* QUICK ACTIONS (Screenshot 1 Style) */}
+        <section>
+          <h2 className="text-sm font-black text-slate-800 mb-2 px-1">Quick Actions</h2>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: 'Browse Shop', icon: '🛒', bg: 'bg-rose-50 border-rose-100', act: () => setActiveTab('supermart') },
+              { label: 'Book Service', icon: '📅', bg: 'bg-indigo-50 border-indigo-100', act: () => setActiveTab('services') },
+              { label: 'Book Ride', icon: '🏍️', bg: 'bg-sky-50 border-sky-100', act: () => setActiveTab('rides') },
+              { label: 'Apply Loan', icon: '💰', bg: 'bg-emerald-50 border-emerald-100', act: () => setActiveTab('loans') }
+            ].map((q) => (
+              <button key={q.label} type="button" onClick={q.act} className={`${q.bg} border rounded-2xl py-3 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition`}>
+                <span className="text-xl mb-1">{q.icon}</span>
+                <span className="text-[10px] font-extrabold text-slate-800 text-center leading-tight">{q.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
         {/* MY SERVICES & BOOKINGS */}
         <section>
           <div className="flex justify-between items-center mb-2 px-1">
@@ -314,10 +352,10 @@ export default function CustomerSuperAppHome() {
                 <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-lg shrink-0">🔧</div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-black text-slate-900 truncate">{myBookings.service_name || myBookings.title || 'Service Booking'}</p>
-                    <span className="bg-emerald-100 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full capitalize">{myBookings.status || 'Confirmed'}</span>
+                    <p className="text-xs font-black text-slate-900 truncate">{myBookings.at(0)?.service_name || myBookings.at(0)?.title || 'Service Booking'}</p>
+                    <span className="bg-emerald-100 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full capitalize">{myBookings.at(0)?.status || 'Confirmed'}</span>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-0.5">ID: #{String(myBookings.id).slice(0, 6).toUpperCase()}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">ID: #{String(myBookings.at(0)?.id || '').slice(0, 6).toUpperCase()}</p>
                 </div>
               </div>
               <Link href="/customer/bookings" className="bg-indigo-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shrink-0">Track</Link>
@@ -339,9 +377,9 @@ export default function CustomerSuperAppHome() {
             </div>
             <div className="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-xs font-black text-slate-900 truncate">Order #{String(myOrders.id).slice(0, 6).toUpperCase()}</p>
-                <p className="text-xs font-black text-blue-700 mt-0.5">₹{myOrders.total_amount || myOrders.amount || 0}</p>
-                <p className="text-[10px] text-emerald-600 font-bold capitalize mt-0.5">• {myOrders.status || 'Placed'}</p>
+                <p className="text-xs font-black text-slate-900 truncate">Order #{String(myOrders.at(0)?.id || '').slice(0, 6).toUpperCase()}</p>
+                <p className="text-xs font-black text-blue-700 mt-0.5">₹{(myOrders.at(0)?.total_amount ?? myOrders.at(0)?.amount) || 0}</p>
+                <p className="text-[10px] text-emerald-600 font-bold capitalize mt-0.5">• {myOrders.at(0)?.status || 'Placed'}</p>
               </div>
               <Link href="/customer/shop" className="border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-xl shrink-0">Order Again</Link>
             </div>
