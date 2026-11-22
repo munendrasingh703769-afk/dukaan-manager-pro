@@ -266,53 +266,12 @@ export default function CustomerSuperAppHome() {
           </div>
         </div>
 
-        {topProducts.length > 0 && (
-          <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-3.5 text-white shadow-md">
-            <div className="flex items-center justify-between mb-2.5">
-              <h2 className="text-sm font-black tracking-tight">{userProfile?.full_name ? `${userProfile.full_name.trim().split(' ')[0]}, still looking for these?` : 'Still looking for these?'}</h2>
-              <span className="bg-emerald-500 text-[9px] font-black px-2 py-0.5 rounded uppercase">Top Picks</span>
-            </div>
-            <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar">
-              {topProducts.slice(0, 6).map((prod) => {
-                const ph = getPhotos(prod);
-                return (
-                  <div key={`look-${prod.id}`} onClick={() => ph.length > 0 && openZoom(ph, 0, prod.name)} className="min-w-[115px] w-[115px] bg-white text-slate-900 rounded-xl p-2 flex flex-col justify-between cursor-pointer active:scale-95 transition">
-                    <div className="w-full h-24 rounded-lg bg-slate-50 overflow-hidden flex items-center justify-center relative mb-1.5">
-                      {ph.length > 0 ? <img src={ph} alt={prod.name} className="w-full h-full object-cover" /> : <span className="text-2xl font-black text-slate-300">{prod.name.charAt(0)}</span>}
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-bold text-slate-700 line-clamp-1">{prod.name}</p>
-                      <p className="text-xs font-black text-slate-950 mt-0.5">₹{prod.selling_price}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+        
 
         
 
         {/* NEW IN STORE */}
-        {topProducts.length > 0 && (
-          <section>
-            <h2 className="text-base font-black text-gray-800 mb-2 px-1">New in Store</h2>
-            <div className="grid grid-cols-3 gap-2">
-              {topProducts.slice(0, 6).map((prod) => {
-                const ph = getPhotos(prod);
-                return (
-                  <div key={prod.id} onClick={() => ph.length > 0 && openZoom(ph, 0, prod.name)} className="bg-sky-50/70 rounded-2xl p-2 border border-sky-100 flex flex-col items-center cursor-pointer">
-                    <span className="text-[10px] font-bold text-gray-800 line-clamp-1 mb-1">{prod.name}</span>
-                    <div className="w-full h-16 rounded-xl bg-white overflow-hidden flex items-center justify-center">
-                      {ph.length > 0 ? <img src={ph} alt={prod.name} className="w-full h-full object-cover" /> : <span className="text-xl font-black text-gray-300">{prod.name.charAt(0)}</span>}
-                    </div>
-                    <span className="text-[10px] font-black text-blue-700 mt-1">₹{prod.selling_price}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+        
 
         {/* RECOMMENDED FOR YOU (With Multi-Photo Slider & Tap-to-Zoom) */}
         <section>
@@ -320,12 +279,12 @@ export default function CustomerSuperAppHome() {
             <h2 className="text-base font-black text-gray-800">Recommended for You</h2>
             <Link href="/customer/shop" className="text-xs font-bold text-blue-600">View All ›</Link>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-3 no-scrollbar">
+          <div className="grid grid-cols-2 gap-3 pb-3">
             {topProducts.map((prod) => {
               const ph = getPhotos(prod);
               const cur = slides[prod.id] || 0;
               return (
-                <div key={prod.id} className="min-w-[155px] w-[155px] bg-white rounded-2xl border border-gray-100 p-2.5 flex flex-col justify-between">
+                <div key={prod.id} className="w-full bg-white rounded-2xl border border-gray-100 p-2.5 flex flex-col justify-between">
                   <div>
                     <div className="h-28 bg-gray-50 rounded-xl mb-2 relative overflow-hidden">
                       {ph.length > 0 ? (
