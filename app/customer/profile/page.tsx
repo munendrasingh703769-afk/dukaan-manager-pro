@@ -183,35 +183,19 @@ export default function CustomerProfilePage() {
           </div>
         </div>
 
-      </div>
-
-      {/* 📱 Bottom Navigation */}
-      <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-3 pb-6 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-40">
-        <Link href="/customer" className="flex flex-col items-center gap-1 text-gray-400">
-          <span className="text-xl">🏠</span>
-          <span className="text-[10px] font-medium">Home</span>
-        </Link>
-        <Link href="/customer/shop" className="flex flex-col items-center gap-1 text-gray-400">
-          <span className="text-xl">🛒</span>
-          <span className="text-[10px] font-medium">Shop</span>
-        </Link>
-        <Link href="/customer/explore" className="flex flex-col items-center gap-1 text-gray-400">
-          <span className="text-xl">🛠️</span>
-          <span className="text-[10px] font-medium">Services</span>
-        </Link>
-        <Link href="/customer/rides" className="flex flex-col items-center gap-1 text-gray-400">
-          <span className="text-xl">🏍️</span>
-          <span className="text-[10px] font-medium">Rides</span>
-        </Link>
-            <Link href="/customer/support" className="flex items-center justify-between p-4 hover:bg-gray-50 transition">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center text-xl">🎧</div>
-                
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-100">
+      
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-100 mt-4">
+          <Link href="/customer/support" className="w-full flex items-center justify-between p-4 hover:bg-gray-50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center text-xl">🎧</div>
+              <div><p className="font-bold text-gray-800 text-sm">Help &amp; Support</p><p className="text-xs text-gray-500">Raise a ticket or get help</p></div>
+            </div>
+            <span className="text-gray-400">›</span>
+          </Link>
           <button type="button" onClick={async () => {
-            const url = typeof window !== 'undefined' ? window.location.origin : '';
-            if (navigator.share) { try { await navigator.share({ title: 'VyapaarSetu Super App', text: 'Shopping, Local Services, Rides & Loans!', url }); } catch {} }
-            else if (navigator.clipboard) { await navigator.clipboard.writeText(url); alert('App Link कॉपी हो गया है!'); }
+            const url = typeof window !== "undefined" ? window.location.origin : "";
+            if (navigator.share) { try { await navigator.share({ title: "VyapaarSetu Super App", text: "Shopping, Local Services, Rides & Loans!", url }); } catch {} }
+            else if (navigator.clipboard) { await navigator.clipboard.writeText(url); alert("App Link कॉपी हो गया है!"); }
           }} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 text-left">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl">📤</div>
@@ -220,10 +204,10 @@ export default function CustomerProfilePage() {
             <span className="text-gray-400">›</span>
           </button>
           <button type="button" onClick={async () => {
-            if (!confirm('क्या आप वाकई अपना अकाउंट डिलीट करना चाहते हैं?')) return;
-            if (prompt('कन्फर्म करने के लिए DELETE लिखें:') !== 'DELETE') return;
+            if (!confirm("क्या आप वाकई अपना अकाउंट डिलीट करना चाहते हैं?")) return;
+            if (prompt("कन्फर्म करने के लिए DELETE लिखें:") !== "DELETE") return;
             const { data: { user } } = await supabase.auth.getUser();
-            if (user) { await supabase.from('profiles').delete().eq('id', user.id); await supabase.auth.signOut(); window.location.href = '/login'; }
+            if (user) { await supabase.from("profiles").delete().eq("id", user.id); await supabase.auth.signOut(); window.location.href = "/login"; }
           }} className="w-full flex items-center justify-between p-4 hover:bg-red-50 text-left">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-xl">🗑️</div>
@@ -232,21 +216,31 @@ export default function CustomerProfilePage() {
             <span className="text-red-400">›</span>
           </button>
         </div>
-<div>
-                  <p className="font-bold text-gray-800 text-sm">Help & Support</p>
-                  <p className="text-xs text-gray-500">Raise a ticket or get help</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">›</span>
-              </div>
-            </Link>
-        <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-indigo-600">
-          <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center">👤</div>
+
+      </div>
+
+      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 px-2 py-2 flex items-center justify-around shadow-lg">
+        <Link href="/customer" className="flex flex-col items-center gap-0.5 text-gray-400">
+          <span className="text-xl">🏠</span>
+          <span className="text-[10px] font-medium">Home</span>
+        </Link>
+        <Link href="/customer/shop" className="flex flex-col items-center gap-0.5 text-gray-400">
+          <span className="text-xl">🛒</span>
+          <span className="text-[10px] font-medium">Shop</span>
+        </Link>
+        <Link href="/customer/explore" className="flex flex-col items-center gap-0.5 text-gray-400">
+          <span className="text-xl">🛠️</span>
+          <span className="text-[10px] font-medium">Services</span>
+        </Link>
+        <Link href="/customer/rides" className="flex flex-col items-center gap-0.5 text-gray-400">
+          <span className="text-xl">🏍️</span>
+          <span className="text-[10px] font-medium">Rides</span>
+        </Link>
+        <Link href="/customer/profile" className="flex flex-col items-center gap-0.5 text-indigo-600">
+          <span className="text-xl">👤</span>
           <span className="text-[10px] font-bold">Profile</span>
         </Link>
       </nav>
-
     </div>
   );
 }
