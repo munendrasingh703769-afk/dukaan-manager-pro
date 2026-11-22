@@ -209,21 +209,31 @@ export default function CustomerSuperAppHome() {
         {activeTab === 'loans' && (
           <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
             <div className="flex justify-between items-center">
-              <h2 className="text-sm font-black text-slate-800">💰 Instant Business & Personal Loans</h2>
-              <Link href="/customer/request-quote" className="text-xs font-bold text-blue-600">Apply Now ›</Link>
+              <h2 className="text-sm font-black text-slate-800">💰 Instant Loans &amp; Finance</h2>
+              <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2.5 py-0.5 rounded-full">Coming Soon</span>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               {[
-                { n: 'Business Loan', sub: 'Up to ₹5 Lakh • Fast Approval', i: '🏦' },
-                { n: 'Personal Loan', sub: 'Zero Paperwork • Low EMI', i: '💳' },
-                { n: 'Shop Stock Credit', sub: 'Buy Stock Now, Pay Later', i: '📈' },
-                { n: 'Request Custom Quote', sub: 'Compare Best Bank Offers', i: '📝' }
+                { n: 'Personal Loan', sub: 'Zero Paperwork • Quick Disbursal', i: '💳' },
+                { n: 'Phone Finance', sub: 'Easy 0% EMI on Smartphones', i: '📱' },
+                { n: 'Gold Loan', sub: 'Highest Per Gram Rate • Instant Cash', i: '🪙' },
+                { n: 'Vehicle Finance', sub: 'Bike, Car & Commercial Loans', i: '🚗' },
+                { n: 'Home & Property Loan', sub: 'Low Interest • Flexible Tenure', i: '🏠' },
+                { n: 'Business Loan', sub: 'Up to ₹10 Lakh • Grow Your Work', i: '🏦' }
               ].map((l) => (
-                <Link key={l.n} href="/customer/request-quote" className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3 flex flex-col justify-between active:scale-95 transition">
-                  <span className="text-2xl mb-1">{l.i}</span>
+                <button
+                  key={l.n}
+                  type="button"
+                  onClick={() => alert(`${l.n} — Coming Soon! यह सुविधा बहुत जल्द लाइव होने वाली है।`)}
+                  className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3 flex flex-col justify-between text-left active:scale-95 transition relative overflow-hidden"
+                >
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <span className="text-2xl">{l.i}</span>
+                    <span className="bg-white/90 text-amber-700 text-[8px] font-black px-1.5 py-0.5 rounded border border-amber-200">SOON</span>
+                  </div>
                   <p className="text-xs font-black text-slate-900">{l.n}</p>
                   <p className="text-[10px] text-slate-600 mt-0.5">{l.sub}</p>
-                </Link>
+                </button>
               ))}
             </div>
           </div>
