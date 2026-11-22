@@ -215,6 +215,54 @@ export default function CustomerProfilePage() {
                 <span className="text-gray-400">›</span>
               </div>
             </Link>
+          <button
+            type="button"
+            onClick={async () => {
+              const shareUrl = typeof window !== 'undefined' ? window.location.origin : '';
+              if (navigator.share) {
+                try { await navigator.share({ title: 'VyapaarSetu Super App', text: 'Shopping, Local Services, Rides & Loans — Ek Hi App Mein!', url: shareUrl }); } catch {}
+              } else if (navigator.clipboard) {
+                await navigator.clipboard.writeText(shareUrl);
+                alert('App Link कॉपी हो गया है! अब आप इसे कहीं भी शेयर कर सकते हैं।');
+              }
+            }}
+            className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition border-t border-gray-100 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl">📤</div>
+              <div>
+                <p className="font-bold text-gray-800 text-sm">Share App</p>
+                <p className="text-xs text-gray-500">Invite friends &amp; family on WhatsApp</p>
+              </div>
+            </div>
+            <span className="text-gray-400">›</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              if (!confirm('क्या आप वाकई अपना अकाउंट हमेशा के लिए डिलीट करना चाहते हैं?')) return;
+              const typed = prompt('कन्फर्म करने के लिए DELETE लिखें:');
+              if (typed !== 'DELETE') { alert('अकाउंट डिलीट रद्द कर दिया गया।'); return; }
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) {
+                await supabase.from('profiles').delete().eq('id', user.id);
+                await supabase.auth.signOut();
+                alert('आपका अकाउंट सफलतापूर्वक डिलीट कर दिया गया है।');
+                window.location.href = '/login';
+              }
+            }}
+            className="w-full flex items-center justify-between p-4 hover:bg-red-50/60 transition border-t border-gray-100 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-xl">🗑️</div>
+              <div>
+                <p className="font-bold text-red-600 text-sm">Delete Account</p>
+                <p className="text-xs text-gray-500">Permanently remove your profile &amp; data</p>
+              </div>
+            </div>
+            <span className="text-red-400">›</span>
+          </button>
         <Link href="/customer/profile" className="flex flex-col items-center gap-1 text-indigo-600">
           <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center">👤</div>
           <span className="text-[10px] font-bold">Profile</span>

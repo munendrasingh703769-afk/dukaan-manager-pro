@@ -13,6 +13,8 @@ export default function CustomerSuperAppHome() {
   const [categories, setCategories] = useState<any[]>([]);
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [myOrders, setMyOrders] = useState<any[]>([]);
+  const [myBookings, setMyBookings] = useState<any[]>([]);
   
   // Notifications State
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -46,6 +48,10 @@ export default function CustomerSuperAppHome() {
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
         setUserProfile(profile);
+        const { data: ordData } = await supabase.from('orders').select('*').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(20);
+        if (ordData) setMyOrders(ordData);
+        const { data: bkgData } = await supabase.from('service_bookings').select('*').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(5);
+        if (bkgData) setMyBookings(bkgData);
         
         // Fetch Notifications
         const { data: notifs } = await supabase.from('notifications').select('*').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(10);
@@ -274,6 +280,74 @@ export default function CustomerSuperAppHome() {
         
 
         {/* RECOMMENDED FOR YOU (With Multi-Photo Slider & Tap-to-Zoom) */}
+        {/* MY ORDERS (Dark Blue Card - Screenshot 2 Style) */}
+        <section className="bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#1E3A8A] rounded-2xl p-3.5 text-white shadow-md">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-sm font-black flex items-center gap-1.5">🛍️ My Orders</h2>
+            <Link href="/customer/orders" className="text-xs font-bold text-blue-200">View All →</Link>
+          </div>
+          <div className="grid grid-cols-4 gap-2 text-slate-900">
+            {[
+              { label: 'Total Orders', count: myOrders.length, icon: '🛒', bg: 'bg-blue-50' },
+              { label: 'Processing', count: myOrders.filter(o => ['pending', 'confirmed', 'processing'].includes((o.status || '').toLowerCase())).length, icon: '🕒', bg: 'bg-amber-50' },
+              { label: 'Shipped', count: myOrders.filter(o => ['shipped', 'out_for_delivery', 'in_transit'].includes((o.status || '').toLowerCase())).length, icon: '🚚', bg: 'bg-sky-50' },
+              { label: 'Delivered', count: myOrders.filter(o => (o.status || '').toLowerCase() === 'delivered').length, icon: '✅', bg: 'bg-emerald-50' }
+            ].map((st) => (
+              <Link key={st.label} href="/customer/orders" className={`${st.bg} rounded-xl p-2 flex flex-col items-center text-center shadow-sm active:scale-95 transition`}>
+                <span className="text-base mb-0.5">{st.icon}</span>
+                <span className="text-[9px] font-bold text-slate-600 leading-tight">{st.label}</span>
+                <span className="text-sm font-black text-slate-900 mt-0.5">{st.count}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* MY SERVICES & BOOKINGS */}
+        <section>
+          <div className="flex justify-between items-center mb-2 px-1">
+            <h2 className="text-sm font-black text-slate-800">My Services &amp; Bookings</h2>
+            <Link href="/customer/bookings" className="text-xs font-bold text-blue-600">View All →</Link>
+          </div>
+          {myBookings.length > 0 ? (
+            <div className="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-lg shrink-0">🔧</div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-black text-slate-900 truncate">{myBookings.service_name || myBookings.title || 'Service Booking'}</p>
+                    <span className="bg-emerald-100 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full capitalize">{myBookings.status || 'Confirmed'}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-0.5">ID: #{String(myBookings.id).slice(0, 6).toUpperCase()}</p>
+                </div>
+              </div>
+              <Link href="/customer/bookings" className="bg-indigo-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shrink-0">Track</Link>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl p-3 border border-gray-100 flex items-center justify-between">
+              <span className="text-xs text-slate-500">No active service bookings</span>
+              <Link href="/customer/explore" className="text-xs font-bold text-blue-600">Book Service ›</Link>
+            </div>
+          )}
+        </section>
+
+        {/* RECENT ORDERS */}
+        {myOrders.length > 0 && (
+          <section>
+            <div className="flex justify-between items-center mb-2 px-1">
+              <h2 className="text-sm font-black text-slate-800">Recent Orders</h2>
+              <Link href="/customer/orders" className="text-xs font-bold text-blue-600">View All →</Link>
+            </div>
+            <div className="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-black text-slate-900 truncate">Order #{String(myOrders.id).slice(0, 6).toUpperCase()}</p>
+                <p className="text-xs font-black text-blue-700 mt-0.5">₹{myOrders.total_amount || myOrders.amount || 0}</p>
+                <p className="text-[10px] text-emerald-600 font-bold capitalize mt-0.5">• {myOrders.status || 'Placed'}</p>
+              </div>
+              <Link href="/customer/shop" className="border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-xl shrink-0">Order Again</Link>
+            </div>
+          </section>
+        )}
+
         <section>
           <div className="flex justify-between mb-2 px-1">
             <h2 className="text-base font-black text-gray-800">Recommended for You</h2>
