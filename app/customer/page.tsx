@@ -358,7 +358,7 @@ export default function CustomerSuperAppHome() {
                   <p className="text-[10px] text-slate-500 mt-0.5">ID: #{String(myBookings.at(0)?.id || '').slice(0, 6).toUpperCase()}</p>
                 </div>
               </div>
-              <Link href="/customer/bookings" className="bg-indigo-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shrink-0">Track</Link>
+              <div className="flex flex-col gap-1.5 shrink-0"><Link href={`/customer/invoice?type=booking&id=${myBookings.at(0)?.id}`} className="bg-emerald-600 text-white text-[11px] font-bold px-3 py-1 rounded-lg text-center">🧾 Invoice</Link><Link href="/customer/bookings" className="bg-indigo-600 text-white text-[11px] font-bold px-3 py-1 rounded-lg text-center">Track</Link></div>
             </div>
           ) : (
             <div className="bg-white rounded-2xl p-3 border border-gray-100 flex items-center justify-between">
@@ -381,7 +381,7 @@ export default function CustomerSuperAppHome() {
                 <p className="text-xs font-black text-blue-700 mt-0.5">₹{(myOrders.at(0)?.total_amount ?? myOrders.at(0)?.amount) || 0}</p>
                 <p className="text-[10px] text-emerald-600 font-bold capitalize mt-0.5">• {myOrders.at(0)?.status || 'Placed'}</p>
               </div>
-              <Link href="/customer/shop" className="border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-xl shrink-0">Order Again</Link>
+              <div className="flex flex-col gap-1.5 shrink-0"><Link href={`/customer/invoice?type=order&id=${myOrders.at(0)?.id}`} className="bg-indigo-600 text-white text-[11px] font-bold px-3 py-1 rounded-lg text-center">🧾 Invoice</Link><Link href="/customer/shop" className="border border-indigo-200 bg-indigo-50 text-indigo-700 text-[11px] font-bold px-3 py-1 rounded-lg text-center">Order Again</Link></div>
             </div>
           </section>
         )}

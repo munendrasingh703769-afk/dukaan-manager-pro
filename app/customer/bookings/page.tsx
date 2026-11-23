@@ -32,7 +32,7 @@ export default function CustomerBookingsPage() {
       .from('service_bookings')
       .select(`
         *,
-        services:service_id (name, price, business_id)
+        *, services:service_id (name, price, business_id)
       `)
       .eq('customer_id', user.id) 
       .order('created_at', { ascending: false });
