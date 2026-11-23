@@ -46,13 +46,13 @@ function InvoiceContent() {
           });
         }
       } else {
-        const { data: o } = await supabase.from('orders').select('*, order_items(*), businesses(*)').eq('id', id).single();
+        const { data: o } = await supabase.from('orders').select('*').eq('id', id).single();
         if (o) {
           const rawItems = Array.isArray(o.order_items) && o.order_items.length > 0 ? o.order_items : [{ product_name: 'Order Items', price: o.total_amount || 0, quantity: 1 }];
           setData({
             invNo: 'INV-' + String(o.id).slice(0, 6).toUpperCase(),
             date: new Date(o.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-            biz: o.businesses || {},
+            biz: o.business_id ? (await supabase.from('businesses').select('*').eq('id', o.business_id).single()).data || {} : {},
             cust: prof || {},
             address: o.shipping_address || prof?.address || 'India',
             items: rawItems.map((it: any) => {

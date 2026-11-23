@@ -309,7 +309,7 @@ export default function CustomerSuperAppHome() {
           <div className="grid grid-cols-4 gap-2 text-slate-900">
             {[
               { label: 'Total Orders', count: myOrders.length, icon: '🛒', bg: 'bg-blue-50' },
-              { label: 'Processing', count: myOrders.filter(o => ['pending', 'confirmed', 'processing'].includes((o.status || '').toLowerCase())).length, icon: '🕒', bg: 'bg-amber-50' },
+              { label: 'Processing', count: myOrders.filter(o => ['confirmed', 'accepted', 'processing', 'packed'].includes((o.status || '').toLowerCase())).length, icon: '🕒', bg: 'bg-amber-50' },
               { label: 'Shipped', count: myOrders.filter(o => ['shipped', 'out_for_delivery', 'in_transit'].includes((o.status || '').toLowerCase())).length, icon: '🚚', bg: 'bg-sky-50' },
               { label: 'Delivered', count: myOrders.filter(o => (o.status || '').toLowerCase() === 'delivered').length, icon: '✅', bg: 'bg-emerald-50' }
             ].map((st) => (
