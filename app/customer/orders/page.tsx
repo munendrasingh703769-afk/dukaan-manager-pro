@@ -86,7 +86,10 @@ export default function CustomerOrdersPage() {
                       <p className="text-xs text-gray-500">Qty: {item.qty} × ₹{item.price}</p>
                     </div>
                     <p className="font-bold text-gray-800">₹{item.total}</p>
+                    <div className="px-4 py-2.5 bg-slate-50 border-t flex justify-end">
+                    <Link href={`/customer/invoice?type=order&id=${order.id}`} className="bg-indigo-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm">🧾 Tax Invoice</Link>
                   </div>
+                </div>
                 ))}
               </div>
 

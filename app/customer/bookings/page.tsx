@@ -169,7 +169,10 @@ export default function CustomerBookingsPage() {
                 ⭐ Rate & Review Provider
               </button>
             )}
-          </div>
+            <div className="mt-2 pt-2 border-t flex justify-end">
+                    <Link href={`/customer/invoice?type=booking&id=${booking.id}`} className="bg-indigo-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm">🧾 Tax Invoice</Link>
+                  </div>
+                </div>
         ))
       )}
 
