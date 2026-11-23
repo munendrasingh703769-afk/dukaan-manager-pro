@@ -205,21 +205,13 @@ export default function CustomerProfilePage() {
           </button>
           <button type="button" onClick={async () => {
             if (!confirm("क्या आप वाकई अपना अकाउंट डिलीट करना चाहते हैं?")) return;
-            const reason = prompt("कृपया अकाउंट डिलीट करने का कारण लिखें (वैकल्पिक):") || "No reason provided";
+            const reason = prompt("कृपया अकाउंट डिलीट करने का कारण लिखें (वैकल्पिक):") || "User requested deletion";
             if (prompt("कन्फर्म करने के लिए DELETE लिखें:") !== "DELETE") { alert("अकाउंट डिलीट रद्द किया गया।"); return; }
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.access_token) {
-              const res = await fetch('/api/customer/delete-account', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-                body: JSON.stringify({ reason })
-              });
-              const out = await res.json();
-              if (!res.ok) { alert('Delete Error: ' + (out.error || 'Failed')); return; }
-              await supabase.auth.signOut();
-              alert('आपका अकाउंट पूरी तरह डिलीट हो गया है। अब आप इस Gmail से नया अकाउंट भी बना सकते हैं।');
-              window.location.href = '/login';
-            }
+            const { error } = await supabase.rpc("delete_my_account", { del_reason: reason });
+            if (error) { alert("Delete Error: " + error.message); return; }
+            await supabase.auth.signOut();
+            alert("आपका अकाउंट और Gmail डेटा पूरी तरह डिलीट हो गया है! अब आप इसी Gmail से नया अकाउंट बना सकते हैं।");
+            window.location.href = "/signup";
           }} className="w-full flex items-center justify-between p-4 hover:bg-red-50 text-left">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-xl">🗑️</div>
