@@ -45,6 +45,7 @@ function InvoiceContent() {
             date: new Date(b.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
             biz: biz || {},
             cust: prof || {},
+            discount: Number(b.discount_amount ?? b.discount ?? 0),
             address: b.address || prof?.address || 'India',
             items: [{ name: srv?.name || b.service_name || 'Service Charge', hsn: srv?.hsn_code || '9987', rate: amt, qty: 1, gst, taxAmt: amt * (gst / 100), total: amt * (1 + gst / 100) }]
           });
@@ -63,13 +64,16 @@ function InvoiceContent() {
             date: new Date(o.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
             biz: biz || {},
             cust: prof || {},
+            discount: Number(o.discount_amount ?? o.discount ?? 0),
             address: o.shipping_address || prof?.address || 'India',
             items: rawItems.map((it: any) => {
               const rate = Number(it.price ?? it.unit_price ?? it.selling_price ?? 0);
               const qty = Number(it.quantity ?? it.qty ?? 1);
               const gst = Number(it.gst_percent ?? 0);
+              const mrp = Number(it.mrp ?? 0);
+              const itemSaved = mrp > rate ? (mrp - rate) * qty : 0;
               const base = rate * qty;
-              return { name: it.product_name || it.name || 'Item', hsn: it.hsn_code || '—', rate, qty, gst, taxAmt: base * (gst / 100), total: base * (1 + gst / 100) };
+              return { name: it.product_name || it.name || 'Item', mrp, itemSaved, hsn: it.hsn_code || '—', rate, qty, gst, taxAmt: base * (gst / 100), total: base * (1 + gst / 100) };
             })
           });
         }
@@ -84,7 +88,10 @@ function InvoiceContent() {
 
   const subTotal = data.items.reduce((s: number, x: any) => s + x.rate * x.qty, 0);
   const taxTotal = data.items.reduce((s: number, x: any) => s + (x.taxAmt || 0), 0);
-  const grandTotal = subTotal + taxTotal;
+  const billDiscount = Number(data.discount || 0);
+  const mrpSavings = data.items.reduce((s: number, x: any) => s + (x.itemSaved || 0), 0);
+  const totalSavings = billDiscount + mrpSavings;
+  const grandTotal = Math.max(0, subTotal + taxTotal - billDiscount);
   const totalQty = data.items.reduce((s: number, x: any) => s + x.qty, 0);
   const upiLink = data.biz?.upi_id ? `upi://pay?pa=${data.biz.upi_id}&pn=${encodeURIComponent(data.biz.name || 'Store')}&am=${grandTotal.toFixed(2)}&cu=INR` : '';
   const fullBizAddr = [data.biz?.address, data.biz?.city, data.biz?.state, data.biz?.pincode].filter(Boolean).join(', ') || 'India';
@@ -161,7 +168,7 @@ function InvoiceContent() {
                   <td className="py-2.5 pr-2 align-top">{idx + 1}</td>
                   <td className="py-2.5 pr-2 align-top">
                     <p className="font-bold text-slate-900">{it.name}</p>
-                    <p className="text-[10px] text-slate-500">HSN/SAC: {it.hsn}</p>
+                    <p className="text-[10px] text-slate-500">HSN/SAC: {it.hsn} {it.itemSaved > 0 && <span className="text-emerald-700 font-bold ml-1">(MRP ₹{it.mrp} • Saved ₹{it.itemSaved.toFixed(2)})</span>}</p>
                   </td>
                   <td className="py-2.5 px-2 text-right align-top">{it.rate.toFixed(2)}</td>
                   <td className="py-2.5 px-2 text-right align-top">{it.qty}</td>
@@ -179,13 +186,14 @@ function InvoiceContent() {
             <div className="flex justify-between"><span>Taxable Amount</span><strong>₹{subTotal.toFixed(2)}</strong></div>
             <div className="flex justify-between"><span>CGST</span><strong>₹{(taxTotal / 2).toFixed(2)}</strong></div>
             <div className="flex justify-between"><span>SGST</span><strong>₹{(taxTotal / 2).toFixed(2)}</strong></div>
+            {billDiscount > 0 && <div className="flex justify-between text-emerald-700 font-bold"><span>Discount</span><span>-₹{billDiscount.toFixed(2)}</span></div>}
             <div className="flex justify-between text-sm font-black border-t pt-1"><span>Total</span><span>₹{grandTotal.toFixed(2)}</span></div>
           </div>
         </div>
 
         <div className="border-y border-slate-300 py-2 my-3 flex flex-wrap justify-between gap-2 text-[10px] text-slate-700">
           <span>Total Items / Qty : {data.items.length} / {totalQty.toFixed(3)}</span>
-          <span>Total amount (in words): <strong>INR {numToWords(grandTotal)} Only.</strong></span>
+          <span>Total amount (in words): <strong>INR {numToWords(grandTotal)} Only.</strong> {totalSavings > 0 && <span className="ml-2 bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">🎉 Total Saved: ₹{totalSavings.toFixed(2)}</span>}</span>
         </div>
 
         <div className="grid grid-cols-3 gap-3 pt-2 items-start text-[11px]">
