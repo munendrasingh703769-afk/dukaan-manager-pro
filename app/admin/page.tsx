@@ -53,7 +53,9 @@ export default function AdminMasterPage() {
     if (subRes.data) setSubscriptions(subRes.data);
     if (catRes.data) setCategories(catRes.data);
     if (subCatRes.data) setSubcategories(subCatRes.data);
-    setLoading(false);
+    const { data: delData } = await supabase.from('deleted_accounts').select('*').order('deleted_at', { ascending: false }).limit(20);
+      if (delData) setDeletedAccounts(delData);
+      setLoading(false);
   };
 
   useEffect(() => {
@@ -390,6 +392,30 @@ export default function AdminMasterPage() {
           </div>
         )}
       </div>
-    </div>
+    
+        <div className="bg-white rounded-2xl p-4 border border-red-100 shadow-sm mt-6">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-sm font-black text-red-700">🗑️ Deleted Accounts History ({deletedAccounts.length})</h2>
+            <span className="text-[10px] font-bold text-slate-400">Audit Log</span>
+          </div>
+          {deletedAccounts.length === 0 ? (
+            <p className="text-xs text-slate-400 py-3 text-center">अभी तक किसी यूज़र ने अकाउंट डिलीट नहीं किया है।</p>
+          ) : (
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {deletedAccounts.map((d) => (
+                <div key={d.id} className="p-3 rounded-xl bg-red-50/50 border border-red-100 flex justify-between items-start text-xs">
+                  <div>
+                    <p className="font-black text-slate-900">{d.full_name || 'User'} <span className="text-[10px] font-normal text-slate-500">({d.role})</span></p>
+                    <p className="text-slate-700">{d.email} {d.phone ? `• ${d.phone}` : ''}</p>
+                    <p className="text-[11px] text-red-700 mt-1">कारण: {d.reason || '—'}</p>
+                  </div>
+                  <span className="text-[10px] text-slate-500 shrink-0">{new Date(d.deleted_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
   );
 }

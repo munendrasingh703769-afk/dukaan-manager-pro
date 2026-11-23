@@ -205,9 +205,21 @@ export default function CustomerProfilePage() {
           </button>
           <button type="button" onClick={async () => {
             if (!confirm("क्या आप वाकई अपना अकाउंट डिलीट करना चाहते हैं?")) return;
-            if (prompt("कन्फर्म करने के लिए DELETE लिखें:") !== "DELETE") return;
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) { await supabase.from("profiles").delete().eq("id", user.id); await supabase.auth.signOut(); window.location.href = "/login"; }
+            const reason = prompt("कृपया अकाउंट डिलीट करने का कारण लिखें (वैकल्पिक):") || "No reason provided";
+            if (prompt("कन्फर्म करने के लिए DELETE लिखें:") !== "DELETE") { alert("अकाउंट डिलीट रद्द किया गया।"); return; }
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.access_token) {
+              const res = await fetch('/api/customer/delete-account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                body: JSON.stringify({ reason })
+              });
+              const out = await res.json();
+              if (!res.ok) { alert('Delete Error: ' + (out.error || 'Failed')); return; }
+              await supabase.auth.signOut();
+              alert('आपका अकाउंट पूरी तरह डिलीट हो गया है। अब आप इस Gmail से नया अकाउंट भी बना सकते हैं।');
+              window.location.href = '/login';
+            }
           }} className="w-full flex items-center justify-between p-4 hover:bg-red-50 text-left">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-xl">🗑️</div>
