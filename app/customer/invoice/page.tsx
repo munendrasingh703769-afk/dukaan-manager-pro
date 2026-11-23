@@ -38,8 +38,20 @@ function InvoiceContent() {
           const { data: srv } = b.service_id ? await supabase.from('services').select('*').eq('id', b.service_id).single() : { data: null };
           const bizId = b.business_id || srv?.business_id;
           const { data: biz } = bizId ? await supabase.from('businesses').select('*').eq('id', bizId).single() : { data: null };
-          const amt = Number(b.total_amount ?? b.amount ?? srv?.price ?? 0);
+          const parts = Array.isArray(b.used_items) ? b.used_items : [];
+          const partsSum = parts.reduce((s: number, p: any) => s + Number(p.price || 0) * Number(p.qty || 1), 0);
+          const rawTotal = Number(b.total_amount ?? b.amount ?? srv?.price ?? 0);
+          const srvOnly = parts.length > 0 && rawTotal >= partsSum ? rawTotal - partsSum : rawTotal;
           const gst = Number(srv?.gst_percent || 0);
+          const allRows = [
+            { name: (srv?.name || b.service_name || 'Service Charge') + ' (Service)', hsn: srv?.hsn_code || '9987', rate: srvOnly, qty: 1, gst, taxAmt: srvOnly * (gst / 100), total: srvOnly * (1 + gst / 100) },
+            ...parts.map((p: any) => {
+              const r = Number(p.price || 0);
+              const q = Number(p.qty || 1);
+              const g = Number(p.gst_percent || 0);
+              return { name: p.name || 'Material / Part', hsn: p.hsn_code || '—', rate: r, qty: q, gst: g, taxAmt: r * q * (g / 100), total: r * q * (1 + g / 100) };
+            })
+          ];
           setData({
             invNo: 'SRV-' + String(b.id).slice(0, 6).toUpperCase(),
             date: new Date(b.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -47,7 +59,7 @@ function InvoiceContent() {
             cust: prof || {},
             discount: Number(b.discount_amount ?? b.discount ?? 0),
             address: b.address || prof?.address || 'India',
-            items: [{ name: srv?.name || b.service_name || 'Service Charge', hsn: srv?.hsn_code || '9987', rate: amt, qty: 1, gst, taxAmt: amt * (gst / 100), total: amt * (1 + gst / 100) }]
+            items: allRows
           });
         }
       } else {

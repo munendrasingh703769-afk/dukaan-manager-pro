@@ -25,6 +25,43 @@ export default function ProviderBookingsPage() {
   const [loading, setLoading] = useState(true);
   
   const [chatBookingId, setChatBookingId] = useState<string | null>(null);
+  const [productsList, setProductsList] = useState<any[]>([]);
+  const [billBooking, setBillBooking] = useState<any | null>(null);
+  const [srvCharge, setSrvCharge] = useState<number>(0);
+  const [usedParts, setUsedParts] = useState<any[]>([]);
+  const [savingBill, setSavingBill] = useState(false);
+
+  const openPartsModal = (b: any) => {
+    const srv = services.find((s) => s.id === b.service_id);
+    setBillBooking(b);
+    setSrvCharge(Number(b.total_amount ?? srv?.price ?? 0) - (Array.isArray(b.used_items) ? b.used_items.reduce((sum: number, it: any) => sum + Number(it.price || 0) * Number(it.qty || 1), 0) : 0));
+    setUsedParts(Array.isArray(b.used_items) ? b.used_items : []);
+  };
+
+  const savePartsAndBill = async () => {
+    if (!billBooking) return;
+    setSavingBill(true);
+    const partsTotal = usedParts.reduce((s, p) => s + Number(p.price || 0) * Number(p.qty || 1), 0);
+    const grand = Number(srvCharge || 0) + partsTotal;
+    await supabase.from('service_bookings').update({
+      used_items: usedParts,
+      total_amount: grand
+    }).eq('id', billBooking.id);
+    // Deduct stock for linked inventory items
+    for (const p of usedParts) {
+      if (p.product_id && !p.deducted) {
+        const prod = productsList.find((x) => x.id === p.product_id);
+        if (prod) {
+          const nextStock = Math.max(0, Number(prod.stock_qty || 0) - Number(p.qty || 1));
+          await supabase.from('products').update({ stock_qty: nextStock }).eq('id', prod.id);
+        }
+        p.deducted = true;
+      }
+    }
+    setBillBooking(null);
+    setSavingBill(false);
+    fetchData();
+  };
 
   const fetchData = async () => {
     if (!activeId) return;
@@ -123,7 +160,12 @@ export default function ProviderBookingsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {bookings.map((booking) => {
+          <div className="mb-3 flex justify-end">
+        <a href="/sales" className="bg-slate-900 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm">
+          🧾 Offline Customer Bill (Service + Parts)
+        </a>
+      </div>
+      {bookings.map((booking) => {
             const serviceDetails = getServiceDetails(booking.service_id);
             const assignedWorker = workers.find(w => w.id === booking.assigned_worker_id);
 
@@ -209,6 +251,21 @@ export default function ProviderBookingsPage() {
                   </div>
                 )}
 
+                <div className="ml-2 flex gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => openPartsModal(booking)}
+                    className="flex-1 bg-amber-50 text-amber-800 border border-amber-200 py-2 rounded-xl font-bold text-xs"
+                  >
+                    🔧 Add Parts / Bill ({Array.isArray((booking as any).used_items) ? (booking as any).used_items.length : 0})
+                  </button>
+                  <a
+                    href={`/customer/invoice?type=booking&id=${booking.id}`}
+                    className="flex-1 bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs text-center"
+                  >
+                    🧾 Tax Invoice
+                  </a>
+                </div>
                 <div className="ml-2">
                   <button onClick={() => setChatBookingId(booking.id)} className="w-full bg-indigo-50 text-indigo-700 border border-indigo-200 py-2 rounded-xl font-bold text-sm">
                     💬 Chat with Customer
@@ -232,6 +289,53 @@ export default function ProviderBookingsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {billBooking && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-4 space-y-3 max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-black text-sm text-slate-900">Service Charge + Used Material</h3>
+              <button onClick={() => setBillBooking(null)} className="text-red-500 font-bold">✕</button>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600">Service Charge (₹)</label>
+              <input type="number" value={srvCharge} onChange={(e) => setSrvCharge(Number(e.target.value))} className="w-full border rounded-xl px-3 py-2 text-sm font-bold mt-1" />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold text-slate-600">Used Items / Spare Parts</label>
+                <button type="button" onClick={() => setUsedParts([...usedParts, { product_id: '', name: '', qty: 1, price: 0, gst_percent: 0 }])} className="text-xs font-bold bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg">+ Add Item</button>
+              </div>
+              {usedParts.map((pt, idx) => (
+                <div key={idx} className="p-2.5 bg-slate-50 rounded-xl border space-y-2">
+                  <select
+                    value={pt.product_id || ''}
+                    onChange={(e) => {
+                      const prod = productsList.find((x) => x.id === e.target.value);
+                      setUsedParts(usedParts.map((it, i) => i === idx ? (prod ? { ...it, product_id: prod.id, name: prod.name, price: prod.selling_price || 0, gst_percent: prod.gst_percent || 0, hsn_code: prod.hsn_code || '' } : { ...it, product_id: '' }) : it));
+                    }}
+                    className="w-full border rounded-lg px-2 py-1.5 text-xs bg-white"
+                  >
+                    <option value="">-- Custom Item (Type Below) --</option>
+                    {productsList.map((pr) => <option key={pr.id} value={pr.id}>{pr.name} (₹{pr.selling_price} • Stock: {pr.stock_qty ?? 0})</option>)}
+                  </select>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <input type="text" placeholder="Item Name" value={pt.name} onChange={(e) => setUsedParts(usedParts.map((it, i) => i === idx ? { ...it, name: e.target.value } : it))} className="border rounded-lg px-2 py-1 text-xs bg-white" />
+                    <input type="number" placeholder="Qty" value={pt.qty} onChange={(e) => setUsedParts(usedParts.map((it, i) => i === idx ? { ...it, qty: Number(e.target.value) } : it))} className="border rounded-lg px-2 py-1 text-xs bg-white" />
+                    <input type="number" placeholder="Rate ₹" value={pt.price} onChange={(e) => setUsedParts(usedParts.map((it, i) => i === idx ? { ...it, price: Number(e.target.value) } : it))} className="border rounded-lg px-2 py-1 text-xs bg-white" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="pt-2 border-t flex justify-between items-center">
+              <span className="text-xs font-black">Total Bill: ₹{(Number(srvCharge || 0) + usedParts.reduce((s, p) => s + Number(p.price || 0) * Number(p.qty || 1), 0)).toFixed(2)}</span>
+              <button disabled={savingBill} onClick={savePartsAndBill} className="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl">
+                {savingBill ? 'Saving...' : 'Save & Update Invoice'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
