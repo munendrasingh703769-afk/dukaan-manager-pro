@@ -17,6 +17,6 @@ export function sendUdhaarWhatsApp(
     ? "*VyapaarSetu - डिजिटल खाता*%0Aनमस्ते *" + partyName + "*,%0Aदिनांक: " + dateStr + " | समय: " + timeStr + "%0A%0A• पुराना बकाया: ₹" + oldBal + "%0A• आज का लेन-देन: " + label + "%0A------------------------%0A*कुल शेष राशि: ₹" + newBal + "*%0A%0Aधन्यवाद!"
     : "*VyapaarSetu - Digital Ledger*%0AHello *" + partyName + "*,%0ADate: " + dateStr + " | Time: " + timeStr + "%0A%0A• Previous Balance: ₹" + oldBal + "%0A• Today Transaction: " + label + "%0A------------------------%0A*Total Remaining Balance: ₹" + newBal + "*%0A%0AThank you!";
   const cleanPhone = phone.replace(/\D/g, "").slice(-10);
-  window.open("https://wa.me" + cleanPhone + "?text=" + encodeURIComponent(decodeURIComponent(msg)), "_blank");
+  window.open("https://wa.me/91" + cleanPhone + "?text=" + encodeURIComponent(decodeURIComponent(msg)), "_blank");
   return newBal;
 }
