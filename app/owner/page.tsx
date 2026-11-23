@@ -495,7 +495,7 @@ export default function OwnerDashboard() {
               { name: 'Purchases', icon: '🛍️', link: subDetails?.isExpired ? '/pricing' : '/purchases', color: 'bg-pink-50 text-pink-600' },
               { name: 'Customers', icon: '👥', link: '/customers', color: 'bg-blue-50 text-blue-600' },
               { name: 'Suppliers', icon: '🚚', link: '/suppliers', color: 'bg-orange-50 text-orange-600' },
-              { name: 'Udhaar & Pay', icon: '💰', link: '/payments', color: 'bg-yellow-50 text-yellow-600' },
+              { name: 'Udhaar & Pay', icon: '💰', link: '/udhaar', color: 'bg-yellow-50 text-yellow-600' },
               { name: 'Expenses', icon: '💵', link: '/expenses', color: 'bg-green-50 text-green-600' },
               { name: 'Reports & GST', icon: '📊', link: subDetails?.isExpired ? '/pricing' : '/reports', color: 'bg-teal-50 text-teal-600' },
               { name: 'Staff & Perms', icon: '🛡️', link: '/settings/workers', color: 'bg-cyan-50 text-cyan-600' },
