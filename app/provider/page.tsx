@@ -21,7 +21,25 @@ export default function ProviderDashboardHome() {
     const fetchData = async () => {
       try {
         // 1. Get Active ID
-        const activeId = getCurrentBusinessId();
+        let activeId = getCurrentBusinessId();
+      if (!activeId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: biz } = await supabase.from("businesses").select("id").eq("owner_id", user.id).limit(1).maybeSingle();
+          if (biz?.id) {
+            activeId = biz.id;
+            localStorage.setItem("active_business_id", biz.id);
+            localStorage.setItem("business_id", biz.id);
+          } else {
+            const { data: newBiz } = await supabase.from("businesses").insert([{ owner_id: user.id, name: user.user_metadata?.full_name || "Service Provider", email: user.email }]).select("id").single();
+            if (newBiz?.id) {
+              activeId = newBiz.id;
+              localStorage.setItem("active_business_id", newBiz.id);
+              localStorage.setItem("business_id", newBiz.id);
+            }
+          }
+        }
+      }
         
         if (!activeId) {
           setErrorMsg("Aapka account login nahi hai ya Business ID nahi mili. Kripya logout karke dobara login karein.");
