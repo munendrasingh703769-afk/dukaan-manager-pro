@@ -231,43 +231,6 @@ export default function OwnerDashboard() {
 
       <div className="px-4 pt-5 space-y-6 max-w-md mx-auto">
         
-        {/* Business Info Card */}
-        {currentBusiness ? (
-            <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white p-4 rounded-2xl shadow-md border border-emerald-500/30 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-400/30 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0">
-                  🏪
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-base font-extrabold text-white tracking-tight">{currentBusiness.name}</h2>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 border border-emerald-400/30 text-[9px] font-extrabold text-emerald-300 uppercase tracking-wider">
-                      Store
-                    </span>
-                  </div>
-                  <p className="text-xs text-emerald-100/80 mt-0.5 font-medium">
-                    Owner: {currentBusiness.owner_name || 'Not Set'}
-                  </p>
-                  <div className="flex items-center gap-3 mt-1 text-[11px] text-teal-200/80 font-medium">
-                    {currentBusiness.phone && <span>📞 {currentBusiness.phone}</span>}
-                    {currentBusiness.city && <span>📍 {currentBusiness.city}</span>}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => router.push('/settings/business')}
-                className="px-3.5 py-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-extrabold rounded-xl backdrop-blur-md active:scale-95 transition-all shrink-0"
-              >
-                ✏️ Edit
-              </button>
-            </div>
-          ) : (
-          <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-slate-200">
-             <p className="text-slate-600 mb-3">Aapne abhi tak koi dukaan nahi jodi hai.</p>
-             <button onClick={() => router.push('/settings/business/new')} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Add Business Now</button>
-          </div>
-        )}
-
         {/* Subscription / Trial Banner */}
           {subDetails && (
             <div className={`rounded-2xl p-4 shadow-md border transition-all ${
@@ -485,6 +448,44 @@ export default function OwnerDashboard() {
               </div>
             </Link>
           </div>
+        
+{/* Business Info Card */}
+        {currentBusiness ? (
+            <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white p-4 rounded-2xl shadow-md border border-emerald-500/30 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-400/30 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0">
+                  🏪
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base font-extrabold text-white tracking-tight">{currentBusiness.name}</h2>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 border border-emerald-400/30 text-[9px] font-extrabold text-emerald-300 uppercase tracking-wider">
+                      Store
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-100/80 mt-0.5 font-medium">
+                    Owner: {currentBusiness.owner_name || 'Not Set'}
+                  </p>
+                  <div className="flex items-center gap-3 mt-1 text-[11px] text-teal-200/80 font-medium">
+                    {currentBusiness.phone && <span>📞 {currentBusiness.phone}</span>}
+                    {currentBusiness.city && <span>📍 {currentBusiness.city}</span>}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => router.push('/settings/business')}
+                className="px-3.5 py-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-extrabold rounded-xl backdrop-blur-md active:scale-95 transition-all shrink-0"
+              >
+                ✏️ Edit
+              </button>
+            </div>
+          ) : (
+          <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-slate-200">
+             <p className="text-slate-600 mb-3">Aapne abhi tak koi dukaan nahi jodi hai.</p>
+             <button onClick={() => router.push('/settings/business/new')} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Add Business Now</button>
+          </div>
+        )}
+
         </section>
 
         {/* Business Modules */}
@@ -500,9 +501,9 @@ export default function OwnerDashboard() {
               { name: 'Reports & GST', icon: '📊', link: subDetails?.isExpired ? '/pricing' : '/reports', color: 'bg-teal-50 text-teal-600' },
               { name: 'Staff & Perms', icon: '🛡️', link: '/settings/workers', color: 'bg-cyan-50 text-cyan-600' },
             ].map(module => (
-              <Link key={module.name} href={module.link} className="bg-white border border-slate-200 rounded-2xl p-3 flex items-center gap-2 shadow-sm active:scale-95 transition-transform">
+              <Link key={module.name} href={module.link} className="bg-white border border-slate-200/80 rounded-2xl p-3 h-24 flex flex-col items-center justify-center text-center gap-1.5 shadow-sm hover:border-emerald-300 active:scale-95 transition-all">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${module.color}`}>{module.icon}</div>
-                <p className="text-xs font-bold text-slate-800">{module.name}</p>
+                <p className="text-[11px] font-bold text-slate-800 leading-tight line-clamp-2">{module.name}</p>
               </Link>
             ))}
           </div>
@@ -512,15 +513,15 @@ export default function OwnerDashboard() {
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-3 px-1 tracking-tight">More Features</h2>
           <div className="grid grid-cols-3 gap-2">
-            <Link href="/reports" className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
+            <Link href="/reports" className="bg-white border border-slate-200/80 rounded-2xl p-3 h-20 shadow-sm flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all">
               <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-lg">📈</div>
               <p className="text-[10px] font-bold text-slate-800 text-center">Reports<br/>Analysis</p>
             </Link>
-            <button onClick={() => alert('E-commerce module coming soon!')} className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
+            <button onClick={() => alert('E-commerce module coming soon!')} className="bg-white border border-slate-200/80 rounded-2xl p-3 h-20 shadow-sm flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all">
               <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-lg">🌐</div>
               <p className="text-[10px] font-bold text-slate-800 text-center">E-<br/>commerce</p>
             </button>
-            <button onClick={() => alert('Quotation module coming soon!')} className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
+            <button onClick={() => alert('Quotation module coming soon!')} className="bg-white border border-slate-200/80 rounded-2xl p-3 h-20 shadow-sm flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all">
               <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-lg">📝</div>
               <p className="text-[10px] font-bold text-slate-800 text-center">Quotation</p>
             </button>

@@ -216,7 +216,8 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
               </button>
 
               {/* Notification Dropdown */}
-              {showNotifications && (
+              {showNotifications && <div onClick={() => setShowNotifications(false)} className="fixed inset-0 z-40" />}
+          {showNotifications && (
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-96 overflow-y-auto">
                   <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
                     <h3 className="font-bold text-sm text-gray-800">Notifications</h3>
