@@ -58,7 +58,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             const { data: biz } = await supabase.from("businesses").select("id").eq("owner_id", user.id).limit(1).maybeSingle();
-            if (biz?.id) { localStorage.setItem("current_business_id", biz.id); window.location.reload(); }
+            if (biz?.id) { localStorage.setItem("current_business_id", biz.id); console.log("Business ID synced"); }
           }
         })();
         return;
@@ -120,7 +120,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             const { data: biz } = await supabase.from("businesses").select("id").eq("owner_id", user.id).limit(1).maybeSingle();
-            if (biz?.id) { localStorage.setItem("current_business_id", biz.id); window.location.reload(); }
+            if (biz?.id) { localStorage.setItem("current_business_id", biz.id); console.log("Business ID synced"); }
           }
         })();
         return;
