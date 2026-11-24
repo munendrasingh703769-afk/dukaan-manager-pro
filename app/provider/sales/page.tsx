@@ -43,6 +43,7 @@ export default function ProviderSalesPage() {
 
   const [cart, setCart] = useState<any[]>([]);
   const [generatedInvoice, setGeneratedInvoice] = useState<any | null>(null);
+  const [previewInvNo, setPreviewInvNo] = useState(() => `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`);
 
   const fetchData = async () => {
     if (!activeId) { setLoading(false); return; }
@@ -95,7 +96,7 @@ export default function ProviderSalesPage() {
     if (!activeId) return;
     setSaving(true);
     try {
-      const invNo = `INV-${Date.now().toString().slice(-6)}`;
+      const invNo = previewInvNo;
       const saleDate = new Date().toISOString();
       const { data: saleData, error: sErr } = await supabase.from("sales").insert([{
         business_id: activeId, customer_name: customerName.trim() || "Walk-in Customer", customer_phone: customerPhone.trim(),
@@ -131,7 +132,7 @@ export default function ProviderSalesPage() {
         customerPhone: customerPhone.trim(), customerAddress: customerAddress.trim(),
         items: cart, rawSubTotal, discountAmount, taxableTotal, totalGst, roundOff, grandTotal, totalPaid, dueAmount, discountRatio
       });
-      setCart([]); setCustomerName(""); setCustomerPhone(""); setCustomerAddress(""); setDiscountVal(""); setCashPaid(""); setOnlinePaid("");
+      setCart([]); setPreviewInvNo(`INV-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`); setCustomerName(""); setCustomerPhone(""); setCustomerAddress(""); setDiscountVal(""); setCashPaid(""); setOnlinePaid("");
       await fetchData();
     } catch (err: any) { alert("Error: " + err.message); } finally { setSaving(false); }
   };
@@ -223,9 +224,11 @@ export default function ProviderSalesPage() {
             <div className="text-right space-y-0.5">
               <p>Subtotal: ₹{inv.rawSubTotal.toFixed(2)}</p>
               {inv.discountAmount > 0 && <p className="text-emerald-700">Discount: - ₹{inv.discountAmount.toFixed(2)}</p>}
-              {inv.isGstBill && <p>Total GST: ₹{inv.totalGst.toFixed(2)}</p>}
-              {inv.roundOff !== 0 && <p className="text-slate-600">Round Off: {inv.roundOff > 0 ? `+₹${inv.roundOff.toFixed(2)}` : `-₹${Math.abs(inv.roundOff).toFixed(2)}`}</p>}
-              <p className="text-base font-black border-t border-slate-400 pt-1">Total: ₹{inv.grandTotal.toFixed(2)}</p>
+              <p className="font-semibold">Taxable Value: ₹{inv.taxableTotal.toFixed(2)}</p>
+              {inv.isGstBill && <p>Total GST: + ₹{inv.totalGst.toFixed(2)}</p>}
+              <p className="text-slate-500">Exact Total: ₹{(inv.taxableTotal + inv.totalGst).toFixed(2)}</p>
+              {inv.roundOff !== 0 && <p className="font-bold">Round Off: {inv.roundOff > 0 ? `+ ₹${inv.roundOff.toFixed(2)}` : `- ₹${Math.abs(inv.roundOff).toFixed(2)}`}</p>}
+              <p className="text-base font-black border-t border-slate-400 pt-1">Grand Total: ₹{inv.grandTotal.toFixed(2)}</p>
             </div>
           </div>
 
@@ -310,7 +313,7 @@ export default function ProviderSalesPage() {
         </div>
 
         <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
-          <h2 className="text-sm font-extrabold text-slate-800 border-b pb-2">Current Bill ({cart.length} items)</h2>
+          <div className="flex justify-between items-center border-b pb-2"><h2 className="text-sm font-extrabold text-slate-800">Current Bill ({cart.length} items)</h2><span className="text-[11px] font-extrabold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-lg border border-blue-200">{previewInvNo}</span></div>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {cart.length === 0 ? <p className="text-xs text-slate-400 text-center py-6">ऊपर से सर्विस या प्रोडक्ट चुनें</p> : cart.map((c) => (
               <div key={c.id} className="flex justify-between items-center border-b pb-1.5 text-xs">
@@ -341,12 +344,14 @@ export default function ProviderSalesPage() {
             <input type="number" placeholder="0" value={discountVal} onChange={(e) => setDiscountVal(e.target.value)} className="p-1.5 border rounded-lg text-xs bg-white" />
           </div>
 
-          <div className="text-xs space-y-1 border-t pt-2">
-            <div className="flex justify-between"><span>Subtotal:</span><span>₹{rawSubTotal.toFixed(2)}</span></div>
-            {discountAmount > 0 && <div className="flex justify-between text-emerald-700"><span>Discount:</span><span>- ₹{discountAmount.toFixed(2)}</span></div>}
-            {isGstBill && <div className="flex justify-between"><span>GST:</span><span>₹{totalGst.toFixed(2)}</span></div>}
-            {roundOff !== 0 && <div className="flex justify-between text-slate-600"><span>Round Off:</span><span>{roundOff > 0 ? `+₹${roundOff.toFixed(2)}` : `-₹${Math.abs(roundOff).toFixed(2)}`}</span></div>}
-            <div className="flex justify-between text-base font-black border-t pt-1"><span>Grand Total:</span><span>₹{grandTotal.toFixed(2)}</span></div>
+          <div className="text-xs space-y-1 border-t pt-2 bg-slate-50/70 p-2.5 rounded-xl">
+            <div className="flex justify-between"><span>1. Subtotal:</span><span>₹{rawSubTotal.toFixed(2)}</span></div>
+            {discountAmount > 0 && <div className="flex justify-between text-emerald-700"><span>2. Discount:</span><span>- ₹{discountAmount.toFixed(2)}</span></div>}
+            <div className="flex justify-between font-semibold text-slate-700"><span>3. Taxable Amount:</span><span>₹{taxableTotal.toFixed(2)}</span></div>
+            {isGstBill && <div className="flex justify-between"><span>4. GST Amount:</span><span>+ ₹{totalGst.toFixed(2)}</span></div>}
+            <div className="flex justify-between text-slate-600"><span>5. Bill Total (Exact):</span><span>₹{exactTotal.toFixed(2)}</span></div>
+            {roundOff !== 0 && <div className="flex justify-between font-bold text-blue-700"><span>6. Round Off:</span><span>{roundOff > 0 ? `+ ₹${roundOff.toFixed(2)}` : `- ₹${Math.abs(roundOff).toFixed(2)}`}</span></div>}
+            <div className="flex justify-between text-base font-black border-t border-slate-300 pt-1 text-slate-900"><span>Grand Total:</span><span>₹{grandTotal.toFixed(2)}</span></div>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
