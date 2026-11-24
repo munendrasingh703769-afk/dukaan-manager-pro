@@ -83,7 +83,9 @@ export default function ProviderSalesPage() {
   const taxableTotal = Math.max(0, rawSubTotal - discountAmount);
   const discountRatio = rawSubTotal > 0 ? taxableTotal / rawSubTotal : 1;
   const totalGst = isGstBill ? cart.reduce((s, x) => s + x.price * x.qty * discountRatio * (x.gst / 100), 0) : 0;
-  const grandTotal = Number((taxableTotal + totalGst).toFixed(2));
+  const exactTotal = taxableTotal + totalGst;
+  const grandTotal = Math.round(exactTotal);
+  const roundOff = Number((grandTotal - exactTotal).toFixed(2));
   const totalPaid = Number(cashPaid || 0) + Number(onlinePaid || 0);
   const dueAmount = Math.max(0, Number((grandTotal - totalPaid).toFixed(2)));
 
@@ -127,7 +129,7 @@ export default function ProviderSalesPage() {
       setGeneratedInvoice({
         invNo, saleDate, isGstBill, customerName: customerName.trim() || "Walk-in Customer",
         customerPhone: customerPhone.trim(), customerAddress: customerAddress.trim(),
-        items: cart, rawSubTotal, discountAmount, taxableTotal, totalGst, grandTotal, totalPaid, dueAmount, discountRatio
+        items: cart, rawSubTotal, discountAmount, taxableTotal, totalGst, roundOff, grandTotal, totalPaid, dueAmount, discountRatio
       });
       setCart([]); setCustomerName(""); setCustomerPhone(""); setCustomerAddress(""); setDiscountVal(""); setCashPaid(""); setOnlinePaid("");
       await fetchData();
@@ -222,6 +224,7 @@ export default function ProviderSalesPage() {
               <p>Subtotal: ₹{inv.rawSubTotal.toFixed(2)}</p>
               {inv.discountAmount > 0 && <p className="text-emerald-700">Discount: - ₹{inv.discountAmount.toFixed(2)}</p>}
               {inv.isGstBill && <p>Total GST: ₹{inv.totalGst.toFixed(2)}</p>}
+              {inv.roundOff !== 0 && <p className="text-slate-600">Round Off: {inv.roundOff > 0 ? `+₹${inv.roundOff.toFixed(2)}` : `-₹${Math.abs(inv.roundOff).toFixed(2)}`}</p>}
               <p className="text-base font-black border-t border-slate-400 pt-1">Total: ₹{inv.grandTotal.toFixed(2)}</p>
             </div>
           </div>
@@ -342,6 +345,7 @@ export default function ProviderSalesPage() {
             <div className="flex justify-between"><span>Subtotal:</span><span>₹{rawSubTotal.toFixed(2)}</span></div>
             {discountAmount > 0 && <div className="flex justify-between text-emerald-700"><span>Discount:</span><span>- ₹{discountAmount.toFixed(2)}</span></div>}
             {isGstBill && <div className="flex justify-between"><span>GST:</span><span>₹{totalGst.toFixed(2)}</span></div>}
+            {roundOff !== 0 && <div className="flex justify-between text-slate-600"><span>Round Off:</span><span>{roundOff > 0 ? `+₹${roundOff.toFixed(2)}` : `-₹${Math.abs(roundOff).toFixed(2)}`}</span></div>}
             <div className="flex justify-between text-base font-black border-t pt-1"><span>Grand Total:</span><span>₹{grandTotal.toFixed(2)}</span></div>
           </div>
 
