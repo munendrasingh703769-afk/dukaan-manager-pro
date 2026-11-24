@@ -36,7 +36,33 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
 
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 10000); // Har 10 sec me check
-    return () => clearInterval(interval);
+    const [bizReady, setBizReady] = useState(false);
+  useEffect(() => {
+    (async () => {
+      let id = localStorage.getItem("current_business_id");
+      if (!id) {
+        const { createClient } = await import("@/lib/supabase/client");
+        const sb = createClient();
+        const { data: { user } } = await sb.auth.getUser();
+        if (user) {
+          const { data: biz } = await sb.from("businesses").select("id").eq("owner_id", user.id).limit(1).maybeSingle();
+          if (biz?.id) {
+            id = biz.id;
+            localStorage.setItem("current_business_id", biz.id);
+          } else {
+            const { data: nb } = await sb.from("businesses").insert([{ owner_id: user.id, name: user.user_metadata?.full_name || "Service Provider", email: user.email }]).select("id").single();
+            if (nb?.id) {
+              id = nb.id;
+              localStorage.setItem("current_business_id", nb.id);
+            }
+          }
+        }
+      }
+      setBizReady(true);
+    })();
+  }, []);
+  if (!bizReady) return <div className="min-h-screen flex items-center justify-center font-bold text-blue-600">Loading Provider Workspace...</div>;
+  return () => clearInterval(interval);
   }, [activeId, supabase]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
