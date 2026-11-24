@@ -53,7 +53,16 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
 
   // 1. Fetch Notifications
   useEffect(() => {
-    if (!activeId) return;
+    if (!activeId) {
+        (async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: biz } = await supabase.from("businesses").select("id").eq("owner_id", user.id).limit(1).maybeSingle();
+            if (biz?.id) { localStorage.setItem("current_business_id", biz.id); window.location.reload(); }
+          }
+        })();
+        return;
+      }
 
     const fetchNotifications = async () => {
       const { data } = await supabase
@@ -106,7 +115,16 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
 
   // 2. Fetch Online Status & Profile
   useEffect(() => {
-    if (!activeId) return;
+    if (!activeId) {
+        (async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: biz } = await supabase.from("businesses").select("id").eq("owner_id", user.id).limit(1).maybeSingle();
+            if (biz?.id) { localStorage.setItem("current_business_id", biz.id); window.location.reload(); }
+          }
+        })();
+        return;
+      }
 
     const fetchStatus = async () => {
       const { data } = await supabase.from('businesses').select('name, is_online, logo_url').eq('id', activeId).single();
@@ -217,6 +235,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
 
               {/* Notification Dropdown */}
               {showNotifications && <div onClick={() => setShowNotifications(false)} className="fixed inset-0 z-40" />}
+          {showNotifications && <div onClick={() => setShowNotifications(false)} className="fixed inset-0 z-40" />}
           {showNotifications && (
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-96 overflow-y-auto">
                   <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
