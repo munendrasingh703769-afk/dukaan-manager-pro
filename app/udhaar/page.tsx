@@ -17,39 +17,57 @@ export default function UdhaarPage() {
   const [items, setItems] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const cleanNum = (p: string) => p.replace(/\D/g, "").slice(-10);
+
   const loadData = async () => {
-    const { data, error } = await supabase.from("udhaar_ledger").select("*").eq("party_type", tab).order("created_at", { ascending: false });
-    if (error) console.error(error);
+    const { data } = await supabase.from("udhaar_ledger").select("*").eq("party_type", tab).order("created_at", { ascending: false });
     if (data) setLedgers(data);
   };
   useEffect(() => { loadData(); }, [tab]);
 
+  const partyMap: Record<string, any> = {};
+  for (const row of ledgers) {
+    const k = cleanNum(row.phone);
+    if (k && !partyMap[k]) partyMap[k] = row;
+  }
+  const uniqueParties = Object.values(partyMap);
+
+  const handlePhoneChange = (val: string) => {
+    const digits = cleanNum(val);
+    setPhone(digits);
+    if (digits.length === 10 && partyMap[digits]) setName(partyMap[digits].party_name);
+  };
+
+  const matchedParty = phone.length === 10 ? partyMap[phone] : null;
+  const currentOldBal = matchedParty ? Number(matchedParty.new_balance) : 0;
+  const previewNewBal = amount ? (txType === "UDHAAR" ? currentOldBal + Number(amount) : currentOldBal - Number(amount)) : currentOldBal;
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !phone || !amount) return;
-    setLoading(true);
-    const numAmt = Number(amount);
-    const prev = ledgers.find((x) => x.phone === phone || x.party_name.toLowerCase() === name.toLowerCase());
-    const oldBal = prev ? Number(prev.new_balance) : 0;
-    const newBal = txType === "UDHAAR" ? oldBal + numAmt : oldBal - numAmt;
-    const { error } = await supabase.from("udhaar_ledger").insert([{
-      party_type: tab, party_name: name.trim(), phone: phone.trim(), tx_type: txType,
-      amount: numAmt, old_balance: oldBal, new_balance: newBal, item_details: items
-    }]);
-    if (error) {
-      alert("Save Error: " + error.message);
-      setLoading(false);
+    const digits = cleanNum(phone);
+    if (!name.trim() || digits.length !== 10 || !amount) {
+      alert(lang === "hi" ? "कृपया सही नाम और 10 अंकों का मोबाइल नंबर डालें" : "Enter valid name and 10-digit mobile number");
       return;
     }
-    sendUdhaarWhatsApp(name.trim(), phone.trim(), tab, txType, oldBal, numAmt, items || (lang === "hi" ? "सामान" : "Items"), lang);
+    setLoading(true);
+    const numAmt = Number(amount);
+    const finalName = matchedParty ? matchedParty.party_name : name.trim();
+    const newBal = txType === "UDHAAR" ? currentOldBal + numAmt : currentOldBal - numAmt;
+
+    const { error } = await supabase.from("udhaar_ledger").insert([{
+      party_type: tab, party_name: finalName, phone: digits, tx_type: txType,
+      amount: numAmt, old_balance: currentOldBal, new_balance: newBal, item_details: items
+    }]);
+    if (error) { alert("Error: " + error.message); setLoading(false); return; }
+
+    sendUdhaarWhatsApp(finalName, digits, tab, txType, currentOldBal, numAmt, items || (lang === "hi" ? "सामान" : "Items"), lang);
     setName(""); setPhone(""); setAmount(""); setItems("");
     await loadData();
     setLoading(false);
   };
 
-  const filtered = ledgers.filter((x) => x.party_name.toLowerCase().includes(search.toLowerCase()) || x.phone.includes(search));
-  const latestByParty = Object.values(ledgers.reduce((acc: any, cur: any) => { if (!acc[cur.phone]) acc[cur.phone] = cur; return acc; }, {}));
-  const totalNet = latestByParty.reduce((s: number, x: any) => s + Number(x.new_balance || 0), 0);
+  const filtered = ledgers.filter((x) => x.party_name.toLowerCase().includes(search.toLowerCase()) || cleanNum(x.phone).includes(search));
+  const totalNet = uniqueParties.reduce((s: number, x: any) => s + Number(x.new_balance || 0), 0);
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 pb-24">
@@ -79,8 +97,14 @@ export default function UdhaarPage() {
             - {lang === "hi" ? (tab === "CUSTOMER" ? "पैसा जमा (Receive)" : "पैसा दिया (Pay)") : (tab === "CUSTOMER" ? "Payment Received" : "Payment Paid")}
           </button>
         </div>
-        <input placeholder={lang === "hi" ? (tab === "CUSTOMER" ? "ग्राहक का नाम" : "सप्लायर का नाम") : (tab === "CUSTOMER" ? "Customer Name" : "Supplier Name")} value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm" required />
-        <input placeholder={lang === "hi" ? "मोबाइल नंबर (WhatsApp)" : "Mobile Number (WhatsApp)"} value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm" required />
+        <input type="tel" maxLength={10} placeholder={lang === "hi" ? "10 अंकों का मोबाइल नंबर (पहचान ID)" : "10-Digit Mobile Number (Unique ID)"} value={phone} onChange={(e) => handlePhoneChange(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm font-semibold" required />
+        <input placeholder={lang === "hi" ? (tab === "CUSTOMER" ? "ग्राहक का नाम" : "सप्लायर का नाम") : (tab === "CUSTOMER" ? "Customer Name" : "Supplier Name")} value={name} onChange={(e) => setName(e.target.value)} readOnly={!!matchedParty} className={`w-full p-2.5 border rounded-xl text-sm ${matchedParty ? "bg-emerald-50 font-bold text-emerald-900" : ""}`} required />
+        {phone.length === 10 && (
+          <div className="text-xs px-3 py-2 rounded-xl bg-slate-100 flex justify-between items-center">
+            <span>{matchedParty ? (lang === "hi" ? `✅ पुराना खाता (${matchedParty.party_name})` : `✅ Existing (${matchedParty.party_name})`) : (lang === "hi" ? "🆕 नया खाता बनेगा" : "🆕 New Account")}</span>
+            <span className="font-bold">{lang === "hi" ? "पुराना" : "Prev"}: ₹{currentOldBal} → {lang === "hi" ? "नया" : "New"}: ₹{previewNewBal}</span>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <input type="number" placeholder={lang === "hi" ? "रकम (₹)" : "Amount (₹)"} value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm" required />
           <input placeholder={lang === "hi" ? "आइटम विवरण" : "Item Details"} value={items} onChange={(e) => setItems(e.target.value)} className="w-full p-2.5 border rounded-xl text-sm" />
@@ -94,23 +118,21 @@ export default function UdhaarPage() {
           <p className="text-xs text-slate-300">{lang === "hi" ? (tab === "CUSTOMER" ? "कुल ग्राहक बकाया (लेना है)" : "कुल सप्लायर बकाया (देना है)") : (tab === "CUSTOMER" ? "Total Customer Receivable" : "Total Supplier Payable")}</p>
           <p className="text-xl font-extrabold text-emerald-400">₹{totalNet}</p>
         </div>
-        <span className="text-xs bg-white/10 px-2.5 py-1 rounded-lg">{filtered.length} {lang === "hi" ? "एंट्री" : "Entries"}</span>
+        <span className="text-xs bg-white/10 px-2.5 py-1 rounded-lg">{uniqueParties.length} {lang === "hi" ? "पार्टी" : "Parties"} • {filtered.length} {lang === "hi" ? "एंट्री" : "Entries"}</span>
       </div>
-      <input placeholder={lang === "hi" ? "🔍 नाम या मोबाइल नंबर से हिस्ट्री खोजें..." : "🔍 Search history by name or phone..."} value={search} onChange={(e) => setSearch(e.target.value)} className="w-full p-2.5 bg-white border rounded-xl text-sm mb-3" />
+      <input placeholder={lang === "hi" ? "🔍 नाम या मोबाइल नंबर से खोजें..." : "🔍 Search by name or phone..."} value={search} onChange={(e) => setSearch(e.target.value)} className="w-full p-2.5 bg-white border rounded-xl text-sm mb-3" />
       <div className="space-y-2.5">
-        {filtered.length === 0 ? (
-          <p className="text-center text-xs text-slate-400 py-6">{lang === "hi" ? "अभी तक कोई सेव हिस्ट्री नहीं है" : "No saved history yet"}</p>
-        ) : filtered.map((item) => (
-          <div key={item.id} onClick={() => { setName(item.party_name); setPhone(item.phone); }} className="bg-white p-3.5 rounded-xl shadow-sm border flex justify-between items-center cursor-pointer">
+        {filtered.map((item) => (
+          <div key={item.id} onClick={() => handlePhoneChange(item.phone)} className="bg-white p-3.5 rounded-xl shadow-sm border flex justify-between items-center cursor-pointer">
             <div>
-              <p className="font-bold text-slate-800">{item.party_name} <span className="text-xs text-slate-400">({item.phone})</span></p>
+              <p className="font-bold text-slate-800">{item.party_name} <span className="text-xs text-slate-500">({cleanNum(item.phone)})</span></p>
               <p className="text-xs text-slate-500">{item.item_details || (lang === "hi" ? "पेमेंट एंट्री" : "Payment Entry")} • {new Date(item.created_at).toLocaleString("en-IN")}</p>
               <p className="text-xs mt-1">{lang === "hi" ? "पुराना" : "Prev"}: ₹{item.old_balance} | <span className={item.tx_type === "UDHAAR" ? "text-red-600 font-bold" : "text-green-600 font-bold"}>{item.tx_type === "UDHAAR" ? `+₹${item.amount}` : `-₹${item.amount}`}</span></p>
             </div>
             <div className="text-right">
               <span className="text-xs text-slate-400 block">{lang === "hi" ? "कुल शेष" : "Balance"}</span>
               <span className="text-base font-extrabold text-emerald-700 block">₹{item.new_balance}</span>
-              <button type="button" onClick={(e) => { e.stopPropagation(); sendUdhaarWhatsApp(item.party_name, item.phone, tab, item.tx_type, Number(item.old_balance), Number(item.amount), item.item_details || "सामान", lang); }} className="mt-1 text-[11px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-bold border border-emerald-200">📲 WhatsApp</button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); sendUdhaarWhatsApp(item.party_name, cleanNum(item.phone), tab, item.tx_type, Number(item.old_balance), Number(item.amount), item.item_details || "सामान", lang); }} className="mt-1 text-[11px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-bold border border-emerald-200">📲 WhatsApp</button>
             </div>
           </div>
         ))}
