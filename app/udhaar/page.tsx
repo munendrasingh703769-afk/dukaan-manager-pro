@@ -9,6 +9,7 @@ export default function UdhaarPage() {
   const [lang, setLang] = useState<"hi" | "en">("hi");
   const [tab, setTab] = useState<"CUSTOMER" | "SUPPLIER">("CUSTOMER");
   const [ledgers, setLedgers] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [txType, setTxType] = useState<"UDHAAR" | "PAYMENT">("UDHAAR");
@@ -17,7 +18,8 @@ export default function UdhaarPage() {
   const [loading, setLoading] = useState(false);
 
   const loadData = async () => {
-    const { data } = await supabase.from("udhaar_ledger").select("*").eq("party_type", tab).order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("udhaar_ledger").select("*").eq("party_type", tab).order("created_at", { ascending: false });
+    if (error) console.error(error);
     if (data) setLedgers(data);
   };
   useEffect(() => { loadData(); }, [tab]);
@@ -29,18 +31,28 @@ export default function UdhaarPage() {
     const numAmt = Number(amount);
     const prev = ledgers.find((x) => x.phone === phone || x.party_name.toLowerCase() === name.toLowerCase());
     const oldBal = prev ? Number(prev.new_balance) : 0;
-    const newBal = sendUdhaarWhatsApp(name, phone, tab, txType, oldBal, numAmt, items || (lang === "hi" ? "सामान" : "Items"), lang);
-    await supabase.from("udhaar_ledger").insert([{
-      party_type: tab, party_name: name, phone, tx_type: txType,
+    const newBal = txType === "UDHAAR" ? oldBal + numAmt : oldBal - numAmt;
+    const { error } = await supabase.from("udhaar_ledger").insert([{
+      party_type: tab, party_name: name.trim(), phone: phone.trim(), tx_type: txType,
       amount: numAmt, old_balance: oldBal, new_balance: newBal, item_details: items
     }]);
+    if (error) {
+      alert("Save Error: " + error.message);
+      setLoading(false);
+      return;
+    }
+    sendUdhaarWhatsApp(name.trim(), phone.trim(), tab, txType, oldBal, numAmt, items || (lang === "hi" ? "सामान" : "Items"), lang);
     setName(""); setPhone(""); setAmount(""); setItems("");
     await loadData();
     setLoading(false);
   };
 
+  const filtered = ledgers.filter((x) => x.party_name.toLowerCase().includes(search.toLowerCase()) || x.phone.includes(search));
+  const latestByParty = Object.values(ledgers.reduce((acc: any, cur: any) => { if (!acc[cur.phone]) acc[cur.phone] = cur; return acc; }, {}));
+  const totalNet = latestByParty.reduce((s: number, x: any) => s + Number(x.new_balance || 0), 0);
+
   return (
-    <div className="min-h-screen bg-slate-50 p-4 pb-20">
+    <div className="min-h-screen bg-slate-50 p-4 pb-24">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <Link href="/owner" className="p-2 bg-white rounded-full shadow-sm font-bold">←</Link>
@@ -77,17 +89,28 @@ export default function UdhaarPage() {
           📲 {loading ? (lang === "hi" ? "सेव हो रहा है..." : "Saving...") : (lang === "hi" ? "सेव करें और WhatsApp भेजें" : "Save & Send WhatsApp")}
         </button>
       </form>
+      <div className="bg-slate-900 text-white p-3.5 rounded-2xl mb-3 flex justify-between items-center">
+        <div>
+          <p className="text-xs text-slate-300">{lang === "hi" ? (tab === "CUSTOMER" ? "कुल ग्राहक बकाया (लेना है)" : "कुल सप्लायर बकाया (देना है)") : (tab === "CUSTOMER" ? "Total Customer Receivable" : "Total Supplier Payable")}</p>
+          <p className="text-xl font-extrabold text-emerald-400">₹{totalNet}</p>
+        </div>
+        <span className="text-xs bg-white/10 px-2.5 py-1 rounded-lg">{filtered.length} {lang === "hi" ? "एंट्री" : "Entries"}</span>
+      </div>
+      <input placeholder={lang === "hi" ? "🔍 नाम या मोबाइल नंबर से हिस्ट्री खोजें..." : "🔍 Search history by name or phone..."} value={search} onChange={(e) => setSearch(e.target.value)} className="w-full p-2.5 bg-white border rounded-xl text-sm mb-3" />
       <div className="space-y-2.5">
-        {ledgers.map((item) => (
+        {filtered.length === 0 ? (
+          <p className="text-center text-xs text-slate-400 py-6">{lang === "hi" ? "अभी तक कोई सेव हिस्ट्री नहीं है" : "No saved history yet"}</p>
+        ) : filtered.map((item) => (
           <div key={item.id} onClick={() => { setName(item.party_name); setPhone(item.phone); }} className="bg-white p-3.5 rounded-xl shadow-sm border flex justify-between items-center cursor-pointer">
             <div>
               <p className="font-bold text-slate-800">{item.party_name} <span className="text-xs text-slate-400">({item.phone})</span></p>
               <p className="text-xs text-slate-500">{item.item_details || (lang === "hi" ? "पेमेंट एंट्री" : "Payment Entry")} • {new Date(item.created_at).toLocaleString("en-IN")}</p>
-              <p className="text-xs mt-1">{lang === "hi" ? "पुराना" : "Prev"}: ₹{item.old_balance} | {item.tx_type === "UDHAAR" ? `+₹${item.amount}` : `-₹${item.amount}`}</p>
+              <p className="text-xs mt-1">{lang === "hi" ? "पुराना" : "Prev"}: ₹{item.old_balance} | <span className={item.tx_type === "UDHAAR" ? "text-red-600 font-bold" : "text-green-600 font-bold"}>{item.tx_type === "UDHAAR" ? `+₹${item.amount}` : `-₹${item.amount}`}</span></p>
             </div>
             <div className="text-right">
               <span className="text-xs text-slate-400 block">{lang === "hi" ? "कुल शेष" : "Balance"}</span>
-              <span className="text-base font-extrabold text-emerald-700">₹{item.new_balance}</span>
+              <span className="text-base font-extrabold text-emerald-700 block">₹{item.new_balance}</span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); sendUdhaarWhatsApp(item.party_name, item.phone, tab, item.tx_type, Number(item.old_balance), Number(item.amount), item.item_details || "सामान", lang); }} className="mt-1 text-[11px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-bold border border-emerald-200">📲 WhatsApp</button>
             </div>
           </div>
         ))}
