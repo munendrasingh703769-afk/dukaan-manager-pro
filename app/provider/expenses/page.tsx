@@ -28,7 +28,7 @@ export default function ProviderExpensesPage() {
   });
 
   const fetchExpenses = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
 
     const { data } = await supabase

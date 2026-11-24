@@ -64,7 +64,7 @@ export default function ProviderBookingsPage() {
   };
 
   const fetchData = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
 
     const { data: servData } = await supabase.from('services').select('*').eq('business_id', activeId);

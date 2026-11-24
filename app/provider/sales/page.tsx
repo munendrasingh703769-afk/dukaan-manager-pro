@@ -22,7 +22,7 @@ export default function ProviderSalesPage() {
   const [onlinePaid, setOnlinePaid] = useState<number | ''>('');
 
   const fetchProducts = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
 
     const { data } = await supabase
@@ -71,7 +71,7 @@ export default function ProviderSalesPage() {
   const handleSaveSale = async () => {
     if (cart.length === 0) return alert("Cart is empty!");
     if (dueAmount > 0 && !customerPhone) return alert("Please enter phone number for due payments.");
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
 
     setSaving(true);
     try {

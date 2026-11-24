@@ -20,7 +20,7 @@ export default function ProviderReviewsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchReviews = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
     
     const { data, error } = await supabase

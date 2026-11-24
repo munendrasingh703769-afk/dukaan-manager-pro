@@ -23,7 +23,7 @@ export default function ProviderSettingsPage() {
   });
 
   const fetchSettings = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
 
     const { data } = await supabase.from('businesses').select('*').eq('id', activeId).single();
@@ -45,7 +45,7 @@ export default function ProviderSettingsPage() {
   useEffect(() => { fetchSettings(); }, [activeId]);
 
   const handleSave = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setSaving(true);
 
     const { error } = await supabase.from('businesses').update({

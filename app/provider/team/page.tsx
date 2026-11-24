@@ -24,7 +24,7 @@ export default function ProviderTeamPage() {
   const [newWorker, setNewWorker] = useState({ name: '', phone: '', role: 'Technician' });
 
   const fetchWorkers = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
     
     const { data, error } = await supabase

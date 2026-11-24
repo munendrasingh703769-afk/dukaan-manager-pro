@@ -22,7 +22,7 @@ export default function ProviderPurchasesPage() {
   const [cost, setCost] = useState<number | ''>('')
 
   const fetchData = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
 
     // Fetch Products (for dropdown)
@@ -53,7 +53,7 @@ export default function ProviderPurchasesPage() {
   // --- SAVE PURCHASE & UPDATE STOCK ---
   const handleAddPurchase = async () => {
     if (!productId || !qty || !cost) return alert("Please fill all fields");
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
 
     setSaving(true);
     const totalAmount = Number(qty) * Number(cost);

@@ -12,7 +12,7 @@ export default function ProviderShopOrdersPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchOrders = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
 
     const { data, error } = await supabase

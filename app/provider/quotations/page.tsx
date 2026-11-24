@@ -32,7 +32,7 @@ export default function ProviderQuotationsPage() {
   const [items, setItems] = useState([{ name: '', qty: 1, price: 0, gst: 0 }]);
 
   const fetchData = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
     
     const { data: bizData } = await supabase.from('businesses').select('*').eq('id', activeId).single();

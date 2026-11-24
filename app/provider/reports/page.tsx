@@ -17,7 +17,7 @@ export default function ProviderReportsPage() {
   const [expenses, setExpenses] = useState<any[]>([]);
 
   const fetchData = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
 
     const { data: bData } = await supabase.from('service_bookings').select('*').eq('provider_business_id', activeId);

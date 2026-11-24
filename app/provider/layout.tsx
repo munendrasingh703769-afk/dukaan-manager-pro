@@ -10,7 +10,38 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const supabase = createClient();
   const router = useRouter();
   const pathname = usePathname();
-  const activeId = getCurrentBusinessId();
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [bizReady, setBizReady] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      let id = getCurrentBusinessId();
+      if (!id) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: biz } = await supabase.from("businesses").select("id").eq("owner_id", user.id).limit(1).maybeSingle();
+          if (biz?.id) {
+            id = biz.id;
+            localStorage.setItem("current_business_id", biz.id);
+          } else {
+            const { data: prof } = await supabase.from("profiles").select("business_id").eq("id", user.id).maybeSingle();
+            if (prof?.business_id) {
+              id = prof.business_id;
+              localStorage.setItem("current_business_id", prof.business_id);
+            } else {
+              const { data: nb } = await supabase.from("businesses").insert([{ owner_id: user.id, name: user.user_metadata?.full_name || "Service Provider", email: user.email }]).select("id").single();
+              if (nb?.id) {
+                id = nb.id;
+                localStorage.setItem("current_business_id", nb.id);
+              }
+            }
+          }
+        }
+      }
+      setActiveId(id);
+      setBizReady(true);
+    })();
+  }, []);
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -222,7 +253,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         {/* PAGE CONTENT */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-7xl mx-auto">
-            {children}
+            {bizReady ? children : <div className="py-20 text-center font-bold text-blue-600">Loading Workspace...</div>}
           </div>
         </main>
       </div>

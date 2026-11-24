@@ -104,7 +104,7 @@ export default function ProviderProfilePage() {
   const handleSave = async () => {
     if (!profile.name) return alert("Business Name required");
     const activeId = getCurrentBusinessId();
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
 
     setSaving(true);
 

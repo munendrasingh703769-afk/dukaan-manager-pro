@@ -29,7 +29,7 @@ export default function ProviderInventoryPage() {
   });
 
   const fetchData = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
     
     // 1. Fetch Products

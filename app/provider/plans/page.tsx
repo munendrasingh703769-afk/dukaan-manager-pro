@@ -19,7 +19,7 @@ export default function ProviderPlansPage() {
   const [upgrading, setUpgrading] = useState(false);
 
   const fetchData = async () => {
-    if (!activeId) return;
+    if (!activeId) { setLoading(false); return; }
     setLoading(true);
 
     // 1. Fetch all available plans
