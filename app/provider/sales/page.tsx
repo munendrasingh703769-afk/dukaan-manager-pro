@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentBusinessId } from "@/lib/business";
+import QRCode from "qrcode";
 
 function numberToWords(num: number): string {
   const n = Math.round(num);
@@ -43,6 +44,9 @@ export default function ProviderSalesPage() {
 
   const [cart, setCart] = useState<any[]>([]);
   const [generatedInvoice, setGeneratedInvoice] = useState<any | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [providerOwnerName, setProviderOwnerName] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
   const [previewInvNo, setPreviewInvNo] = useState(() => `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`);
 
   const fetchData = async () => {
@@ -50,6 +54,12 @@ export default function ProviderSalesPage() {
     setLoading(true);
     const { data: bData } = await supabase.from("businesses").select("*").eq("id", activeId).maybeSingle();
     if (bData) setBiz(bData);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      if (user.email) setUserEmail(user.email);
+      const { data: prof } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+      setProviderOwnerName(prof?.full_name || user.user_metadata?.full_name || "");
+    }
     const { data: pData } = await supabase.from("products").select("*").eq("business_id", activeId).gt("stock", 0).order("name");
     if (pData) setProducts(pData);
     setLoading(false);
@@ -127,7 +137,11 @@ export default function ProviderSalesPage() {
         }
       }
 
-      setGeneratedInvoice({
+      const firmName = (biz?.shop_name || (biz?.name && !biz.name.toLowerCase().includes("online service") ? biz.name : "") || (providerOwnerName ? `${providerOwnerName} Enterprises` : "VyapaarSetu Store"));
+      const upiStr = `upi://pay?pa=${biz?.upi_id || "vyapaarsetu@upi"}&pn=${encodeURIComponent(firmName)}&am=${grandTotal}&cu=INR`;
+      const qrImg = await QRCode.toDataURL(upiStr, { width: 160, margin: 1 });
+      setQrDataUrl(qrImg);
+      setGeneratedInvoice({ firmName, providerOwnerName,
         invNo, saleDate, isGstBill, customerName: customerName.trim() || "Walk-in Customer",
         customerPhone: customerPhone.trim(), customerAddress: customerAddress.trim(),
         items: cart, rawSubTotal, discountAmount, taxableTotal, totalGst, roundOff, grandTotal, totalPaid, dueAmount, discountRatio
@@ -159,14 +173,15 @@ export default function ProviderSalesPage() {
           <div className="flex justify-between items-start border-b-2 border-slate-800 pb-3">
             <div>
               <p className="text-sm font-extrabold text-blue-800 uppercase">{inv.isGstBill ? "TAX INVOICE" : "BILL OF SUPPLY (NON-GST)"}</p>
-              <h1 className="text-lg font-black mt-0.5">{biz?.name || "VyapaarSetu Business"}</h1>
+              <h1 className="text-lg font-black mt-0.5 uppercase">{inv.firmName}</h1>
+              {inv.providerOwnerName && <p className="font-bold text-slate-800">Prop. / Provider: {inv.providerOwnerName}</p>}
               {biz?.gstin && <p className="font-bold">GSTIN: {biz.gstin}</p>}
               <p className="text-slate-600 max-w-xs">{biz?.address || "Bareilly, Uttar Pradesh"}</p>
-              <p className="text-slate-600">Mobile: {biz?.phone || "-"} | Email: {biz?.email || "-"}</p>
+              <p className="text-slate-600">Mobile: {biz?.phone || "-"} | Email: {biz?.email || userEmail || "-"}</p>
             </div>
             <div className="text-right">
               <span className="text-[10px] font-bold border px-2 py-0.5 rounded uppercase">Original For Recipient</span>
-              <p className="font-extrabold text-sm mt-2">Invoice #: {inv.invNo}</p>
+              <p className="font-extrabold text-xs sm:text-sm mt-2 whitespace-nowrap">Invoice #: {inv.invNo}</p>
               <p>Date: {new Date(inv.saleDate).toLocaleDateString("en-IN")}</p>
             </div>
           </div>
@@ -235,7 +250,7 @@ export default function ProviderSalesPage() {
           <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-slate-300 items-center">
             <div>
               <p className="font-bold mb-1">Pay using UPI:</p>
-              <img src={qrUrl} alt="UPI QR" className="w-24 h-24 border p-1 rounded" />
+              {qrDataUrl && <img src={qrDataUrl} alt="UPI QR" className="w-24 h-24 border p-1 rounded" />}
             </div>
             <div>
               <p className="font-bold">Bank Details:</p>
@@ -244,7 +259,7 @@ export default function ProviderSalesPage() {
               <p>IFSC: {biz?.ifsc_code || "-"}</p>
             </div>
             <div className="text-right self-end">
-              <p className="font-bold mb-6">For {biz?.name || "Business"}</p>
+              <p className="font-bold mb-6">For {inv.firmName}</p>
               <p className="border-t border-slate-400 inline-block pt-1 font-bold">Authorized Signatory</p>
             </div>
           </div>
@@ -253,6 +268,10 @@ export default function ProviderSalesPage() {
             <p className="font-bold text-slate-700">Terms and Conditions:</p>
             <p>1. Goods once sold cannot be taken back or exchanged. 2. Subject to local jurisdiction.</p>
           </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 print:hidden">
+          <button onClick={() => window.print()} className="py-3 bg-blue-600 text-white rounded-xl text-xs font-extrabold shadow-sm">🖨️ Print / Save PDF</button>
+          <a href={`https://wa.me{(inv.customerPhone || "").replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(`*${inv.firmName} - ${inv.isGstBill ? "TAX INVOICE" : "BILL"}*\nInvoice: ${inv.invNo}\nCustomer: ${inv.customerName}\nTotal: ₹${inv.grandTotal}\nPaid: ₹${inv.totalPaid} | Due: ₹${inv.dueAmount}\nThank you!`)}`} target="_blank" className="py-3 bg-emerald-600 text-white rounded-xl text-xs font-extrabold text-center shadow-sm">📲 Share on WhatsApp</a>
         </div>
       </div>
     );
