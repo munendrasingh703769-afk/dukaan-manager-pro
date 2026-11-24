@@ -21,7 +21,7 @@ export default function RootPage() {
       // User ka role check karo
       const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
 
-      if (userData?.role === 'customer') {
+      if (userData?.role === 'service_provider' || userData?.role === 'provider') { router.replace('/provider'); } else if (userData?.role === 'customer') {
         router.replace('/customer') // Customer dashboard
       } else {
         router.replace('/owner') // Business Owner dashboard

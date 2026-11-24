@@ -62,7 +62,7 @@ export default function OwnerDashboard() {
       setUserRole(role);
 
       // Redirect if not a shopkeeper/business
-      if (role === 'service_provider') { router.push('/services'); return; }
+      if (role === 'service_provider') { router.push('/provider'); return; }
       if (role === 'customer') { router.push('/customer'); return; }
 
       // 2. Fetch Businesses

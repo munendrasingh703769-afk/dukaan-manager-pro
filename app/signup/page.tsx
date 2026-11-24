@@ -143,7 +143,7 @@ export default function SignupPage() {
     setMessage('Account created successfully! Welcome to VyapaarSetu.')
     setTimeout(() => {
       if (role === 'customer') router.push('/customer') // Customer Dashboard
-      else if (role === 'service_provider') router.push('/services') // Provider Dashboard
+      else if (role === 'service_provider') router.push('/provider') // Provider Dashboard
       else router.push('/owner') // Shopkeeper/B2B Dashboard
     }, 1500)
     
