@@ -133,6 +133,18 @@ export default function ProviderDashboardHome() {
   return (
     <div className="space-y-6">
       
+      {/* TOP TRIAL / PLAN UPGRADE BANNER */}
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-2xl p-4 text-white shadow-md flex items-center justify-between gap-3">
+        <div>
+          <span className="text-[10px] font-extrabold uppercase tracking-wider bg-black/25 px-2.5 py-0.5 rounded-full">👑 Trial Plan Active</span>
+          <h3 className="text-sm md:text-base font-extrabold mt-1">Upgrade to Pro Provider Plan</h3>
+          <p className="text-[11px] text-amber-50">Unlimited Bookings, Priority Area Leads & Zero Commission</p>
+        </div>
+        <Link href="/provider/plans" className="shrink-0 bg-white text-orange-600 hover:bg-amber-50 px-4 py-2 rounded-xl font-extrabold text-xs shadow-sm transition">
+          Upgrade Now →
+        </Link>
+      </div>
+
       {/* WELCOME BANNER */}
       <div className="bg-gradient-to-r from-blue-900 to-indigo-800 rounded-2xl p-6 md:p-8 text-white flex flex-col md:flex-row justify-between items-center shadow-lg relative overflow-hidden">
         <div className="relative z-10 mb-6 md:mb-0">
@@ -147,23 +159,23 @@ export default function ProviderDashboardHome() {
       </div>
 
       {/* STATS CARDS GRID */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/provider/bookings" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
+        <Link href="/provider/bookings" className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 h-full flex flex-col justify-between hover:shadow-md transition">
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl mb-3">📦</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">Total Bookings</p>
           <h3 className="text-2xl font-bold text-gray-800">{totalBookings}</h3>
         </Link>
-        <Link href="/provider/bookings" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
+        <Link href="/provider/bookings" className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 h-full flex flex-col justify-between hover:shadow-md transition">
           <div className="w-10 h-10 bg-yellow-50 text-yellow-600 rounded-xl flex items-center justify-center text-xl mb-3">⏳</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">Pending Jobs</p>
           <h3 className="text-2xl font-bold text-gray-800">{pendingBookings}</h3>
         </Link>
-        <Link href="/provider/quotations" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
+        <Link href="/provider/quotations" className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 h-full flex flex-col justify-between hover:shadow-md transition">
           <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center text-xl mb-3">📄</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">New Quotes</p>
           <h3 className="text-2xl font-bold text-gray-800">{pendingQuotes}</h3>
         </Link>
-        <Link href="/provider/earnings" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition">
+        <Link href="/provider/earnings" className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 h-full flex flex-col justify-between hover:shadow-md transition">
           <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-xl mb-3">💰</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">Total Earnings</p>
           <h3 className="text-2xl font-bold text-green-600">₹{totalEarnings}</h3>
@@ -171,15 +183,15 @@ export default function ProviderDashboardHome() {
       </div>
 
       {/* PROFIT & LOSS */}
-      <div className="grid grid-cols-2 gap-4">
-        <Link href="/provider/expenses" className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition">
+      <div className="grid grid-cols-2 gap-3 items-stretch">
+        <Link href="/provider/expenses" className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 h-full flex items-center gap-3 hover:shadow-md transition">
           <div className="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center text-xl">💸</div>
           <div>
             <p className="text-xs text-gray-500 font-bold uppercase">Total Expenses</p>
             <h3 className="text-xl font-bold text-gray-800">₹{totalExpenses}</h3>
           </div>
         </Link>
-        <div className={`p-4 rounded-2xl shadow-sm border flex items-center gap-4 ${netProfit >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+        <div className={`p-4 rounded-2xl shadow-sm border h-full flex items-center gap-3 ${netProfit >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
           <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${netProfit >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
             {netProfit >= 0 ? '📈' : '📉'}
           </div>
