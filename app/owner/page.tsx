@@ -449,7 +449,15 @@ export default function OwnerDashboard() {
             </Link>
           </div>
         
-{/* Business Info Card */}
+{/* Owner <-> Manufacturing Company Direct Link */}
+      <Link href="/b2b-market" className="block bg-gradient-to-r from-indigo-900 to-slate-900 text-white p-3.5 rounded-2xl shadow-sm flex items-center justify-between mb-3">
+        <div>
+          <span className="text-[10px] font-bold text-amber-400 uppercase">🏭 Factory Direct Supply</span>
+          <p className="text-xs font-extrabold">Manufacturing Company से Bulk ऑर्डर व Role सेट करें</p>
+        </div>
+        <span className="bg-amber-400 text-slate-900 px-3 py-1 rounded-xl text-xs font-black">खोलें →</span>
+      </Link>
+      {/* Business Info Card */}
         {currentBusiness ? (
             <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white p-4 rounded-2xl shadow-md border border-emerald-500/30 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3.5">
