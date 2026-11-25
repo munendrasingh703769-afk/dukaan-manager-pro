@@ -28,6 +28,22 @@ export default function ProviderInventoryPage() {
     name: '', category: '', purchase_price: '', selling_price: '', stock: '', tax_percentage: 18
   });
 
+  const toggleCustomerVisibility = async (item: any) => {
+    const next = item.show_to_customer === false ? true : false;
+    await supabase.from("products").update({ show_to_customer: next }).eq("id", item.id);
+    setProducts((prev: any[]) => prev.map((x) => (x.id === item.id ? { ...x, show_to_customer: next } : x)));
+  };
+
+  const updateWholesaleRate = async (item: any) => {
+    const val = prompt(`Wholesale Rate for ${item.name} (Current: ₹${item.wholesale_price || 0}):`, String(item.wholesale_price || item.purchase_price || ""));
+    if (val === null) return;
+    const num = Number(val);
+    if (isNaN(num) || num < 0) return alert("Valid rate daalein");
+    await supabase.from("products").update({ wholesale_price: num, show_in_b2b: true }).eq("id", item.id);
+    setProducts((prev: any[]) => prev.map((x) => (x.id === item.id ? { ...x, wholesale_price: num } : x)));
+    alert("✅ Wholesale Rate updated!");
+  };
+
   const fetchData = async () => {
     if (!activeId) { setLoading(false); return; }
     setLoading(true);

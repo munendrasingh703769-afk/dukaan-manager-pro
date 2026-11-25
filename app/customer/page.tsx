@@ -79,7 +79,10 @@ export default function CustomerSuperAppHome() {
         .gt('stock', 0)
         .order('created_at', { ascending: false })
         .limit(8);
-      if (prodData) setTopProducts(prodData);
+      if (prodData) {
+          const sorted = [...prodData].sort((a, b) => getProximityTier(a.businesses) - getProximityTier(b.businesses));
+          setTopProducts(sorted);
+        }
     };
     
     fetchData();
@@ -93,6 +96,14 @@ export default function CustomerSuperAppHome() {
     if (!user) return;
     await supabase.from('notifications').update({ is_read: true }).eq('customer_id', user.id).eq('is_read', false);
     setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+  };
+
+  const getProximityBadge = (biz: any) => {
+    const t = getProximityTier(biz);
+    if (t === 1) return { label: "🏠 घर के पास", cls: "bg-emerald-100 text-emerald-800" };
+    if (t === 2) return { label: "🏘️ आपकी कॉलोनी", cls: "bg-blue-100 text-blue-800" };
+    if (t === 3) return { label: "🏙️ आपका शहर", cls: "bg-amber-100 text-amber-800" };
+    return { label: "🏪 Local Store", cls: "bg-slate-100 text-slate-700" };
   };
 
   const getProximityTier = (biz: any) => {
