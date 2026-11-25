@@ -30,6 +30,16 @@ export default function CustomerExplorePage() {
     const fetchData = async () => {
       setLoading(true);
       // Fetch Categories
+      const { data: { user } } = await supabase.auth.getUser();
+      let uProf: any = null;
+      if (user) {
+        const { data: pr } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+        uProf = pr;
+        if (pr) {
+          const fullAddr = [pr.colony, pr.area_locality, pr.city, pr.pincode].filter(Boolean).join(", ");
+          setBookingForm((prev: any) => ({ ...prev, name: pr.full_name || "", phone: pr.phone || "", address: fullAddr }));
+        }
+      }
       const { data: catData } = await supabase.from('service_categories').select('*').eq('is_active', true);
       if (catData) setCategories(catData);
 
@@ -38,7 +48,16 @@ export default function CustomerExplorePage() {
         .from('services')
         .select(`*, businesses!inner (name, city, logo_url)`)
         .eq('is_active', true);
-      if (servData) setServices(servData);
+      if (servData) {
+        const tier = (b: any) => {
+          if (!b || !uProf) return 4;
+          if (uProf.pincode && b.pincode === uProf.pincode) return 1;
+          if ((uProf.colony && b.colony === uProf.colony) || (uProf.area_locality && b.area_locality === uProf.area_locality)) return 2;
+          if (uProf.city && b.city === uProf.city) return 3;
+          return 4;
+        };
+        setServices([...servData].sort((a, b) => tier(a.businesses) - tier(b.businesses)));
+      }
       
       setLoading(false);
     };
@@ -89,7 +108,8 @@ export default function CustomerExplorePage() {
       customer_phone: bookingForm.phone,
       booking_date: bookingForm.date,
       booking_time: bookingForm.time,
-      notes: bookingForm.notes,
+      customer_address: (bookingForm as any).address || '',
+        notes: bookingForm.notes,
       status: 'pending',
       customer_id: user?.id || null 
     };

@@ -197,9 +197,10 @@ export default function ProviderBookingsPage() {
 
                 <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 bg-gray-50 p-4 rounded-xl ml-2">
                   <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Customer</span> <span className="font-medium">{booking.customer_name}</span></p>
-                  <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Phone</span> <span className="font-medium text-blue-600">{booking.customer_phone}</span></p>
+                  <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Phone</span> <span className="font-medium text-blue-600 flex items-center gap-2">{booking.customer_phone} {booking.customer_phone && <a href={`tel:${booking.customer_phone}`} className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold">📞 Call</a>}</span></p>
                   <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Date</span> <span className="font-medium">{booking.booking_date}</span></p>
                   <p className="flex flex-col"><span className="text-xs text-gray-400 font-semibold uppercase">Time</span> <span className="font-medium">{booking.booking_time || 'Any time'}</span></p>
+                  {(booking as any).customer_address && <p className="col-span-2 flex flex-col border-t pt-2"><span className="text-xs text-gray-400 font-semibold uppercase">📍 Customer Address</span> <span className="font-semibold text-slate-800">{(booking as any).customer_address}</span></p>}
                 </div>
 
                 {booking.completion_otp && booking.status !== 'completed' && (
