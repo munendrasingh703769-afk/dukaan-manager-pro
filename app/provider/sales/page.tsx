@@ -25,6 +25,8 @@ export default function ProviderSalesPage() {
   const activeId = getCurrentBusinessId();
   const [biz, setBiz] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [pastInvoices, setPastInvoices] = useState<any[]>([]);
+  const [invSearch, setInvSearch] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -62,6 +64,8 @@ export default function ProviderSalesPage() {
     }
     const { data: pData } = await supabase.from("products").select("*").eq("business_id", activeId).gt("stock", 0).order("name");
     if (pData) setProducts(pData);
+    const { data: sData } = await supabase.from("sales").select("*, sale_items(*)").eq("business_id", activeId).order("created_at", { ascending: false }).limit(30);
+    if (sData) setPastInvoices(sData);
     setLoading(false);
   };
   useEffect(() => { fetchData(); }, [activeId]);
@@ -149,6 +153,33 @@ export default function ProviderSalesPage() {
       setCart([]); setPreviewInvNo(`INV-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`); setCustomerName(""); setCustomerPhone(""); setCustomerAddress(""); setDiscountVal(""); setCashPaid(""); setOnlinePaid("");
       await fetchData();
     } catch (err: any) { alert("Error: " + err.message); } finally { setSaving(false); }
+  };
+
+  const openPastInvoice = async (sale: any) => {
+    const firmName = (biz?.shop_name || (biz?.name && !biz.name.toLowerCase().includes("online service") ? biz.name : "") || (providerOwnerName ? `${providerOwnerName} Enterprises` : "VyapaarSetu Store"));
+    const items = (sale.sale_items || []).map((it: any) => ({
+      name: it.product_name, hsn: it.product_id ? "8517" : "9987",
+      price: Number(it.price), gst: Number(it.gst_percent || 0), qty: Number(it.qty)
+    }));
+    const rawSub = items.reduce((sum: number, x: any) => sum + x.price * x.qty, 0);
+    const taxable = Number(sale.subtotal || rawSub);
+    const disc = Math.max(0, Number((rawSub - taxable).toFixed(2)));
+    const gstAmt = Number(sale.total_gst || 0);
+    const gTotal = Number(sale.total_amount || 0);
+    const rOff = Number((gTotal - (taxable + gstAmt)).toFixed(2));
+    const upiStr = `upi://pay?pa=${biz?.upi_id || "vyapaarsetu@upi"}&pn=${encodeURIComponent(firmName)}&am=${gTotal}&cu=INR`;
+    const qrImg = await QRCode.toDataURL(upiStr, { width: 160, margin: 1 });
+    setQrDataUrl(qrImg);
+    setGeneratedInvoice({
+      firmName, providerOwnerName, invNo: sale.invoice_no, saleDate: sale.sale_date || sale.created_at,
+      isGstBill: gstAmt > 0 || items.some((x: any) => x.gst > 0),
+      customerName: sale.customer_name || "Walk-in Customer", customerPhone: sale.customer_phone || "",
+      customerAddress: "", items, rawSubTotal: rawSub, discountAmount: disc,
+      taxableTotal: taxable, totalGst: gstAmt, roundOff: rOff, grandTotal: gTotal,
+      totalPaid: Number(sale.paid_amount || 0), dueAmount: Number(sale.due_amount || 0),
+      discountRatio: rawSub > 0 ? taxable / rawSub : 1
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   if (loading) return <div className="text-center py-20 font-bold text-blue-600">Loading Billing System...</div>;
@@ -383,6 +414,48 @@ export default function ProviderSalesPage() {
             {saving ? "Generating Invoice..." : "✅ Generate Tax Invoice & Deduct Stock"}
           </button>
         </div>
+      </div>
+
+      {/* PAST INVOICE HISTORY SECTION */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
+        <div className="flex flex-wrap justify-between items-center gap-2 border-b pb-2.5">
+          <div>
+            <h2 className="text-base font-extrabold text-slate-800">📜 Sales & Invoice History ({pastInvoices.length})</h2>
+            <p className="text-[11px] text-slate-500">किसी भी पुराने बिल पर क्लिक करके Tax Invoice, PDF या WhatsApp भेजें</p>
+          </div>
+          <input placeholder="🔍 नाम, नंबर या INV खोजें..." value={invSearch} onChange={(e) => setInvSearch(e.target.value)} className="p-2 border rounded-xl text-xs w-48" />
+        </div>
+        {pastInvoices.filter((x) => (x.customer_name || "").toLowerCase().includes(invSearch.toLowerCase()) || (x.customer_phone || "").includes(invSearch) || (x.invoice_no || "").toLowerCase().includes(invSearch.toLowerCase())).length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-8">अभी तक कोई पुराना इनवॉइस रिकॉर्ड नहीं है।</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {pastInvoices
+              .filter((x) => (x.customer_name || "").toLowerCase().includes(invSearch.toLowerCase()) || (x.customer_phone || "").includes(invSearch) || (x.invoice_no || "").toLowerCase().includes(invSearch.toLowerCase()))
+              .map((inv) => (
+                <div key={inv.id} onClick={() => openPastInvoice(inv)} className="p-3 bg-slate-50 hover:bg-blue-50/50 rounded-xl border border-slate-200 flex justify-between items-center cursor-pointer transition">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-extrabold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">{inv.invoice_no}</span>
+                      <span className="text-[10px] text-slate-400">{new Date(inv.sale_date || inv.created_at).toLocaleDateString("en-IN")}</span>
+                    </div>
+                    <p className="font-bold text-xs text-slate-800 mt-1">{inv.customer_name || "Walk-in Customer"} {inv.customer_phone ? `(${inv.customer_phone})` : ""}</p>
+                    <p className="text-[11px] text-slate-500 truncate max-w-[210px]">
+                      {(inv.sale_items || []).map((i: any) => `${i.product_name} ×${i.qty}`).join(", ") || "Invoice Items"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-sm text-slate-900">₹{Number(inv.total_amount || 0).toFixed(2)}</p>
+                    {Number(inv.due_amount || 0) > 0 ? (
+                      <span className="text-[10px] font-bold text-rose-600 block">Due: ₹{inv.due_amount}</span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-emerald-600 block">Paid ✓</span>
+                    )}
+                    <span className="inline-block mt-1 text-[10px] font-extrabold text-blue-600 underline">📄 View Invoice</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
       </div>
     </div>
   );
