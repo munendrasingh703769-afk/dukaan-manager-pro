@@ -13,6 +13,12 @@ export default function CustomerSuperAppHome() {
   const [categories, setCategories] = useState<any[]>([]);
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [showLocModal, setShowLocModal] = useState(false);
+  const [custColony, setCustColony] = useState("");
+  const [custArea, setCustArea] = useState("");
+  const [custCity, setCustCity] = useState("");
+  const [custPincode, setCustPincode] = useState("");
+  const [savingLoc, setSavingLoc] = useState(false);
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [myBookings, setMyBookings] = useState<any[]>([]);
   
@@ -46,8 +52,12 @@ export default function CustomerSuperAppHome() {
       // 1. Fetch User Profile
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         setUserProfile(profile);
+          setCustColony(profile?.colony || "");
+          setCustArea(profile?.area_locality || "");
+          setCustCity(profile?.city || "");
+          setCustPincode(profile?.pincode || "");
         const { data: ordData } = await supabase.from('orders').select('*').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(20);
         if (ordData) setMyOrders(ordData);
         const { data: bkgData } = await supabase.from('service_bookings').select('*').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(5);
@@ -83,6 +93,38 @@ export default function CustomerSuperAppHome() {
     if (!user) return;
     await supabase.from('notifications').update({ is_read: true }).eq('customer_id', user.id).eq('is_read', false);
     setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+  };
+
+  const getProximityTier = (biz: any) => {
+    if (!biz) return 4;
+    const uPin = (custPincode || userProfile?.pincode || "").trim().toLowerCase();
+    const uCol = (custColony || userProfile?.colony || "").trim().toLowerCase();
+    const uArea = (custArea || userProfile?.area_locality || "").trim().toLowerCase();
+    const uCity = (custCity || userProfile?.city || "").trim().toLowerCase();
+    if (uPin && (biz.pincode || "").trim().toLowerCase() === uPin) return 1;
+    if ((uCol && (biz.colony || "").trim().toLowerCase() === uCol) || (uArea && (biz.area_locality || "").trim().toLowerCase() === uArea)) return 2;
+    if (uCity && (biz.city || "").trim().toLowerCase() === uCity) return 3;
+    return 4;
+  };
+
+  const handleSaveCustomerLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingLoc(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const updates = { colony: custColony.trim(), area_locality: custArea.trim(), city: custCity.trim(), pincode: custPincode.trim() };
+      await supabase.from("profiles").update(updates).eq("id", user.id);
+      setUserProfile({ ...userProfile, ...updates });
+    }
+    setSavingLoc(false);
+    setShowLocModal(false);
+  };
+
+  const handleCameraSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const cleanTerm = file.name.replace(/\.[^/.]+$/, "").replace(/[-_0-9]+/g, " ").trim();
+    router.push(`/customer/shop?camera=1${cleanTerm ? `&q=${encodeURIComponent(cleanTerm)}` : ""}`);
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -134,8 +176,17 @@ export default function CustomerSuperAppHome() {
         <form onSubmit={handleSearch} className="mx-3 bg-white rounded-xl flex items-center px-3 py-1.5 shadow-inner">
           <span className="text-gray-400 text-sm">🔍</span>
           <input type="text" placeholder="Search mobiles, fashion, services, loans..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-transparent outline-none text-xs px-2.5 py-1 text-gray-800 font-medium" />
-          <Link href="/customer/shop" className="text-blue-600 text-base pl-1">📷</Link>
+          <label className="text-blue-600 text-base pl-1 cursor-pointer active:scale-90" title="Scan or Search by Photo">
+            📷
+            <input type="file" accept="image/*" capture="environment" onChange={handleCameraSearch} className="hidden" />
+          </label>
         </form>
+        <div onClick={() => setShowLocModal(true)} className="mx-3 mt-2 bg-white/15 hover:bg-white/20 px-3 py-1.5 rounded-xl flex items-center justify-between cursor-pointer text-[11px]">
+          <span className="truncate font-semibold">
+            📍 {[custColony || userProfile?.colony, custArea || userProfile?.area_locality, custCity || userProfile?.city, custPincode || userProfile?.pincode].filter(Boolean).join(", ") || "अपना घर / कॉलोनी / पिनकोड सेट करें"}
+          </span>
+          <span className="font-extrabold text-amber-300 shrink-0 ml-2">बदलें ▾</span>
+        </div>
 
         <div className="flex items-center gap-4 overflow-x-auto px-3.5 pt-2.5 pb-0.5 no-scrollbar">
           <button onClick={() => setActiveCat('For You')} className={`flex flex-col items-center shrink-0 pb-1 border-b-2 transition ${activeCat === 'For You' ? 'border-amber-400 text-amber-300' : 'border-transparent text-blue-100'}`}>
@@ -158,6 +209,24 @@ export default function CustomerSuperAppHome() {
           ))}
         </div>
       </header>
+      {showLocModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleSaveCustomerLocation} className="bg-white rounded-2xl p-4 w-full max-w-sm space-y-3 shadow-xl">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-extrabold text-sm text-slate-800">📍 अपना पता सेट करें (पास की दुकानों के लिए)</h3>
+              <button type="button" onClick={() => setShowLocModal(false)} className="text-slate-400 font-bold">✕</button>
+            </div>
+            <p className="text-[11px] text-slate-500">सबसे पहले आपके घर के पास (Pincode), फिर कॉलोनी, और फिर पूरे शहर की दुकानें दिखेंगी।</p>
+            <input placeholder="Colony / Mohalla" value={custColony} onChange={(e) => setCustColony(e.target.value)} className="w-full p-2.5 border rounded-xl text-xs" required />
+            <input placeholder="Area / Locality" value={custArea} onChange={(e) => setCustArea(e.target.value)} className="w-full p-2.5 border rounded-xl text-xs" required />
+            <div className="grid grid-cols-2 gap-2">
+              <input placeholder="City" value={custCity} onChange={(e) => setCustCity(e.target.value)} className="p-2.5 border rounded-xl text-xs" required />
+              <input placeholder="Pincode" value={custPincode} onChange={(e) => setCustPincode(e.target.value)} className="p-2.5 border rounded-xl text-xs" required />
+            </div>
+            <button disabled={savingLoc} className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-xs font-extrabold">{savingLoc ? "Saving..." : "✅ पता सेव करें"}</button>
+          </form>
+        </div>
+      )}
       {showNotifications && (
         <div className="fixed top-28 right-3 z-50 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 text-slate-800">
           <div className="flex justify-between items-center border-b pb-2 mb-2">
