@@ -249,6 +249,7 @@ export default function CustomerSuperAppHome() {
       )}
 
       <div className="px-3 space-y-4 mt-3 max-w-2xl mx-auto">
+        <Link href="/khata" className="block bg-gradient-to-r from-indigo-600 to-blue-700 text-white p-3 rounded-2xl shadow-sm flex items-center justify-between mb-3"><span className="text-xs font-extrabold">📒 आपसी उधार व दुकान खाता (Live Khata Sync)</span><span className="text-xs font-bold bg-white/20 px-2.5 py-1 rounded-xl">खोलें →</span></Link>
         <PlanStatusBanner roleType="customer" upgradeHref="/pricing" />
 
         {activeTab === 'services' && (
