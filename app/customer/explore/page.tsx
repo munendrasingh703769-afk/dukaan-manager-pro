@@ -42,16 +42,22 @@ function ServicesHubContent() {
         }
       }
 
-      const { data: cats } = await supabase.from("service_categories").select("*").eq("is_active", true).order("name");
+      const { data: cats } = await supabase.from("service_categories").select("*").order("name");
       if (cats) setCategories(cats);
 
-      const { data: servs } = await supabase
+      const { data: bizList } = await supabase.from("businesses").select("*");
+      const { data: rawServs } = await supabase
         .from("services")
-        .select("*, service_categories(id, name), businesses(id, name, phone, address, colony, area_locality, city, pincode)")
+        .select("*")
         .eq("is_active", true)
         .order("created_at", { ascending: false });
 
-      if (servs) {
+      if (rawServs) {
+        const servs = rawServs.map((sv: any) => ({
+          ...sv,
+          service_categories: (cats || []).find((c: any) => c.id === sv.category_id) || null,
+          businesses: (bizList || []).find((b: any) => b.id === sv.business_id) || null
+        }));
         const getTier = (b: any) => {
           if (!b || !prof) return 4;
           if (prof.pincode && b.pincode === prof.pincode) return 1;
