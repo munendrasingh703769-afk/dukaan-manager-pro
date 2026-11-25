@@ -160,22 +160,22 @@ export default function ProviderDashboardHome() {
 
       {/* STATS CARDS GRID */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
-        <Link href="/provider/bookings" className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 h-full flex flex-col justify-between hover:shadow-md transition">
+        <Link href="/provider/bookings" className="bg-white px-3.5 py-2.5 rounded-xl shadow-sm border border-slate-200/90 border-l-4 border-l-blue-600 flex items-center justify-between gap-2 hover:shadow-md transition">
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl mb-3">📦</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">Total Bookings</p>
           <h3 className="text-2xl font-bold text-gray-800">{totalBookings}</h3>
         </Link>
-        <Link href="/provider/bookings" className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 h-full flex flex-col justify-between hover:shadow-md transition">
+        <Link href="/provider/bookings" className="bg-white px-3.5 py-2.5 rounded-xl shadow-sm border border-slate-200/90 border-l-4 border-l-blue-600 flex items-center justify-between gap-2 hover:shadow-md transition">
           <div className="w-10 h-10 bg-yellow-50 text-yellow-600 rounded-xl flex items-center justify-center text-xl mb-3">⏳</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">Pending Jobs</p>
           <h3 className="text-2xl font-bold text-gray-800">{pendingBookings}</h3>
         </Link>
-        <Link href="/provider/quotations" className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 h-full flex flex-col justify-between hover:shadow-md transition">
+        <Link href="/provider/quotations" className="bg-white px-3.5 py-2.5 rounded-xl shadow-sm border border-slate-200/90 border-l-4 border-l-blue-600 flex items-center justify-between gap-2 hover:shadow-md transition">
           <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center text-xl mb-3">📄</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">New Quotes</p>
           <h3 className="text-2xl font-bold text-gray-800">{pendingQuotes}</h3>
         </Link>
-        <Link href="/provider/earnings" className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 h-full flex flex-col justify-between hover:shadow-md transition">
+        <Link href="/provider/earnings" className="bg-white px-3.5 py-2.5 rounded-xl shadow-sm border border-slate-200/90 border-l-4 border-l-blue-600 flex items-center justify-between gap-2 hover:shadow-md transition">
           <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-xl mb-3">💰</div>
           <p className="text-sm text-gray-500 font-semibold mb-1">Total Earnings</p>
           <h3 className="text-2xl font-bold text-green-600">₹{totalEarnings}</h3>
