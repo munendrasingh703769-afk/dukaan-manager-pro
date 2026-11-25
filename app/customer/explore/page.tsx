@@ -25,6 +25,10 @@ function ServicesHubContent() {
   const [bookTime, setBookTime] = useState("10:00 AM");
   const [notes, setNotes] = useState("");
   const [bookingSaving, setBookingSaving] = useState(false);
+  const [rateBiz, setRateBiz] = useState<any>(null);
+  const [rateStars, setRateStars] = useState(5);
+  const [rateComment, setRateComment] = useState("");
+  const [reviewsList, setReviewsList] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -46,6 +50,10 @@ function ServicesHubContent() {
       if (cats) setCategories(cats);
 
       const { data: bizList } = await supabase.from("businesses").select("*");
+      const { data: allProfiles } = await supabase.from("profiles").select("id, full_name, phone, colony, area_locality, city, pincode");
+      const { data: allReviews } = await supabase.from("provider_reviews").select("*");
+      if (allReviews) setReviewsList(allReviews);
+
       const { data: rawServs } = await supabase
         .from("services")
         .select("*")
@@ -53,11 +61,17 @@ function ServicesHubContent() {
         .order("created_at", { ascending: false });
 
       if (rawServs) {
-        const servs = rawServs.map((sv: any) => ({
-          ...sv,
-          service_categories: (cats || []).find((c: any) => c.id === sv.category_id) || null,
-          businesses: (bizList || []).find((b: any) => b.id === sv.business_id) || null
-        }));
+        const servs = rawServs.map((sv: any) => {
+          const b = (bizList || []).find((x: any) => x.id === sv.business_id) || null;
+          const ownerProf = b ? (allProfiles || []).find((pr: any) => pr.id === b.owner_id) : null;
+          const bizRevs = (allReviews || []).filter((r: any) => r.business_id === sv.business_id);
+          const avgRating = bizRevs.length > 0 ? (bizRevs.reduce((sum: number, r: any) => sum + Number(r.rating || 5), 0) / bizRevs.length).toFixed(1) : "5.0";
+          return {
+            ...sv,
+            service_categories: (cats || []).find((c: any) => c.id === sv.category_id) || null,
+            businesses: b ? { ...b, owner_profile: ownerProf, avgRating, reviewCount: bizRevs.length } : null
+          };
+        });
         const getTier = (b: any) => {
           if (!b || !prof) return 4;
           if (prof.pincode && b.pincode === prof.pincode) return 1;
@@ -107,6 +121,26 @@ function ServicesHubContent() {
     } finally {
       setBookingSaving(false);
     }
+  };
+
+  const handleSubmitRating = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rateBiz?.id) return;
+    setBookingSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: newRev, error } = await supabase.from("provider_reviews").insert([{
+        business_id: rateBiz.id,
+        customer_id: user?.id || null,
+        customer_name: custName || userProfile?.full_name || "Customer",
+        rating: rateStars,
+        comment: rateComment.trim()
+      }]).select().single();
+      if (error) throw error;
+      if (newRev) setReviewsList((prev) => [newRev, ...prev]);
+      alert("✅ आपकी रेटिंग और रिव्यू सेव हो गया!");
+      setRateBiz(null); setRateComment(""); setRateStars(5);
+    } catch (err: any) { alert("Error: " + err.message); } finally { setBookingSaving(false); }
   };
 
   const filtered = services.filter((s) => {
@@ -171,16 +205,34 @@ function ServicesHubContent() {
                   <span className="text-lg font-black text-emerald-700">₹{srv.price}</span>
                 </div>
 
-                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs space-y-1">
-                  <p className="font-extrabold text-slate-800">🏪 Provider: {b?.name || "Verified Provider"}</p>
-                  {addr && <p className="text-slate-600 text-[11px]">📍 {addr}</p>}
-                  {b?.phone && (
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="font-bold text-slate-700">📱 {b.phone}</span>
-                      <a href={`tel:${b.phone}`} className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-[11px] font-extrabold">📞 Call Provider</a>
+                {(() => {
+                  const profName = b?.owner_profile?.full_name || "";
+                  const firmLabel = b?.shop_name || (b?.name && !b.name.toLowerCase().includes("online service") ? b.name : "");
+                  const displayProvider = profName && firmLabel && profName !== firmLabel ? `${profName} (${firmLabel})` : (profName || firmLabel || b?.name || "Verified Provider");
+                  const fullAddr = [b?.address, b?.colony || b?.owner_profile?.colony, b?.area_locality || b?.owner_profile?.area_locality, b?.city || b?.owner_profile?.city, b?.pincode || b?.owner_profile?.pincode].filter(Boolean).join(", ");
+                  const liveRevs = reviewsList.filter((r: any) => r.business_id === b?.id);
+                  const liveAvg = liveRevs.length > 0 ? (liveRevs.reduce((acc: number, r: any) => acc + Number(r.rating || 5), 0) / liveRevs.length).toFixed(1) : "New";
+                  return (
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 text-xs space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-extrabold text-slate-900 text-sm">👤 {displayProvider}</p>
+                          {firmLabel && profName && <p className="text-[11px] font-bold text-indigo-700">🏪 Firm: {firmLabel}</p>}
+                        </div>
+                        <button type="button" onClick={() => setRateBiz({ ...b, displayProvider })} className="shrink-0 bg-amber-100 border border-amber-300 text-amber-900 px-2 py-1 rounded-lg text-[11px] font-extrabold">
+                          ⭐ {liveAvg} ({liveRevs.length}) • Rate
+                        </button>
+                      </div>
+                      <p className="text-slate-600 text-[11px]">📍 {fullAddr || "Local Service Area"}</p>
+                      {(b?.phone || b?.owner_profile?.phone) && (
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
+                          <span className="font-bold text-slate-800">📱 {b?.phone || b?.owner_profile?.phone}</span>
+                          <a href={`tel:${b?.phone || b?.owner_profile?.phone}`} className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-[11px] font-extrabold shadow-sm">📞 Call Provider</a>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
 
                 <button onClick={() => setBookingItem(srv)} className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-xs font-extrabold shadow-sm">
                   📅 Book Service Now
@@ -208,6 +260,25 @@ function ServicesHubContent() {
             <input placeholder="काम का विवरण (Optional)" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full p-2.5 border rounded-xl text-xs" />
             <button disabled={bookingSaving} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-extrabold">
               {bookingSaving ? "Booking..." : "✅ Confirm Booking"}
+            </button>
+          </form>
+        </div>
+      )}
+      {rateBiz && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleSubmitRating} className="bg-white rounded-2xl p-4 w-full max-w-sm space-y-3 shadow-2xl">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-black text-sm text-slate-900">⭐ Rate: {rateBiz.displayProvider}</h3>
+              <button type="button" onClick={() => setRateBiz(null)} className="text-slate-400 font-bold">✕</button>
+            </div>
+            <div className="flex justify-center gap-2 py-2">
+              {[1, 2, 3, 4, 5].map((st) => (
+                <button key={st} type="button" onClick={() => setRateStars(st)} className={`text-2xl ${st <= rateStars ? "text-amber-400 scale-110" : "text-slate-300"}`}>★</button>
+              ))}
+            </div>
+            <input placeholder="अपना अनुभव लिखें (जैसे: बहुत अच्छा काम किया)" value={rateComment} onChange={(e) => setRateComment(e.target.value)} className="w-full p-2.5 border rounded-xl text-xs" />
+            <button disabled={bookingSaving} className="w-full py-2.5 bg-amber-500 text-slate-900 rounded-xl text-xs font-black">
+              {bookingSaving ? "Saving..." : "✅ Submit Rating"}
             </button>
           </form>
         </div>
