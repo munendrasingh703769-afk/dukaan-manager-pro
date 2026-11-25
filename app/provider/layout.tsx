@@ -62,6 +62,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     { name: "Quotations", href: "/provider/quotations", icon: "📝" },
     { name: "Inventory", href: "/provider/inventory", icon: "📦" },
     { name: "Purchases / Return", href: "/provider/purchases", icon: "📥" },
+    { name: "B2B Thok & Area", href: "/b2b-market", icon: "📥" },
     { name: "Sales & Billing", href: "/provider/sales", icon: "🧾" },
     { name: "Expenses", href: "/provider/expenses", icon: "💸" },
     { name: "Earnings", href: "/provider/earnings", icon: "💰" },
