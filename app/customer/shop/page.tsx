@@ -24,7 +24,7 @@ export default function CustomerShopPage() {
       if (cats) setCategories(cats);
 
       // 2. Fetch Products
-      const { data: prods } = await supabase.from('products').select(`*, businesses!inner(name, city, id)`).gt('stock', 0);
+      const { data: prods } = await supabase.from('products').select(`*, businesses(name, city, id)`).gt('stock', 0);
       if (prods) setProducts(prods);
       setLoading(false);
     };
