@@ -335,7 +335,7 @@ export default function ProviderServicesPage() {
                   : 'bg-white text-gray-600 border border-gray-200'
               }`}
             >
-              {cat.image_url && {cat.image_url && <img src={cat.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{cat.name}{cat.image_url && <img src={cat.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{cat.name}
+              {cat.image_url && <img src={cat.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{cat.name}{cat.image_url && <img src={cat.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{cat.name}
             </button>
           ))}
         </div>

@@ -228,7 +228,7 @@ function ServicesHubContent() {
           </button>
           {categories.map((c) => (
             <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold ${selectedCat === c.id ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"}`}>
-              {c.image_url && {c.image_url && <img src={c.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{c.name}{c.image_url && <img src={c.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{c.name}
+              {c.image_url && <img src={c.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{c.name}{c.image_url && <img src={c.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{c.name}
             </button>
           ))}
         </div>
