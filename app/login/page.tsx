@@ -31,22 +31,35 @@ export default function LoginPage() {
       return
     }
 
-    // Welcome Message
-    alert('Welcome back to VyapaarSetu!')
-
-    // Role check karke redirect karo
-    const { data: profile } = await supabase
+    // Strict Account & Role Verification (Zero Data Leak)
+    const { data: profile, error: profError } = await supabase
       .from('profiles')
-      .select('user_type')
+      .select('id, user_type, is_deleted')
       .eq('id', data.user.id)
-      .single()
+      .maybeSingle();
 
-    if (profile?.user_type === 'customer') {
-      router.push('/customer')
-    } else if (profile?.user_type === 'service_provider') {
-      router.push('/provider') // 👈 Yahan /provider kar diya hai taaki 404 na aaye
+    if (profError || !profile || profile.is_deleted) {
+      await supabase.auth.signOut();
+      setError('Aapka active account nahi bana hai. Kripya pehle Sign Up karein.');
+      setLoading(false);
+      return;
+    }
+
+    const role = (profile.user_type || '').toLowerCase().trim();
+
+    if (role === 'customer') {
+      router.push('/customer');
+    } else if (role === 'service_provider' || role === 'provider') {
+      router.push('/provider');
+    } else if (role === 'owner' || role === 'shop_owner') {
+      router.push('/owner');
+    } else if (role === 'manufacturer') {
+      router.push('/manufacturer');
     } else {
-      router.push('/owner')
+      await supabase.auth.signOut();
+      setError('Account role verify nahi hua. Kripya sahi role ke saath Sign Up karein.');
+      setLoading(false);
+      return;
     }
   }
 
