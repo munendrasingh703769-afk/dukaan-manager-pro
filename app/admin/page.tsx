@@ -355,16 +355,32 @@ export default function AdminMasterPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-              <h2 className="text-lg font-bold border-b pb-2">Add Main Category</h2>
-              <div className="flex gap-2">
-                <input type="text" placeholder="Icon (e.g. ⚡)" value={newCatIcon} onChange={(e) => setNewCatIcon(e.target.value)} className="w-16 p-3 border rounded-xl text-center" />
-                <input type="text" placeholder="Category Name (e.g. AC Repair)" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} className="flex-1 p-3 border rounded-xl" />
+              <h2 className="text-lg font-bold border-b pb-2">Add Main Category & Photo</h2>
+              <div className="space-y-2">
+                <input type="text" placeholder="Category Name (e.g. Plumbing Services)" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} className="w-full p-3 border rounded-xl text-sm" />
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Upload Category Photo</label>
+                  <input type="file" accept="image/*" onChange={(e) => handleCatPhotoUpload(e.target.files?.[0])} disabled={uploadingCat} className="w-full text-xs" />
+                  {uploadingCat && <p className="text-xs text-blue-600 font-bold mt-1">Photo upload ho rahi hai...</p>}
+                  {newCatImage && <img src={newCatImage} alt="" className="w-16 h-16 object-cover rounded-xl mt-2 border" />}
+                </div>
               </div>
-              <button onClick={handleAddCategory} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Add Category</button>
-              <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
+              <button onClick={handleAddCategory} disabled={uploadingCat} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Add Category</button>
+              <div className="mt-4 space-y-2 max-h-80 overflow-y-auto">
                 {categories.map((c) => (
-                  <div key={c.id} className="bg-gray-50 p-2 rounded-lg flex items-center gap-2 text-sm font-medium">
-                    <span>{c.icon}</span><span>{c.name}</span>
+                  <div key={c.id} className="bg-gray-50 p-2.5 rounded-xl border flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {c.image_url ? (
+                        <img src={c.image_url} alt={c.name} className="w-11 h-11 rounded-xl object-cover border shrink-0" />
+                      ) : (
+                        <div className="w-11 h-11 rounded-xl bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">NoImg</div>
+                      )}
+                      <span className="text-sm font-bold text-slate-800 truncate">{c.name}</span>
+                    </div>
+                    <label className="px-2.5 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold cursor-pointer shrink-0">
+                      {c.image_url ? "Change Photo" : "Upload Photo"}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCatPhotoUpload(e.target.files?.[0], c.id)} />
+                    </label>
                   </div>
                 ))}
               </div>
