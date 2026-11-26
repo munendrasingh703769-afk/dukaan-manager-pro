@@ -11,6 +11,12 @@ export default function CustomerSuperAppHome() {
   
   // Data States
   const [categories, setCategories] = useState<any[]>([]);
+  const [serviceCats, setServiceCats] = useState<any[]>([]);
+  useEffect(() => {
+    supabase.from("service_categories").select("*").eq("is_active", true).order("name").then(({ data }) => {
+      if (data) setServiceCats(data);
+    });
+  }, []);
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [showLocModal, setShowLocModal] = useState(false);
@@ -267,34 +273,27 @@ export default function CustomerSuperAppHome() {
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm">
               <div className="flex justify-between items-center mb-3">
-                <h2 className="text-sm font-black text-slate-800">🏠 Home & Repair Services</h2>
-                <Link href="/customer/explore" className="text-xs font-bold text-blue-600">All Services ›</Link>
+                <h2 className="text-sm font-black text-slate-800">All Home & Professional Services</h2>
+                <Link href="/customer/explore" className="text-xs font-bold text-blue-600">Explore All →</Link>
               </div>
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  { n: 'AC & Appliance', i: '❄️' }, { n: 'Plumber', i: '🔧' }, { n: 'Electrician', i: '⚡' }, { n: 'Carpenter', i: '🪚' },
-                  { n: 'Painter', i: '🎨' }, { n: 'Labour & Helper', i: '👷' }, { n: 'Home Cleaning', i: '🧹' }, { n: 'Pest Control', i: '🐜' }
-                ].map((s) => (
-                  <Link key={s.n} href={`/customer/explore?service=${encodeURIComponent(s.n)}`} className="flex flex-col items-center gap-1 active:scale-95 transition">
-                    <div className="w-13 h-13 rounded-full bg-slate-100 flex items-center justify-center text-2xl shadow-inner">{s.i}</div>
-                    <span className="text-[10px] font-bold text-slate-700 text-center leading-tight">{s.n}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm">
-              <h2 className="text-sm font-black text-slate-800 mb-3">💻 IT, Telecom & Tech</h2>
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  { n: 'Wi-Fi & Internet', i: '📡' }, { n: 'CCTV & Security', i: '📷' }, { n: 'Computer & Laptop', i: '💻' }, { n: 'Mobile Repair', i: '📱' }
-                ].map((s) => (
-                  <Link key={s.n} href={`/customer/explore?service=${encodeURIComponent(s.n)}`} className="flex flex-col items-center gap-1 active:scale-95 transition">
-                    <div className="w-13 h-13 rounded-full bg-blue-50 flex items-center justify-center text-2xl">{s.i}</div>
-                    <span className="text-[10px] font-bold text-slate-700 text-center leading-tight">{s.n}</span>
-                  </Link>
-                ))}
-              </div>
+              {serviceCats.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-6">Loading service categories...</p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {serviceCats.map((cat) => (
+                    <Link key={cat.id} href={`/customer/explore?category=${cat.id}`} className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+                      <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shadow-sm">
+                        {cat.image_url ? (
+                          <img src={cat.image_url} alt={cat.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-base font-black text-blue-700">{cat.name?.charAt(0)}</span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-800 text-center leading-tight line-clamp-2">{cat.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
