@@ -58,6 +58,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   const navItems = [
     { name: "Dashboard", href: "/provider", icon: "🏠" },
     { name: "My Services", href: "/provider/services", icon: "🛠️" },
+    { name: "My Listings", href: "/provider/listings", icon: "🏢" },
     { name: "Bookings", href: "/provider/bookings", icon: "📅" },
     { name: "Quotations", href: "/provider/quotations", icon: "📝" },
     { name: "Inventory", href: "/provider/inventory", icon: "📦" },
