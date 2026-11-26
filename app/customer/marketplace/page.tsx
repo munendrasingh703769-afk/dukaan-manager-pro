@@ -31,6 +31,75 @@ export default function CustomerMarketplacePage() {
   const [visitDate, setVisitDate] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isPostOpen, setIsPostOpen] = useState(false);
+  const [postSaving, setPostSaving] = useState(false);
+  const [postUploading, setPostUploading] = useState(false);
+  const [postForm, setPostForm] = useState({
+    module_name: "Property Marketplace",
+    category_name: "House / Villa",
+    listing_type: "For Sale",
+    title: "",
+    price: "",
+    city: "",
+    area_locality: "",
+    pincode: "",
+    contact_phone: "",
+    description: "",
+    image_urls: [] as string[],
+  });
+
+  const handlePostPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.;
+    if (!file) return;
+    setPostUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = "marketplace/customer/" + Date.now() + "." + ext;
+      const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      if (data?.publicUrl) setPostForm((p) => ({ ...p, image_urls: [data.publicUrl] }));
+    } catch (err: any) {
+      alert("Upload error: " + err.message);
+    } finally {
+      setPostUploading(false);
+    }
+  };
+
+  const handleCustomerPostSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!postForm.title.trim() || !postForm.price) return alert("Title aur Price zaroori hai");
+    setPostSaving(true);
+    try {
+      const { data, error } = await supabase.from("marketplace_listings").insert([{
+        seller_user_id: userId,
+        seller_type: "customer",
+        module_name: postForm.module_name,
+        category_name: postForm.category_name,
+        listing_type: postForm.listing_type,
+        title: postForm.title.trim(),
+        price: Number(postForm.price),
+        currency: "INR",
+        is_negotiable: true,
+        city: postForm.city.trim(),
+        area_locality: postForm.area_locality.trim(),
+        pincode: postForm.pincode.trim(),
+        contact_phone: (postForm.contact_phone || custPhone).trim(),
+        description: postForm.description.trim(),
+        image_urls: postForm.image_urls,
+        status: "active",
+      }]).select().single();
+      if (error) throw error;
+      if (data) setListings((prev) => [data, ...prev]);
+      alert("Aapki listing live publish ho gayi hai!");
+      setIsPostOpen(false);
+      setPostForm({ ...postForm, title: "", price: "", description: "", image_urls: [] });
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setPostSaving(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -157,9 +226,12 @@ export default function CustomerMarketplacePage() {
             <Link href="/customer" className="px-3 py-1.5 bg-slate-100 rounded-xl text-xs font-extrabold text-slate-800">← Home</Link>
             <h1 className="text-base font-black text-slate-900">VyapaarSetu Marketplace</h1>
           </div>
-          <button onClick={() => setShowOnlyFavs(!showOnlyFavs)} className={`px-3 py-1.5 rounded-xl text-xs font-extrabold ${showOnlyFavs ? 'bg-rose-600 text-white' : 'bg-rose-50 text-rose-700'}`}>
+          <div className="flex gap-1.5">
+            <button onClick={() => setIsPostOpen(true)} className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-600 text-white shadow-sm">+ Post Ad</button>
+            <button onClick={() => setShowOnlyFavs(!showOnlyFavs)} className={`px-3 py-1.5 rounded-xl text-xs font-extrabold ${showOnlyFavs ? 'bg-rose-600 text-white' : 'bg-rose-50 text-rose-700'}`}>
             Saved ({favIds.length})
           </button>
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -309,6 +381,53 @@ export default function CustomerMarketplacePage() {
             <textarea rows={3} placeholder="Apna message / sawal likhein..." value={message} onChange={(e) => setMessage(e.target.value)} className="w-full p-2.5 border rounded-xl text-xs" />
             <button disabled={submitting} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-extrabold">
               {submitting ? 'Sending...' : 'Submit Request'}
+            </button>
+          </form>
+        </div>
+      )}
+      {isPostOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
+          <form onSubmit={handleCustomerPostSubmit} className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-4 space-y-3 shadow-2xl">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-black text-sm text-slate-900">Post Property / Vehicle / Item</h3>
+              <button type="button" onClick={() => setIsPostOpen(false)} className="text-slate-400 font-bold">X</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={postForm.module_name} onChange={(e) => setPostForm({ ...postForm, module_name: e.target.value })} className="p-2.5 border rounded-xl text-xs bg-white">
+                <option value="Property Marketplace">Property</option>
+                <option value="Vehicle Marketplace">Vehicle</option>
+                <option value="Rental Marketplace">Rental</option>
+                <option value="Used & New Products">Buy / Sell Item</option>
+                <option value="Agriculture Marketplace">Agriculture</option>
+                <option value="Local Community & Classified">Classified</option>
+              </select>
+              <select value={postForm.listing_type} onChange={(e) => setPostForm({ ...postForm, listing_type: e.target.value })} className="p-2.5 border rounded-xl text-xs bg-white">
+                <option value="For Sale">For Sale</option>
+                <option value="For Rent">For Rent</option>
+                <option value="For Lease">For Lease</option>
+                <option value="Wanted to Buy">Wanted to Buy</option>
+                <option value="Exchange">Exchange</option>
+              </select>
+            </div>
+            <input required placeholder="Title (e.g. Honda Shine 2022 / 2 BHK Flat) *" value={postForm.title} onChange={(e) => setPostForm({ ...postForm, title: e.target.value })} className="w-full p-2.5 border rounded-xl text-xs" />
+            <div className="grid grid-cols-2 gap-2">
+              <input required type="number" placeholder="Price / Rent (₹) *" value={postForm.price} onChange={(e) => setPostForm({ ...postForm, price: e.target.value })} className="p-2.5 border rounded-xl text-xs" />
+              <input required placeholder="Contact Mobile *" value={postForm.contact_phone || custPhone} onChange={(e) => setPostForm({ ...postForm, contact_phone: e.target.value })} className="p-2.5 border rounded-xl text-xs" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <input placeholder="City *" value={postForm.city} onChange={(e) => setPostForm({ ...postForm, city: e.target.value })} className="p-2.5 border rounded-xl text-xs" />
+              <input placeholder="Area" value={postForm.area_locality} onChange={(e) => setPostForm({ ...postForm, area_locality: e.target.value })} className="p-2.5 border rounded-xl text-xs" />
+              <input placeholder="Pincode" value={postForm.pincode} onChange={(e) => setPostForm({ ...postForm, pincode: e.target.value })} className="p-2.5 border rounded-xl text-xs" />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">Upload Photo</label>
+              <input type="file" accept="image/*" onChange={handlePostPhoto} disabled={postUploading} className="w-full text-xs" />
+              {postUploading && <p className="text-xs text-blue-600 font-bold mt-1">Photo upload ho rahi hai...</p>}
+              {postForm.image_urls. && <img src={postForm.image_urls} alt="" className="w-20 h-20 object-cover rounded-xl mt-2 border" />}
+            </div>
+            <textarea rows={2} placeholder="Details / Condition..." value={postForm.description} onChange={(e) => setPostForm({ ...postForm, description: e.target.value })} className="w-full p-2.5 border rounded-xl text-xs" />
+            <button disabled={postSaving || postUploading} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-extrabold">
+              {postSaving ? "Publishing..." : "Publish Listing Now"}
             </button>
           </form>
         </div>
