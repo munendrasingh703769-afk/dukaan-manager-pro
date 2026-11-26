@@ -164,7 +164,7 @@ export default function AdminCategoriesPage() {
               <input type="text" placeholder="Category Name (e.g. Plumbing Services) *" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} className="w-full p-2.5 text-xs border rounded-xl bg-white" />
               <div>
                 <label className="text-[11px] font-bold text-gray-700 block mb-1">Upload Category Photo</label>
-                <input type="file" accept="image/*" onChange={(e) => e.target.files?. && uploadCategoryPhoto(e.target.files, false)} disabled={uploading} className="w-full text-xs" />
+                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadCategoryPhoto(e.target.files[0], false)} disabled={uploading} className="w-full text-xs" />
                 {uploading && <p className="text-xs text-blue-600 font-bold mt-1">Photo upload ho rahi hai...</p>}
                 {newCatImage && <img src={newCatImage} alt="Preview" className="w-16 h-16 object-cover rounded-xl mt-2 border" />}
               </div>
@@ -233,7 +233,7 @@ export default function AdminCategoriesPage() {
               <input type="text" value={editCategory.name} onChange={(e) => setEditCategory({ ...editCategory, name: e.target.value })} className="w-full p-2.5 text-xs border rounded-xl" />
               <div>
                 <label className="text-[11px] font-bold text-gray-700 block mb-1">Upload / Change Photo</label>
-                <input type="file" accept="image/*" onChange={(e) => e.target.files?. && uploadCategoryPhoto(e.target.files, true)} disabled={uploading} className="w-full text-xs" />
+                <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadCategoryPhoto(e.target.files[0], true)} disabled={uploading} className="w-full text-xs" />
                 {uploading && <p className="text-xs text-blue-600 font-bold mt-1">Uploading...</p>}
                 {editCategory.image_url && <img src={editCategory.image_url} alt="" className="w-20 h-20 object-cover rounded-xl mt-2 border" />}
               </div>
