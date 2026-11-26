@@ -17,6 +17,42 @@ const PLAN_OPTIONS = [
 
 export default function AdminMasterPage() {
   const supabase = createClient();
+  const [catListAdmin, setCatListAdmin] = useState<any[]>([]);
+  const [newCatTitle, setNewCatTitle] = useState("");
+  const [uploadingCatId, setUploadingCatId] = useState<string | null>(null);
+
+  const loadAdminCats = async () => {
+    const { data } = await supabase.from("service_categories").select("*").order("name");
+    if (data) setCatListAdmin(data);
+  };
+
+  useEffect(() => { loadAdminCats(); }, []);
+
+  const uploadAdminCatPhoto = async (file: File | undefined, catId?: string) => {
+    if (!file) return;
+    setUploadingCatId(catId || "new");
+    try {
+      const ext = file.name.split(".").pop();
+      const path = "categories/" + Date.now() + "." + ext;
+      const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      if (data?.publicUrl) {
+        if (catId) {
+          await supabase.from("service_categories").update({ image_url: data.publicUrl }).eq("id", catId);
+        } else {
+          if (!newCatTitle.trim()) return alert("Pehle Category ka naam likhein");
+          await supabase.from("service_categories").insert([{ name: newCatTitle.trim(), image_url: data.publicUrl, is_active: true }]);
+          setNewCatTitle("");
+        }
+        loadAdminCats();
+      }
+    } catch (e: any) {
+      alert("Upload Error: " + e.message);
+    } finally {
+      setUploadingCatId(null);
+    }
+  };
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [password, setPassword] = useState('');
