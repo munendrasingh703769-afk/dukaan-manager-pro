@@ -228,7 +228,7 @@ function ServicesHubContent() {
           </button>
           {categories.map((c) => (
             <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold ${selectedCat === c.id ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"}`}>
-              {c.image_url && <img src={c.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{c.name}<img src={c.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{c.name}
+              {c.image_url && {c.image_url && <img src={c.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{c.name}{c.image_url && <img src={c.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{c.name}
             </button>
           ))}
         </div>
@@ -309,9 +309,7 @@ function ServicesHubContent() {
             <div className="relative h-52 bg-slate-100 flex items-center justify-center">
               {detailItem.image_url ? (
                 <img src={detailItem.image_url} alt={detailItem.name} className="w-full h-full object-cover" />
-              ) : (
-                {detailItem.service_categories?.image_url ? <img src={detailItem.service_categories.image_url} alt={detailItem.name} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-slate-400">No Photo</span>}
-              )}
+              ) : detailItem.service_categories?.image_url ? (<img src={detailItem.service_categories.image_url} alt={detailItem.name} className="w-full h-full object-cover" />) : (<span className="text-xs font-bold text-slate-400">No Photo</span>)}
               <button onClick={() => setDetailItem(null)} className="absolute top-3 right-3 bg-white/90 text-slate-900 w-8 h-8 rounded-full font-black shadow">✕</button>
             </div>
 
