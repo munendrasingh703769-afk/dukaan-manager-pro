@@ -146,7 +146,7 @@ export default function CustomerSuperAppHome() {
   return (
     <main className="min-h-screen bg-[#F1F3F6] pb-24 font-sans">
       <header className="bg-gradient-to-b from-[#0F172A] via-[#1E3A8A] to-[#1D4ED8] text-white pt-3 pb-2.5 rounded-b-3xl shadow-md sticky top-0 z-30">
-        <div className="grid grid-cols-4 gap-2 px-3 mb-2.5">
+        <div className="grid grid-cols-5 gap-1.5 px-3 mb-2.5">
           {[
             { id: 'supermart', label: 'SuperMart', icon: '🛒' },
             { id: 'services', label: 'Services', icon: '🛠️' },
@@ -156,7 +156,7 @@ export default function CustomerSuperAppHome() {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => tab.id === "marketplace" ? (window.location.href = "/customer/marketplace") : setActiveTab(tab.id as any)}
               className={`rounded-xl py-1.5 px-1 flex flex-col items-center justify-center shadow-sm active:scale-95 transition ${activeTab === tab.id ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-200' : 'bg-white text-slate-900'}`}
             >
               <span className="text-base leading-none">{tab.icon}</span>
@@ -387,7 +387,7 @@ export default function CustomerSuperAppHome() {
             <h2 className="text-sm font-black flex items-center gap-1.5">🛍️ My Orders</h2>
             <Link href="/customer/orders" className="text-xs font-bold text-blue-200">View All →</Link>
           </div>
-          <div className="grid grid-cols-4 gap-2 text-slate-900">
+          <div className="grid grid-cols-5 gap-1.5 text-slate-900">
             {[
               { label: 'Total Orders', count: myOrders.length, icon: '🛒', bg: 'bg-blue-50' },
               { label: 'Processing', count: myOrders.filter(o => ['confirmed', 'accepted', 'processing', 'packed'].includes((o.status || '').toLowerCase())).length, icon: '🕒', bg: 'bg-amber-50' },
@@ -406,7 +406,7 @@ export default function CustomerSuperAppHome() {
         {/* QUICK ACTIONS (Screenshot 1 Style) */}
         <section>
           <h2 className="text-sm font-black text-slate-800 mb-2 px-1">Quick Actions</h2>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-1.5">
             {[
               { label: 'Browse Shop', icon: '🛒', bg: 'bg-rose-50 border-rose-100', act: () => setActiveTab('supermart') },
               { label: 'Book Service', icon: '📅', bg: 'bg-indigo-50 border-indigo-100', act: () => setActiveTab('services') },

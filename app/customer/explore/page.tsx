@@ -51,7 +51,7 @@ function ServicesHubContent() {
       }
 
       const [catsRes, subsRes, bizRes, profRes, revRes, servRes] = await Promise.all([
-        supabase.from("service_categories").select("*").eq("is_active", true).order("name"),
+        supabase.from("service_categories").select("*").eq("is_active", true).not("name", "ilike", "%loan%").not("name", "ilike", "%taxi%").not("name", "ilike", "%ride%").not("name", "ilike", "%rental%").order("name"),
         supabase.from("service_subcategories").select("*").eq("is_active", true),
         supabase.from("businesses").select("*"),
         supabase.from("profiles").select("id, full_name, phone, colony, area_locality, city, pincode"),
@@ -292,7 +292,7 @@ function ServicesHubContent() {
                       👁️ View Details
                     </button>
                     <button onClick={() => openActionModal(srv, "book")} className="py-2.5 bg-blue-600 text-white rounded-xl text-xs font-extrabold shadow-sm">
-                      📅 Book Now
+                      Book Now
                     </button>
                   </div>
                 </div>
@@ -369,7 +369,7 @@ function ServicesHubContent() {
                   💬 Request Quote
                 </button>
                 <button onClick={() => openActionModal(detailItem, "book")} className="py-3 bg-blue-600 text-white rounded-xl text-xs font-black shadow-sm">
-                  📅 Book Now
+                  Book Now
                 </button>
               </div>
             </div>
@@ -383,7 +383,7 @@ function ServicesHubContent() {
           <form onSubmit={handleBookOrQuote} className="bg-white rounded-2xl p-4 w-full max-w-md space-y-3 shadow-2xl">
             <div className="flex justify-between items-center border-b pb-2">
               <h3 className="font-black text-sm text-slate-900">
-                {bookingMode === "quote" ? `💬 Request Quote: ${bookingItem.name}` : `📅 Book: ${bookingItem.name} (₹${bookingItem.price})`}
+                {bookingMode === "quote" ? `💬 Request Quote: ${bookingItem.name}` : `Book: ${bookingItem.name} (₹${bookingItem.price})`}
               </h3>
               <button type="button" onClick={() => setBookingItem(null)} className="text-slate-400 font-bold">✕</button>
             </div>
