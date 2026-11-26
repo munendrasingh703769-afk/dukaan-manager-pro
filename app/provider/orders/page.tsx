@@ -1,3 +1,4 @@
+import { LiveGpsBroadcaster } from '@/components/LiveTracker';
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -91,6 +92,7 @@ export default function ProviderShopOrdersPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {orders.map((order) => (
+  <LiveGpsBroadcaster table="orders" recordId={order.id} active={['out_for_delivery', 'shipped', 'on_the_way', 'dispatched'].includes((order.status || '').toLowerCase())} label="Delivery Live GPS Sharing ON" />
             <div key={order.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 flex flex-col">
               
               <div className="flex justify-between items-start border-b border-gray-100 pb-3">
