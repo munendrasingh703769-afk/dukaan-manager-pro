@@ -1,3 +1,4 @@
+import { LiveGpsBroadcaster } from '@/components/LiveTracker';
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -171,6 +172,7 @@ export default function ProviderBookingsPage() {
 
             return (
               <div key={booking.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 relative overflow-hidden flex flex-col">
+<LiveGpsBroadcaster table="service_bookings" recordId={booking.id} active={['on_the_way', 'in_progress'].includes((booking.status || '').toLowerCase())} label="Technician Live GPS Sharing ON" />
                 
                 <div className={`absolute top-0 left-0 w-1.5 h-full ${
                     booking.status === 'pending' ? 'bg-yellow-400' : 

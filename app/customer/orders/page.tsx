@@ -1,3 +1,4 @@
+import { CustomerLiveMap } from '@/components/LiveTracker';
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -86,6 +87,7 @@ export default function CustomerOrdersPage() {
             const isRejected = ['cancelled', 'rejected', 'declined'].includes(st);
             return (
               <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+{['out_for_delivery', 'shipped', 'on_the_way', 'dispatched'].includes((order.status || '').toLowerCase()) && <CustomerLiveMap table="orders" recordId={order.id} title="Live Delivery Partner Location" />}
                 <div className="p-4 flex justify-between items-start">
                   <div>
                     <div className="flex items-center gap-2">

@@ -1,3 +1,4 @@
+import { CustomerLiveMap } from '@/components/LiveTracker';
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -113,6 +114,7 @@ export default function CustomerBookingsPage() {
       ) : (
         bookings.map((b) => (
           <div key={b.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
+{['on_the_way', 'in_progress'].includes((b.status || '').toLowerCase()) && <CustomerLiveMap table="service_bookings" recordId={b.id} title="Live Technician Location" />}
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="font-bold text-lg text-gray-800">{b.services?.name || 'Service'}</h3>

@@ -1,3 +1,4 @@
+import { CustomerLiveMap } from '@/components/LiveTracker';
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -52,6 +53,7 @@ export default function CustomerMyRidesPage() {
         ) : (
           rides.map((ride) => (
             <div key={ride.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+{['accepted', 'on_the_way', 'started', 'in_progress'].includes((ride.status || '').toLowerCase()) && <CustomerLiveMap table="ride_bookings" recordId={ride.id} title="Live Rider Location (Rapido View)" />}
               
               <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-start">
                 <div>
