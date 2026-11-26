@@ -1,5 +1,5 @@
-import { CustomerLiveMap } from '@/components/LiveTracker';
 'use client';
+import { CustomerLiveMap } from '@/components/LiveTracker';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';

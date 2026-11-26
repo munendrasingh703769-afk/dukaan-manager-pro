@@ -49,7 +49,7 @@ export default function CustomerMarketplacePage() {
   });
 
   const handlePostPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.;
+    const file = e.target.files?.[0];
     if (!file) return;
     setPostUploading(true);
     try {
@@ -423,7 +423,7 @@ export default function CustomerMarketplacePage() {
               <label className="text-[11px] font-bold text-slate-700 block mb-1">Upload Photo</label>
               <input type="file" accept="image/*" onChange={handlePostPhoto} disabled={postUploading} className="w-full text-xs" />
               {postUploading && <p className="text-xs text-blue-600 font-bold mt-1">Photo upload ho rahi hai...</p>}
-              {postForm.image_urls. && <img src={postForm.image_urls} alt="" className="w-20 h-20 object-cover rounded-xl mt-2 border" />}
+              {postForm.image_urls[0] && <img src={postForm.image_urls[0]} alt="" className="w-20 h-20 object-cover rounded-xl mt-2 border" />}
             </div>
             <textarea rows={2} placeholder="Details / Condition..." value={postForm.description} onChange={(e) => setPostForm({ ...postForm, description: e.target.value })} className="w-full p-2.5 border rounded-xl text-xs" />
             <button disabled={postSaving || postUploading} className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-extrabold">
