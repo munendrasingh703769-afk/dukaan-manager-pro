@@ -335,7 +335,7 @@ export default function ProviderServicesPage() {
                   : 'bg-white text-gray-600 border border-gray-200'
               }`}
             >
-              {cat.icon} {cat.name}
+              {cat.image_url {cat.icon} {cat.name}{cat.icon} {cat.name} <img src={cat.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{cat.name}
             </button>
           ))}
         </div>
@@ -376,7 +376,7 @@ export default function ProviderServicesPage() {
                       <img src={service.image_url} alt={service.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-center p-4">
-                        <span className="text-4xl">{category?.icon || '🛠️'}</span>
+                        {category?.image_url ? <img src={category.image_url} alt={service.name} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-gray-400">No Photo Uploaded</span>}
                         <p className="text-[10px] text-gray-400 font-semibold mt-1">No Photo Uploaded</p>
                       </div>
                     )}
@@ -395,7 +395,7 @@ export default function ProviderServicesPage() {
                   <div className="p-4 space-y-2">
                     <div className="flex flex-wrap gap-1">
                       <span className="text-[10px] text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded">
-                        {category ? `${category.icon || ''} ${category.name}` : 'Uncategorized'}
+                        {category ? category.name : 'Uncategorized'}
                       </span>
                       {subcategory && (
                         <span className="text-[10px] text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded">

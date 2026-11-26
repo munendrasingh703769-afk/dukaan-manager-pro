@@ -228,7 +228,7 @@ function ServicesHubContent() {
           </button>
           {categories.map((c) => (
             <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold ${selectedCat === c.id ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"}`}>
-              {c.icon} {c.name}
+              {c.image_url {c.icon} {c.name}{c.icon} {c.name} <img src={c.image_url} alt="" className="w-4 h-4 rounded-full object-cover inline mr-1.5" />}{c.name}
             </button>
           ))}
         </div>
@@ -255,11 +255,11 @@ function ServicesHubContent() {
                     <img src={srv.image_url} alt={srv.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="text-center">
-                      <span className="text-5xl">{srv.service_categories?.icon || "🛠️"}</span>
+                      {srv.service_categories?.image_url ? <img src={srv.service_categories.image_url} alt={srv.name} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-slate-400">No Photo</span>}
                     </div>
                   )}
                   <span className="absolute top-3 left-3 text-[10px] font-extrabold bg-white/95 text-blue-700 px-2.5 py-1 rounded-lg shadow-sm">
-                    {srv.service_categories?.icon} {srv.service_categories?.name || "Service"}
+                    {srv.service_categories?.name || "Service"}
                   </span>
                   {liveAvg && (
                     <span className="absolute top-3 right-3 text-[11px] font-black bg-amber-400 text-slate-900 px-2.5 py-1 rounded-lg shadow-sm">
@@ -310,7 +310,7 @@ function ServicesHubContent() {
               {detailItem.image_url ? (
                 <img src={detailItem.image_url} alt={detailItem.name} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-6xl">{detailItem.service_categories?.icon || "🛠️"}</span>
+                {detailItem.service_categories?.image_url ? <img src={detailItem.service_categories.image_url} alt={detailItem.name} className="w-full h-full object-cover" /> : <span className="text-xs font-bold text-slate-400">No Photo</span>}
               )}
               <button onClick={() => setDetailItem(null)} className="absolute top-3 right-3 bg-white/90 text-slate-900 w-8 h-8 rounded-full font-black shadow">✕</button>
             </div>
