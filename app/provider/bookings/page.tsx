@@ -180,7 +180,7 @@ export default function ProviderBookingsPage() {
 
                 <div className="flex justify-between items-start pl-2">
                   <div>
-                    <h3 className="font-bold text-lg text-gray-800">{serviceDetails.name}</h3>
+                    <h3 className="font-bold text-lg text-gray-800">{(booking as any).service_name || serviceDetails.name}</h3>
                     <p className="text-sm text-purple-600 font-bold bg-purple-50 inline-block px-2 py-0.5 rounded mt-1">
                       ₹{serviceDetails.price}
                     </p>
