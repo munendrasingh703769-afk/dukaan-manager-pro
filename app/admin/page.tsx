@@ -418,7 +418,7 @@ export default function AdminMasterPage() {
             <p className="text-xs text-slate-400 py-3 text-center">अभी तक किसी यूज़र ने अकाउंट डिलीट नहीं किया है।</p>
           ) : (
             <div className="space-y-2 max-h-72 overflow-y-auto">
-              {deletedAccounts.map((d) => (
+              {deletedAccounts.filter((d) => (d.role || "").toLowerCase() !== "admin").map((d) => (
                 <div key={d.id} className="p-3 rounded-xl bg-red-50/50 border border-red-100 flex justify-between items-start text-xs">
                   <div>
                     <p className="font-black text-slate-900">{d.full_name || 'User'} <span className="text-[10px] font-normal text-slate-500">({d.role})</span></p>

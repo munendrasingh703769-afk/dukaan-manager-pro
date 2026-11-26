@@ -47,7 +47,9 @@ export default function LoginPage() {
 
     const role = (profile.user_type || '').toLowerCase().trim();
 
-    if (role === 'customer') {
+    if (role === 'admin' || role === 'super_admin') {
+      router.push('/admin');
+    } else if (role === 'customer') {
       router.push('/customer');
     } else if (role === 'service_provider' || role === 'provider') {
       router.push('/provider');
