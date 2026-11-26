@@ -48,6 +48,12 @@ export default function LoginPage() {
     const role = (profile.user_type || '').toLowerCase().trim();
 
     if (role === 'admin' || role === 'super_admin') {
+      if ((data.user.email || '').toLowerCase() !== "munendrasingh703769@gmail.com") {
+        await supabase.auth.signOut();
+        setError('Unauthorized Admin access blocked.');
+        setLoading(false);
+        return;
+      }
       router.push('/admin');
     } else if (role === 'customer') {
       router.push('/customer');
