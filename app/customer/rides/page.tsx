@@ -12,6 +12,20 @@ const RIDE_TYPES = [
   { id: 'parcel', name: 'Parcel', base: 40, perKm: 15, emoji: '📦' },
 ];
 
+function calcRoadKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const straightKm = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  return Math.max(1, Math.round(straightKm * 1.22 * 10) / 10);
+}
+
 export default function CustomerRidesPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -37,9 +51,14 @@ export default function CustomerRidesPage() {
         const lng = pos.coords.longitude;
         setPickupCoords({ lat, lng });
         try {
-          const res = await fetch(`https://openstreetmap.org{lat}&lon=${lng}`);
+          const res = await fetch(
+            `https://bigdatacloud.net{lat}&longitude=${lng}&localityLanguage=en`
+          );
           const data = await res.json();
-          setPickup(data?.display_name ? data.display_name.split(',').slice(0, 3).join(', ') : `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+          const placeName = [data?.locality || data?.city, data?.principalSubdivision]
+            .filter(Boolean)
+            .join(', ');
+          setPickup(placeName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
         } catch {
           setPickup(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
         }
@@ -57,48 +76,48 @@ export default function CustomerRidesPage() {
     detectCurrentLocation();
   }, []);
 
-  // Automatic distance calculation 1 second after typing Drop or Pickup
   useEffect(() => {
-    if (!drop.trim() || drop.trim().length < 3 || !pickup.trim() || pickup.includes('Detecting')) return;
+    const cleanDrop = drop.trim();
+    if (cleanDrop.length < 3 || !pickup.trim() || pickup.includes('Detecting')) return;
 
     const timer = setTimeout(async () => {
       setCalcLoading(true);
       try {
         let pCoord = pickupCoords;
         if (!pCoord) {
-          const pRes = await fetch(`https://openstreetmap.org{encodeURIComponent(pickup + ', India')}&limit=1`);
+          const pQuery = pickup.split(',').at(0)?.trim() || pickup;
+          const pRes = await fetch(
+            `https://open-meteo.com{encodeURIComponent(pQuery)}&count=1&language=en&format=json`
+          );
           const pData = await pRes.json();
-          const firstP = Array.isArray(pData) ? pData.at(0) : null;
+          const firstP = Array.isArray(pData?.results) ? pData.results.at(0) : null;
           if (firstP) {
-            pCoord = { lat: parseFloat(firstP.lat), lng: parseFloat(firstP.lon) };
+            pCoord = { lat: Number(firstP.latitude), lng: Number(firstP.longitude) };
             setPickupCoords(pCoord);
           }
         }
 
-        const dRes = await fetch(`https://openstreetmap.org{encodeURIComponent(drop + ', India')}&limit=1`);
+        const dQuery = cleanDrop.split(',').at(0)?.trim() || cleanDrop;
+        const dRes = await fetch(
+          `https://open-meteo.com{encodeURIComponent(dQuery)}&count=1&language=en&format=json`
+        );
         const dData = await dRes.json();
-        const firstD = Array.isArray(dData) ? dData.at(0) : null;
-        let dCoord = null;
-        if (firstD) {
-          dCoord = { lat: parseFloat(firstD.lat), lng: parseFloat(firstD.lon) };
-          setDropCoords(dCoord);
-        }
+        const firstD = Array.isArray(dData?.results) ? dData.results.at(0) : null;
 
-        if (pCoord && dCoord) {
-          const routeRes = await fetch(`https://project-osrm.org{pCoord.lng},${pCoord.lat};${dCoord.lng},${dCoord.lat}?overview=false`);
-          const routeData = await routeRes.json();
-          const firstRoute = Array.isArray(routeData?.routes) ? routeData.routes.at(0) : null;
-          if (firstRoute?.distance) {
-            setDistance(String(Math.max(1, Math.round((firstRoute.distance / 1000) * 10) / 10)));
+        if (firstD) {
+          const dCoord = { lat: Number(firstD.latitude), lng: Number(firstD.longitude) };
+          setDropCoords(dCoord);
+          if (pCoord) {
+            const km = calcRoadKm(pCoord.lat, pCoord.lng, dCoord.lat, dCoord.lng);
+            setDistance(String(km));
           }
         }
       } catch {}
       setCalcLoading(false);
-    }, 900);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [drop, pickup, pickupCoords]);
-
   const kmNum = Math.max(0, parseFloat(distance) || 0);
   const estimatedFare = kmNum > 0 ? Math.round(selectedType.base + kmNum * selectedType.perKm) : selectedType.base;
 
@@ -130,8 +149,12 @@ export default function CustomerRidesPage() {
     }
   };
 
-  const activeMapCoord = dropCoords || pickupCoords || { lat: 28.3670, lng: 79.4304 };
-  const mapUrl = `https://google.com{activeMapCoord.lat},${activeMapCoord.lng}&z=14&output=embed`;
+  const mapsRouteLink =
+    pickupCoords && dropCoords
+      ? `https://google.com{pickupCoords.lat},${pickupCoords.lng}&destination=${dropCoords.lat},${dropCoords.lng}`
+      : pickupCoords
+      ? `https://google.com{pickupCoords.lat},${pickupCoords.lng}`
+      : `https://google.com{encodeURIComponent(drop || pickup || 'Bareilly')}`;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
@@ -144,17 +167,43 @@ export default function CustomerRidesPage() {
       </div>
 
       <div className="max-w-md mx-auto p-4 space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="px-3 py-2 bg-slate-900 text-white flex items-center justify-between text-xs">
-            <span className="font-extrabold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-              {dropCoords ? 'Drop Location Live Map' : pickupCoords ? 'Your Current GPS Location' : 'Live GPS Map'}
+        <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-md space-y-3 border border-slate-800">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-extrabold flex items-center gap-2 text-emerald-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping inline-block" />
+              {pickupCoords ? 'Live GPS Connected' : 'GPS Standby'}
             </span>
-            <button type="button" onClick={detectCurrentLocation} disabled={locating} className="px-2.5 py-1 bg-emerald-600 rounded-lg text-[10px] font-extrabold">
+            <button type="button" onClick={detectCurrentLocation} disabled={locating} className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-extrabold">
               {locating ? 'Locating...' : 'Refresh GPS'}
             </button>
           </div>
-          <iframe title="Live GPS Map" src={mapUrl} className="w-full h-48 border-0" />
+
+          <div className="bg-slate-800/90 rounded-xl p-3 space-y-2 text-xs">
+            <div className="flex items-start gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 mt-1 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-400 font-bold">PICKUP (AUTO-GPS)</p>
+                <p className="font-extrabold text-white truncate">{pickup || 'Enter Pickup'}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-400 mt-1 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-400 font-bold">DROP DESTINATION</p>
+                <p className="font-extrabold text-white truncate">{drop || 'Type destination below...'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold">ESTIMATED DISTANCE</p>
+              <p className="text-base font-black text-amber-400">{kmNum > 0 ? `${kmNum} KM` : '-- KM'}</p>
+            </div>
+            <a href={mapsRouteLink} target="_blank" rel="noreferrer" className="px-3.5 py-2 bg-blue-600 text-white rounded-xl text-xs font-extrabold shadow">
+              Open Live Route Map
+            </a>
+          </div>
         </div>
 
         <form onSubmit={handleBookRide} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -165,10 +214,10 @@ export default function CustomerRidesPage() {
             </div>
             <div>
               <label className="text-[11px] font-extrabold text-red-700 block mb-1">Drop Location (City / Colony / Area likhein)</label>
-              <input required value={drop} onChange={(e) => { setDrop(e.target.value); setDropCoords(null); }} placeholder="Jaise: Faridpur Bareilly ya Civil Lines..." className="w-full p-3 border rounded-xl text-sm font-semibold" />
+              <input required value={drop} onChange={(e) => { setDrop(e.target.value); setDropCoords(null); }} placeholder="Jaise: Budaun ya Faridpur..." className="w-full p-3 border rounded-xl text-sm font-semibold" />
             </div>
             {calcLoading && (
-              <p className="text-xs font-extrabold text-blue-600 animate-pulse">Calculating automatic road distance...</p>
+              <p className="text-xs font-extrabold text-blue-600 animate-pulse">Calculating automatic distance...</p>
             )}
           </div>
 
