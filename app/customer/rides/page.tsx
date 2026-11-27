@@ -200,9 +200,9 @@ export default function CustomerRidesPage() {
               <p className="text-[10px] text-slate-400 font-bold">ESTIMATED DISTANCE</p>
               <p className="text-base font-black text-amber-400">{kmNum > 0 ? `${kmNum} KM` : '-- KM'}</p>
             </div>
-            <a href={mapsRouteLink} target="_blank" rel="noreferrer" className="px-3.5 py-2 bg-blue-600 text-white rounded-xl text-xs font-extrabold shadow">
-              Open Live Route Map
-            </a>
+            <a href={mapsRouteLink} className="px-3.5 py-2 bg-blue-600 text-white rounded-xl text-xs font-extrabold shadow">
+             Open Live Route Map
+           </a>
           </div>
         </div>
 
