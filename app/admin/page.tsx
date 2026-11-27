@@ -58,7 +58,7 @@ export default function AdminMasterPage() {
   const [password, setPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'subscriptions' | 'categories'>('subscriptions');
+  const [activeTab, setActiveTab] = useState<'subscriptions' | 'categories'>('categories');
   const [loading, setLoading] = useState(false);
 
   // Subscriptions & Businesses State
