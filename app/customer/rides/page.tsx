@@ -15,10 +15,10 @@ const RIDE_TYPES = [
 export default function CustomerRidesPage() {
   const supabase = createClient();
   const router = useRouter();
-  const [pickup, setPickup] = useState('');
+  const [pickup, setPickup] = useState('Detecting current location...');
   const [drop, setDrop] = useState('');
-  const [distance, setDistance] = useState('5');
-  const [selectedType, setSelectedType] = useState(RIDE_TYPES);
+  const [distance, setDistance] = useState('');
+  const [selectedType, setSelectedType] = useState(RIDE_TYPES.at(0)!);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const [calcLoading, setCalcLoading] = useState(false);
@@ -26,7 +26,10 @@ export default function CustomerRidesPage() {
   const [dropCoords, setDropCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const detectCurrentLocation = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setPickup('');
+      return;
+    }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -42,46 +45,62 @@ export default function CustomerRidesPage() {
         }
         setLocating(false);
       },
-      () => setLocating(false),
+      () => {
+        setPickup('');
+        setLocating(false);
+      },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
-  useEffect(() => { detectCurrentLocation(); }, []);
+  useEffect(() => {
+    detectCurrentLocation();
+  }, []);
 
-  const calculateLiveDistance = async () => {
-    if (!pickup.trim() || !drop.trim()) return alert('Pehle Pickup aur Drop location likhein');
-    setCalcLoading(true);
-    try {
-      let pCoord = pickupCoords;
-      if (!pCoord) {
-        const pRes = await fetch(`https://openstreetmap.org{encodeURIComponent(pickup + ', India')}&limit=1`);
-        const pData = await pRes.json();
-        if (pData?.at(0)) {
-          pCoord = { lat: parseFloat(pData.at(0).lat), lng: parseFloat(pData.at(0).lon) };
-          setPickupCoords(pCoord);
+  // Automatic distance calculation 1 second after typing Drop or Pickup
+  useEffect(() => {
+    if (!drop.trim() || drop.trim().length < 3 || !pickup.trim() || pickup.includes('Detecting')) return;
+
+    const timer = setTimeout(async () => {
+      setCalcLoading(true);
+      try {
+        let pCoord = pickupCoords;
+        if (!pCoord) {
+          const pRes = await fetch(`https://openstreetmap.org{encodeURIComponent(pickup + ', India')}&limit=1`);
+          const pData = await pRes.json();
+          const firstP = Array.isArray(pData) ? pData.at(0) : null;
+          if (firstP) {
+            pCoord = { lat: parseFloat(firstP.lat), lng: parseFloat(firstP.lon) };
+            setPickupCoords(pCoord);
+          }
         }
-      }
-      const dRes = await fetch(`https://openstreetmap.org{encodeURIComponent(drop + ', India')}&limit=1`);
-      const dData = await dRes.json();
-      let dCoord = null;
-      if (dData?.at(0)) {
-        dCoord = { lat: parseFloat(dData.at(0).lat), lng: parseFloat(dData.at(0).lon) };
-        setDropCoords(dCoord);
-      }
-      if (pCoord && dCoord) {
-        const routeRes = await fetch(`https://project-osrm.org{pCoord.lng},${pCoord.lat};${dCoord.lng},${dCoord.lat}?overview=false`);
-        const routeData = await routeRes.json();
-        if (routeData?.routes?.at(0)?.distance) {
-          setDistance(String(Math.max(1, Math.round((routeData.routes.at(0).distance / 1000) * 10) / 10)));
+
+        const dRes = await fetch(`https://openstreetmap.org{encodeURIComponent(drop + ', India')}&limit=1`);
+        const dData = await dRes.json();
+        const firstD = Array.isArray(dData) ? dData.at(0) : null;
+        let dCoord = null;
+        if (firstD) {
+          dCoord = { lat: parseFloat(firstD.lat), lng: parseFloat(firstD.lon) };
+          setDropCoords(dCoord);
         }
-      }
-    } catch {}
-    setCalcLoading(false);
-  };
+
+        if (pCoord && dCoord) {
+          const routeRes = await fetch(`https://project-osrm.org{pCoord.lng},${pCoord.lat};${dCoord.lng},${dCoord.lat}?overview=false`);
+          const routeData = await routeRes.json();
+          const firstRoute = Array.isArray(routeData?.routes) ? routeData.routes.at(0) : null;
+          if (firstRoute?.distance) {
+            setDistance(String(Math.max(1, Math.round((firstRoute.distance / 1000) * 10) / 10)));
+          }
+        }
+      } catch {}
+      setCalcLoading(false);
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [drop, pickup, pickupCoords]);
 
   const kmNum = Math.max(0, parseFloat(distance) || 0);
-  const estimatedFare = Math.round(selectedType.base + kmNum * selectedType.perKm);
+  const estimatedFare = kmNum > 0 ? Math.round(selectedType.base + kmNum * selectedType.perKm) : selectedType.base;
 
   const handleBookRide = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +115,7 @@ export default function CustomerRidesPage() {
         drop_location: drop.trim(),
         pickup_lat: pickupCoords?.lat || null,
         pickup_lng: pickupCoords?.lng || null,
-        distance_km: kmNum,
+        distance_km: kmNum || 1,
         ride_type: selectedType.name,
         fare: estimatedFare,
         status: 'pending',
@@ -112,8 +131,7 @@ export default function CustomerRidesPage() {
   };
 
   const activeMapCoord = dropCoords || pickupCoords || { lat: 28.3670, lng: 79.4304 };
-  const bbox = `${activeMapCoord.lng - 0.025},${activeMapCoord.lat - 0.025},${activeMapCoord.lng + 0.025},${activeMapCoord.lat + 0.025}`;
-  const mapUrl = `https://openstreetmap.org{bbox}&layer=mapnik&marker=${activeMapCoord.lat},${activeMapCoord.lng}`;
+  const mapUrl = `https://google.com{activeMapCoord.lat},${activeMapCoord.lng}&z=14&output=embed`;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
@@ -130,27 +148,33 @@ export default function CustomerRidesPage() {
           <div className="px-3 py-2 bg-slate-900 text-white flex items-center justify-between text-xs">
             <span className="font-extrabold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-              {dropCoords ? 'Drop Location on Map' : pickupCoords ? 'Your Live GPS Location' : 'Live Route Map'}
+              {dropCoords ? 'Drop Location Live Map' : pickupCoords ? 'Your Current GPS Location' : 'Live GPS Map'}
             </span>
             <button type="button" onClick={detectCurrentLocation} disabled={locating} className="px-2.5 py-1 bg-emerald-600 rounded-lg text-[10px] font-extrabold">
-              {locating ? 'Locating...' : 'Use Current GPS'}
+              {locating ? 'Locating...' : 'Refresh GPS'}
             </button>
           </div>
-          <iframe title="Ride Route Map" src={mapUrl} className="w-full h-48 border-0" />
+          <iframe title="Live GPS Map" src={mapUrl} className="w-full h-48 border-0" />
         </div>
 
         <form onSubmit={handleBookRide} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <div className="space-y-2.5">
-            <input required value={pickup} onChange={(e) => { setPickup(e.target.value); setPickupCoords(null); }} placeholder="Pickup Location (e.g. Bareilly)" className="w-full p-3 border rounded-xl text-sm font-medium" />
-            <input required value={drop} onChange={(e) => { setDrop(e.target.value); setDropCoords(null); }} placeholder="Drop Location (e.g. Budaun)" className="w-full p-3 border rounded-xl text-sm font-medium" />
-            <button type="button" onClick={calculateLiveDistance} disabled={calcLoading} className="w-full py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-extrabold">
-              {calcLoading ? 'Calculating Distance...' : 'Calculate Live Distance (KM) & Show on Map'}
-            </button>
+            <div>
+              <label className="text-[11px] font-extrabold text-emerald-700 block mb-1">Current Pickup Location (Auto-GPS)</label>
+              <input required value={pickup} onChange={(e) => { setPickup(e.target.value); setPickupCoords(null); }} placeholder="Current Location..." className="w-full p-3 border border-emerald-200 bg-emerald-50/40 rounded-xl text-sm font-semibold" />
+            </div>
+            <div>
+              <label className="text-[11px] font-extrabold text-red-700 block mb-1">Drop Location (City / Colony / Area likhein)</label>
+              <input required value={drop} onChange={(e) => { setDrop(e.target.value); setDropCoords(null); }} placeholder="Jaise: Faridpur Bareilly ya Civil Lines..." className="w-full p-3 border rounded-xl text-sm font-semibold" />
+            </div>
+            {calcLoading && (
+              <p className="text-xs font-extrabold text-blue-600 animate-pulse">Calculating automatic road distance...</p>
+            )}
           </div>
 
           <div>
-            <label className="text-xs font-extrabold text-slate-700 block mb-1">Distance (in KM) *</label>
-            <input required type="number" step="0.1" value={distance} onChange={(e) => setDistance(e.target.value)} className="w-full p-3 border rounded-xl text-sm font-bold bg-slate-50" />
+            <label className="text-xs font-extrabold text-slate-700 block mb-1">Auto-Calculated Distance (KM) *</label>
+            <input required type="number" step="0.1" placeholder="Drop likhte hi apne aap aayega..." value={distance} onChange={(e) => setDistance(e.target.value)} className="w-full p-3 border rounded-xl text-sm font-black bg-slate-50 text-blue-700" />
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
