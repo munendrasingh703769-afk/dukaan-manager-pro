@@ -1,125 +1,177 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
+
+const RIDE_TYPES = [
+  { id: 'bike', name: 'Bike', base: 20, perKm: 8, emoji: '🏍️' },
+  { id: 'auto', name: 'Auto', base: 30, perKm: 12, emoji: '🛺' },
+  { id: 'car', name: 'Car', base: 50, perKm: 18, emoji: '🚗' },
+  { id: 'parcel', name: 'Parcel', base: 40, perKm: 15, emoji: '📦' },
+];
 
 export default function CustomerRidesPage() {
   const supabase = createClient();
   const router = useRouter();
-  
-  const [rideType, setRideType] = useState('bike')
-  const [pickup, setPickup] = useState('')
-  const [drop, setDrop] = useState('')
-  const [distance, setDistance] = useState<string>('') 
-  const [loading, setLoading] = useState(false)
+  const [pickup, setPickup] = useState('');
+  const [drop, setDrop] = useState('');
+  const [distance, setDistance] = useState('5');
+  const [selectedType, setSelectedType] = useState(RIDE_TYPES);
+  const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [calcLoading, setCalcLoading] = useState(false);
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [dropCoords, setDropCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  const calculateFare = (): number => {
-    const km = parseFloat(distance);
-    if (isNaN(km) || km <= 0) return 0;
-    switch (rideType) {
-      case 'bike': return 20 + (km * 8);
-      case 'auto': return 30 + (km * 12);
-      case 'car': return 50 + (km * 18);
-      case 'parcel': return 40 + (km * 15);
-      default: return 0;
+  const detectCurrentLocation = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setPickupCoords({ lat, lng });
+        try {
+          const res = await fetch(`https://openstreetmap.org{lat}&lon=${lng}`);
+          const data = await res.json();
+          setPickup(data?.display_name ? data.display_name.split(',').slice(0, 3).join(', ') : `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        } catch {
+          setPickup(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        }
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  useEffect(() => { detectCurrentLocation(); }, []);
+
+  const calculateLiveDistance = async () => {
+    if (!pickup.trim() || !drop.trim()) return alert('Pehle Pickup aur Drop location likhein');
+    setCalcLoading(true);
+    try {
+      let pCoord = pickupCoords;
+      if (!pCoord) {
+        const pRes = await fetch(`https://openstreetmap.org{encodeURIComponent(pickup + ', India')}&limit=1`);
+        const pData = await pRes.json();
+        if (pData?.at(0)) {
+          pCoord = { lat: parseFloat(pData.at(0).lat), lng: parseFloat(pData.at(0).lon) };
+          setPickupCoords(pCoord);
+        }
+      }
+      const dRes = await fetch(`https://openstreetmap.org{encodeURIComponent(drop + ', India')}&limit=1`);
+      const dData = await dRes.json();
+      let dCoord = null;
+      if (dData?.at(0)) {
+        dCoord = { lat: parseFloat(dData.at(0).lat), lng: parseFloat(dData.at(0).lon) };
+        setDropCoords(dCoord);
+      }
+      if (pCoord && dCoord) {
+        const routeRes = await fetch(`https://project-osrm.org{pCoord.lng},${pCoord.lat};${dCoord.lng},${dCoord.lat}?overview=false`);
+        const routeData = await routeRes.json();
+        if (routeData?.routes?.at(0)?.distance) {
+          setDistance(String(Math.max(1, Math.round((routeData.routes.at(0).distance / 1000) * 10) / 10)));
+        }
+      }
+    } catch {}
+    setCalcLoading(false);
+  };
+
+  const kmNum = Math.max(0, parseFloat(distance) || 0);
+  const estimatedFare = Math.round(selectedType.base + kmNum * selectedType.perKm);
+
+  const handleBookRide = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pickup.trim() || !drop.trim()) return alert('Pickup aur Drop location zaroori hai');
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push('/login'); return; }
+      const { error } = await supabase.from('ride_bookings').insert([{
+        customer_id: user.id,
+        pickup_location: pickup.trim(),
+        drop_location: drop.trim(),
+        pickup_lat: pickupCoords?.lat || null,
+        pickup_lng: pickupCoords?.lng || null,
+        distance_km: kmNum,
+        ride_type: selectedType.name,
+        fare: estimatedFare,
+        status: 'pending',
+      }]);
+      if (error) throw error;
+      alert(`${selectedType.name} Ride Book ho gayi!`);
+      router.push('/customer/my-rides');
+    } catch (err: any) {
+      alert('Booking Error: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const estimatedFare = calculateFare();
-
-  const handleBookRide = async () => {
-    if (!pickup || !drop || !distance) return alert("Please fill all details");
-    setLoading(true);
-
-    // 👇 Check karein ki user login hai ya nahi
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (!user) {
-      setLoading(false);
-      return alert("Aap login nahi hain! Ride book karne ke liye pehle login karein.");
-    }
-
-    const rideOtp = Math.floor(1000 + Math.random() * 9000).toString();
-
-    const { error } = await supabase.from('ride_bookings').insert([{
-      customer_id: user.id, // 👈 Direct user ID
-      ride_type: rideType,
-      pickup_location: pickup,
-      drop_location: drop,
-      distance_km: parseFloat(distance),
-      estimated_fare: estimatedFare,
-      ride_otp: rideOtp,
-      status: 'searching'
-    }]);
-
-    if (!error) {
-      alert(`Ride Requested! Fare: ₹${estimatedFare}`);
-      router.push('/customer/my-rides');
-    } else {
-      alert("Error: " + error.message);
-    }
-    setLoading(false);
-  }
+  const activeMapCoord = dropCoords || pickupCoords || { lat: 28.3670, lng: 79.4304 };
+  const bbox = `${activeMapCoord.lng - 0.025},${activeMapCoord.lat - 0.025},${activeMapCoord.lng + 0.025},${activeMapCoord.lat + 0.025}`;
+  const mapUrl = `https://openstreetmap.org{bbox}&layer=mapnik&marker=${activeMapCoord.lat},${activeMapCoord.lng}`;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="bg-white p-4 sticky top-0 z-20 shadow-sm flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-800">Rides & Transport</h1>
+    <div className="min-h-screen bg-slate-50 pb-10">
+      <div className="bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+        <h1 className="text-lg font-black text-slate-900">Rides &amp; Transport</h1>
         <div className="flex gap-2">
-          <Link href="/customer/my-rides" className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">My Rides</Link>
-          <Link href="/customer" className="text-sm font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg">Home</Link>
+          <Link href="/customer/my-rides" className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-xs font-extrabold">My Rides</Link>
+          <Link href="/customer" className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold">Home</Link>
         </div>
       </div>
 
-      <div className="p-4 max-w-2xl mx-auto mt-4">
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-          <div className="relative">
-            <div className="absolute left-3 top-3 bottom-3 w-0.5 bg-gray-300"></div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full z-10 border-2 border-white shadow"></div>
-              <input type="text" placeholder="Pickup Location" value={pickup} onChange={e => setPickup(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium" />
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-red-500 rounded-full z-10 border-2 border-white shadow"></div>
-              <input type="text" placeholder="Drop Location" value={drop} onChange={e => setDrop(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium" />
-            </div>
+      <div className="max-w-md mx-auto p-4 space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="px-3 py-2 bg-slate-900 text-white flex items-center justify-between text-xs">
+            <span className="font-extrabold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+              {dropCoords ? 'Drop Location on Map' : pickupCoords ? 'Your Live GPS Location' : 'Live Route Map'}
+            </span>
+            <button type="button" onClick={detectCurrentLocation} disabled={locating} className="px-2.5 py-1 bg-emerald-600 rounded-lg text-[10px] font-extrabold">
+              {locating ? 'Locating...' : 'Use Current GPS'}
+            </button>
+          </div>
+          <iframe title="Ride Route Map" src={mapUrl} className="w-full h-48 border-0" />
+        </div>
+
+        <form onSubmit={handleBookRide} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div className="space-y-2.5">
+            <input required value={pickup} onChange={(e) => { setPickup(e.target.value); setPickupCoords(null); }} placeholder="Pickup Location (e.g. Bareilly)" className="w-full p-3 border rounded-xl text-sm font-medium" />
+            <input required value={drop} onChange={(e) => { setDrop(e.target.value); setDropCoords(null); }} placeholder="Drop Location (e.g. Budaun)" className="w-full p-3 border rounded-xl text-sm font-medium" />
+            <button type="button" onClick={calculateLiveDistance} disabled={calcLoading} className="w-full py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-extrabold">
+              {calcLoading ? 'Calculating Distance...' : 'Calculate Live Distance (KM) & Show on Map'}
+            </button>
           </div>
 
           <div>
-            <label className="text-sm font-bold text-gray-700">Distance (in KM) *</label>
-            <input type="number" placeholder="e.g. 5" value={distance} onChange={e => setDistance(e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-medium mt-1" />
+            <label className="text-xs font-extrabold text-slate-700 block mb-1">Distance (in KM) *</label>
+            <input required type="number" step="0.1" value={distance} onChange={(e) => setDistance(e.target.value)} className="w-full p-3 border rounded-xl text-sm font-bold bg-slate-50" />
           </div>
 
-          <div className="mt-4">
-            <p className="text-sm font-bold text-gray-700 mb-2">Choose Ride Type</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setRideType('bike')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'bike' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🏍️</span><span className="text-xs font-bold">Bike (₹20 + ₹8/km)</span>
+          <div className="grid grid-cols-2 gap-2.5">
+            {RIDE_TYPES.map((rt) => (
+              <button type="button" key={rt.id} onClick={() => setSelectedType(rt)} className={`p-3 rounded-xl border text-center ${selectedType.id === rt.id ? 'border-blue-600 bg-blue-50/70' : 'border-slate-200 bg-white'}`}>
+                <div className="text-xl mb-1">{rt.emoji}</div>
+                <div className="text-xs font-extrabold text-slate-800">{rt.name} (₹{rt.base} + ₹{rt.perKm}/km)</div>
               </button>
-              <button onClick={() => setRideType('auto')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'auto' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🛺</span><span className="text-xs font-bold">Auto (₹30 + ₹12/km)</span>
-              </button>
-              <button onClick={() => setRideType('car')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'car' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">🚗</span><span className="text-xs font-bold">Car (₹50 + ₹18/km)</span>
-              </button>
-              <button onClick={() => setRideType('parcel')} className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition ${rideType === 'parcel' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                <span className="text-2xl">📦</span><span className="text-xs font-bold">Parcel (₹40 + ₹15/km)</span>
-              </button>
-            </div>
+            ))}
           </div>
 
-          <div className="bg-indigo-50 p-4 rounded-xl flex justify-between items-center border border-indigo-100">
-            <span className="font-bold text-indigo-900">Estimated Fare:</span>
-            <span className="text-2xl font-black text-indigo-600">₹{estimatedFare}</span>
+          <div className="bg-slate-100 p-3.5 rounded-xl flex items-center justify-between">
+            <span className="text-xs font-extrabold text-slate-700">Estimated Fare:</span>
+            <span className="text-xl font-black text-blue-600">₹{estimatedFare}</span>
           </div>
 
-          <button onClick={handleBookRide} disabled={loading} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-md hover:bg-indigo-700 transition mt-4 disabled:opacity-50">
-            {loading ? 'Processing...' : `Book ${rideType.charAt(0).toUpperCase() + rideType.slice(1)}`}
+          <button type="submit" disabled={loading} className="w-full py-3.5 bg-blue-600 text-white rounded-xl text-sm font-extrabold shadow-md">
+            {loading ? 'Booking...' : `Book ${selectedType.name}`}
           </button>
-        </div>
+        </form>
       </div>
     </div>
-  )
+  );
 }
