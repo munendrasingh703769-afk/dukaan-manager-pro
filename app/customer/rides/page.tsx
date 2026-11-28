@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import RapidoMap from '@/components/RapidoMap';
 
 const RIDE_TYPES = [
-  { id: 'bike', name: 'Bike', base: 20, perKm: 8, emoji: '🏍️' },
-  { id: 'auto', name: 'Auto', base: 30, perKm: 12, emoji: '🛺' },
-  { id: 'car', name: 'Car', base: 50, perKm: 18, emoji: '🚗' },
-  { id: 'parcel', name: 'Parcel', base: 40, perKm: 15, emoji: '📦' },
+  { id: 'bike', name: 'Bike', tag: 'FASTEST', desc: 'Comfortable bike rides across city', base: 20, perKm: 8, emoji: '🏍️' },
+  { id: 'auto', name: 'Auto', tag: 'COMFY', desc: 'Doorstep auto pickup', base: 30, perKm: 12, emoji: '🛺' },
+  { id: 'car', name: 'Car', tag: 'AC RIDE', desc: 'Spacious family & intercity cab', base: 50, perKm: 18, emoji: '🚗' },
+  { id: 'parcel', name: 'Parcel', tag: 'EXPRESS', desc: 'Fast local package delivery', base: 40, perKm: 15, emoji: '📦' },
 ];
 
 function calcRoadKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -22,8 +23,7 @@ function calcRoadKm(lat1: number, lon1: number, lat2: number, lon2: number) {
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
-  const straightKm = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-  return Math.max(1, Math.round(straightKm * 1.22 * 10) / 10);
+  return Math.max(1, Math.round(R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))) * 1.22 * 10) / 10);
 }
 
 export default function CustomerRidesPage() {
@@ -38,12 +38,10 @@ export default function CustomerRidesPage() {
   const [calcLoading, setCalcLoading] = useState(false);
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [dropCoords, setDropCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
 
   const detectCurrentLocation = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setPickup('');
-      return;
-    }
+    if (typeof navigator === 'undefined' || !navigator.geolocation) { setPickup(''); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -51,30 +49,21 @@ export default function CustomerRidesPage() {
         const lng = pos.coords.longitude;
         setPickupCoords({ lat, lng });
         try {
-          const res = await fetch(
-            `https://bigdatacloud.net{lat}&longitude=${lng}&localityLanguage=en`
-          );
+          const res = await fetch(`https://bigdatacloud.net{lat}&longitude=${lng}&localityLanguage=en`);
           const data = await res.json();
-          const placeName = [data?.locality || data?.city, data?.principalSubdivision]
-            .filter(Boolean)
-            .join(', ');
+          const placeName = [data?.locality || data?.city, data?.principalSubdivision].filter(Boolean).join(', ');
           setPickup(placeName || `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
         } catch {
           setPickup(`${lat.toFixed(4)}, ${lng.toFixed(4)}`);
         }
         setLocating(false);
       },
-      () => {
-        setPickup('');
-        setLocating(false);
-      },
+      () => { setPickup(''); setLocating(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
-  useEffect(() => {
-    detectCurrentLocation();
-  }, []);
+  useEffect(() => { detectCurrentLocation(); }, []);
 
   useEffect(() => {
     const cleanDrop = drop.trim();
@@ -86,9 +75,7 @@ export default function CustomerRidesPage() {
         let pCoord = pickupCoords;
         if (!pCoord) {
           const pQuery = pickup.split(',').at(0)?.trim() || pickup;
-          const pRes = await fetch(
-            `https://open-meteo.com{encodeURIComponent(pQuery)}&count=1&language=en&format=json`
-          );
+          const pRes = await fetch(`https://open-meteo.com{encodeURIComponent(pQuery)}&count=1&language=en&format=json`);
           const pData = await pRes.json();
           const firstP = Array.isArray(pData?.results) ? pData.results.at(0) : null;
           if (firstP) {
@@ -98,9 +85,7 @@ export default function CustomerRidesPage() {
         }
 
         const dQuery = cleanDrop.split(',').at(0)?.trim() || cleanDrop;
-        const dRes = await fetch(
-          `https://open-meteo.com{encodeURIComponent(dQuery)}&count=1&language=en&format=json`
-        );
+        const dRes = await fetch(`https://open-meteo.com{encodeURIComponent(dQuery)}&count=1&language=en&format=json`);
         const dData = await dRes.json();
         const firstD = Array.isArray(dData?.results) ? dData.results.at(0) : null;
 
@@ -108,8 +93,16 @@ export default function CustomerRidesPage() {
           const dCoord = { lat: Number(firstD.latitude), lng: Number(firstD.longitude) };
           setDropCoords(dCoord);
           if (pCoord) {
-            const km = calcRoadKm(pCoord.lat, pCoord.lng, dCoord.lat, dCoord.lng);
-            setDistance(String(km));
+            setDistance(String(calcRoadKm(pCoord.lat, pCoord.lng, dCoord.lat, dCoord.lng)));
+            try {
+              const rRes = await fetch(`https://project-osrm.org{pCoord.lng},${pCoord.lat};${dCoord.lng},${dCoord.lat}?overview=full&geometries=geojson`);
+              const rData = await rRes.json();
+              const r0 = Array.isArray(rData?.routes) ? rData.routes.at(0) : null;
+              if (r0?.distance) setDistance(String(Math.max(1, Math.round((r0.distance / 1000) * 10) / 10)));
+              if (Array.isArray(r0?.geometry?.coordinates)) {
+                setRouteCoords(r0.geometry.coordinates.map((c: number[]) => [c.at(1)!, c.at(0)!]));
+              }
+            } catch {}
           }
         }
       } catch {}
@@ -149,102 +142,89 @@ export default function CustomerRidesPage() {
     }
   };
 
-  const mapsRouteLink =
-    pickupCoords && dropCoords
-      ? `https://google.com{pickupCoords.lat},${pickupCoords.lng}&destination=${dropCoords.lat},${dropCoords.lng}`
-      : pickupCoords
-      ? `https://google.com{pickupCoords.lat},${pickupCoords.lng}`
-      : `https://google.com{encodeURIComponent(drop || pickup || 'Bareilly')}`;
-
   return (
-    <div className="min-h-screen bg-slate-50 pb-10">
-      <div className="bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-        <h1 className="text-lg font-black text-slate-900">Rides &amp; Transport</h1>
-        <div className="flex gap-2">
-          <Link href="/customer/my-rides" className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-xs font-extrabold">My Rides</Link>
-          <Link href="/customer" className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold">Home</Link>
-        </div>
-      </div>
-
-      <div className="max-w-md mx-auto p-4 space-y-4">
-        <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-md space-y-3 border border-slate-800">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold flex items-center gap-2 text-emerald-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping inline-block" />
-              {pickupCoords ? 'Live GPS Connected' : 'GPS Standby'}
-            </span>
-            <button type="button" onClick={detectCurrentLocation} disabled={locating} className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-extrabold">
-              {locating ? 'Locating...' : 'Refresh GPS'}
+    <div className="min-h-screen bg-slate-100 pb-8">
+      {/* Top Map Section (Rapido Style with Green/Red Pins & Road Route Line) */}
+      <div className="relative">
+        <RapidoMap pickup={pickupCoords} drop={dropCoords} routeCoords={routeCoords} />
+        <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between">
+          <Link href="/customer" className="px-3 py-1.5 bg-white/95 text-slate-900 rounded-full text-xs font-extrabold shadow">
+            ← Home
+          </Link>
+          <div className="flex gap-2">
+            <button type="button" onClick={detectCurrentLocation} disabled={locating} className="px-3 py-1.5 bg-emerald-600 text-white rounded-full text-xs font-extrabold shadow">
+              {locating ? 'Locating...' : 'My GPS'}
             </button>
+            <Link href="/customer/my-rides" className="px-3 py-1.5 bg-slate-900 text-white rounded-full text-xs font-extrabold shadow">
+              My Rides
+            </Link>
           </div>
+        </div>
+      </div>
 
-          <div className="bg-slate-800/90 rounded-xl p-3 space-y-2 text-xs">
-            <div className="flex items-start gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 mt-1 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 font-bold">PICKUP (AUTO-GPS)</p>
-                <p className="font-extrabold text-white truncate">{pickup || 'Enter Pickup'}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-400 mt-1 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 font-bold">DROP DESTINATION</p>
-                <p className="font-extrabold text-white truncate">{drop || 'Type destination below...'}</p>
-              </div>
-            </div>
+      {/* Bottom Rapido-style Booking Sheet */}
+      <form onSubmit={handleBookRide} className="max-w-md mx-auto -mt-4 relative z-10 bg-white rounded-t-3xl shadow-xl border-t border-slate-200 p-4 space-y-3.5">
+        <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200 space-y-2">
+          <div className="flex items-center gap-2.5">
+            <span className="w-3 h-3 rounded-full bg-emerald-600 shrink-0" />
+            <input required value={pickup} onChange={(e) => { setPickup(e.target.value); setPickupCoords(null); }} placeholder="Current Pickup Location" className="w-full bg-transparent text-xs font-extrabold text-slate-800 outline-none" />
           </div>
-
-          <div className="flex items-center justify-between pt-1">
-            <div>
-              <p className="text-[10px] text-slate-400 font-bold">ESTIMATED DISTANCE</p>
-              <p className="text-base font-black text-amber-400">{kmNum > 0 ? `${kmNum} KM` : '-- KM'}</p>
-            </div>
-            <a href={mapsRouteLink} className="px-3.5 py-2 bg-blue-600 text-white rounded-xl text-xs font-extrabold shadow">
-             Open Live Route Map
-           </a>
+          <div className="border-t border-slate-200" />
+          <div className="flex items-center gap-2.5">
+            <span className="w-3 h-3 rounded-full bg-red-600 shrink-0" />
+            <input required value={drop} onChange={(e) => { setDrop(e.target.value); setDropCoords(null); setRouteCoords([]); }} placeholder="Where to? (e.g. Budaun, Faridpur...)" className="w-full bg-transparent text-xs font-extrabold text-slate-900 outline-none" />
           </div>
         </div>
 
-        <form onSubmit={handleBookRide} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <div className="space-y-2.5">
-            <div>
-              <label className="text-[11px] font-extrabold text-emerald-700 block mb-1">Current Pickup Location (Auto-GPS)</label>
-              <input required value={pickup} onChange={(e) => { setPickup(e.target.value); setPickupCoords(null); }} placeholder="Current Location..." className="w-full p-3 border border-emerald-200 bg-emerald-50/40 rounded-xl text-sm font-semibold" />
-            </div>
-            <div>
-              <label className="text-[11px] font-extrabold text-red-700 block mb-1">Drop Location (City / Colony / Area likhein)</label>
-              <input required value={drop} onChange={(e) => { setDrop(e.target.value); setDropCoords(null); }} placeholder="Jaise: Budaun ya Faridpur..." className="w-full p-3 border rounded-xl text-sm font-semibold" />
-            </div>
-            {calcLoading && (
-              <p className="text-xs font-extrabold text-blue-600 animate-pulse">Calculating automatic distance...</p>
-            )}
+        <div className="flex items-center justify-between px-1 text-xs">
+          <span className="font-bold text-slate-500">
+            {calcLoading ? 'Calculating route & KM...' : kmNum > 0 ? `Route Distance: ${kmNum} KM` : 'Enter drop to see route'}
+          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] font-bold text-slate-500">KM:</span>
+            <input required type="number" step="0.1" value={distance} onChange={(e) => setDistance(e.target.value)} className="w-16 px-2 py-1 border rounded-lg text-xs font-black text-right bg-slate-50" />
           </div>
+        </div>
 
-          <div>
-            <label className="text-xs font-extrabold text-slate-700 block mb-1">Auto-Calculated Distance (KM) *</label>
-            <input required type="number" step="0.1" placeholder="Drop likhte hi apne aap aayega..." value={distance} onChange={(e) => setDistance(e.target.value)} className="w-full p-3 border rounded-xl text-sm font-black bg-slate-50 text-blue-700" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            {RIDE_TYPES.map((rt) => (
-              <button type="button" key={rt.id} onClick={() => setSelectedType(rt)} className={`p-3 rounded-xl border text-center ${selectedType.id === rt.id ? 'border-blue-600 bg-blue-50/70' : 'border-slate-200 bg-white'}`}>
-                <div className="text-xl mb-1">{rt.emoji}</div>
-                <div className="text-xs font-extrabold text-slate-800">{rt.name} (₹{rt.base} + ₹{rt.perKm}/km)</div>
+        {/* Rapido-style Ride Cards */}
+        <div className="space-y-2">
+          {RIDE_TYPES.map((rt) => {
+            const cardFare = kmNum > 0 ? Math.round(rt.base + kmNum * rt.perKm) : rt.base;
+            const active = selectedType.id === rt.id;
+            return (
+              <button
+                type="button"
+                key={rt.id}
+                onClick={() => setSelectedType(rt)}
+                className={`w-full p-3 rounded-2xl border-2 flex items-center justify-between text-left transition ${
+                  active ? 'border-slate-900 bg-amber-50/50 shadow-sm' : 'border-slate-100 bg-white'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{rt.emoji}</span>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-black text-slate-900">{rt.name}</span>
+                      <span className="px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-extrabold">{rt.tag}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-medium">{rt.desc}</p>
+                  </div>
+                </div>
+                <span className="text-base font-black text-slate-900">₹{cardFare}</span>
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </div>
 
-          <div className="bg-slate-100 p-3.5 rounded-xl flex items-center justify-between">
-            <span className="text-xs font-extrabold text-slate-700">Estimated Fare:</span>
-            <span className="text-xl font-black text-blue-600">₹{estimatedFare}</span>
-          </div>
-
-          <button type="submit" disabled={loading} className="w-full py-3.5 bg-blue-600 text-white rounded-xl text-sm font-extrabold shadow-md">
-            {loading ? 'Booking...' : `Book ${selectedType.name}`}
-          </button>
-        </form>
-      </div>
+        {/* Rapido Signature Yellow Book Button */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-3.5 bg-amber-400 hover:bg-amber-500 text-slate-950 rounded-2xl text-sm font-black shadow-md"
+        >
+          {loading ? 'Booking Ride...' : `Book ${selectedType.name} • ₹${estimatedFare}`}
+        </button>
+      </form>
     </div>
   );
 }
