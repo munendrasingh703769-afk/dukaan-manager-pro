@@ -49,13 +49,11 @@ export default function RapidoMap({
       const greenPin = L.divIcon({
         html: '<div style="width:18px;height:18px;background:#16a34a;border:4px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
         className: '',
-        iconSize:,
       });
 
       const redPin = L.divIcon({
         html: '<div style="width:18px;height:18px;background:#dc2626;border:4px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>',
         className: '',
-        iconSize:,
       });
 
       const bounds: [number, number][] = [];
@@ -72,10 +70,10 @@ export default function RapidoMap({
 
       if (routeCoords.length > 1) {
         L.polyline(routeCoords, { color: '#111827', weight: 5, opacity: 0.9 }).addTo(map);
-        map.fitBounds(routeCoords, { padding: [35, 35] });
+        map.fitBounds(routeCoords);
       } else if (bounds.length === 2) {
         L.polyline(bounds, { color: '#111827', weight: 4, dashArray: '6,6' }).addTo(map);
-        map.fitBounds(bounds, { padding: [35, 35] });
+        map.fitBounds(bounds);
       } else if (bounds.length === 1) {
         map.setView(bounds.at(0)!, 14);
       }
